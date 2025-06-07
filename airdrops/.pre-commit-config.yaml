@@ -1,0 +1,35 @@
+# c:/Users/natew/cryptofarm/airdrops/.pre-commit-config.yaml
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+    -   id: check-yaml
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+-   repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+    -   id: black
+        language_version: python3.11
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.8
+    hooks:
+    -   id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+-   repo: https://github.com/PyCQA/flake8
+    rev: 6.1.0
+    hooks:
+    -   id: flake8
+        # Ruff often covers most linting needs and handles exclusions well.
+        # If specific flake8 exclusions are needed, add them here, e.g.:
+        # args: ["--extend-exclude=.*,__pycache__,.venv"]
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+    -   id: mypy
+        args: [--strict]
+        additional_dependencies: [
+            # Add types for dependencies if needed, e.g.
+            # types-requests,
+            # types-pendulum
+        ]

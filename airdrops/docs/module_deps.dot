@@ -1,0 +1,22 @@
+digraph module_deps {
+  rankdir=LR;
+  node [shape=box, style=filled, color=skyblue];
+
+  "airdrops (project)" [label="airdrops\n(Python 3.11 Project)"];
+
+  // External Dependencies
+  "web3" [label="web3\n(v7.12.0)"];
+  "hyperliquid-python-sdk" [label="hyperliquid-python-sdk\n(v0.15.0)"];
+  "solana" [label="solana\n(v0.36.6)"];
+  "python-dotenv" [label="python-dotenv\n(v1.1.0)"];
+  "requests" [label="requests\n(v2.32.3)"];
+  "pendulum" [label="pendulum\n(v3.1.0)"];
+
+  // Relationships
+  "airdrops (project)" -> "web3";
+  "airdrops (project)" -> "hyperliquid-python-sdk";
+  "airdrops (project)" -> "solana";
+  "airdrops (project)" -> "python-dotenv";
+  "airdrops (project)" -> "requests";
+  "airdrops (project)" -> "pendulum";
+}
