@@ -1,0 +1,372 @@
+{
+  "id": null,
+  "uid": "airdrops-scheduler-performance",
+  "title": "Scheduler Performance Dashboard",
+  "tags": ["airdrops", "monitoring", "scheduler", "performance"],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Scheduler Status",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "component_status{component=\"scheduler\"}",
+          "refId": "A",
+          "legendFormat": "Status"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "STOPPED"
+                },
+                "1": {
+                  "text": "RUNNING"
+                }
+              },
+              "type": "value"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Total Scheduled Tasks",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "scheduled_tasks_total",
+          "refId": "A",
+          "legendFormat": "Total Tasks"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Task Success Rate",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "rate(task_execution_status_total{status=\"completed\"}[5m]) / rate(task_execution_status_total[5m]) * 100",
+          "refId": "A",
+          "legendFormat": "Success Rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Scheduler Errors",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "rate(component_errors_total{component=\"scheduler\"}[5m])",
+          "refId": "A",
+          "legendFormat": "Error Rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 0.1
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Task Execution Status Distribution",
+      "type": "piechart",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "task_execution_status_total{status=\"completed\"}",
+          "refId": "A",
+          "legendFormat": "Completed"
+        },
+        {
+          "expr": "task_execution_status_total{status=\"failed\"}",
+          "refId": "B",
+          "legendFormat": "Failed"
+        },
+        {
+          "expr": "task_execution_status_total{status=\"running\"}",
+          "refId": "C",
+          "legendFormat": "Running"
+        },
+        {
+          "expr": "task_execution_status_total{status=\"pending\"}",
+          "refId": "D",
+          "legendFormat": "Pending"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Task Execution Rate",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(task_execution_status_total{status=\"completed\"}[5m])",
+          "refId": "A",
+          "legendFormat": "Completed/sec"
+        },
+        {
+          "expr": "rate(task_execution_status_total{status=\"failed\"}[5m])",
+          "refId": "B",
+          "legendFormat": "Failed/sec"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Scheduler Performance Metrics",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, component_execution_seconds_bucket{component=\"scheduler\"})",
+          "refId": "A",
+          "legendFormat": "95th Percentile"
+        },
+        {
+          "expr": "histogram_quantile(0.50, component_execution_seconds_bucket{component=\"scheduler\"})",
+          "refId": "B",
+          "legendFormat": "50th Percentile"
+        },
+        {
+          "expr": "histogram_quantile(0.99, component_execution_seconds_bucket{component=\"scheduler\"})",
+          "refId": "C",
+          "legendFormat": "99th Percentile"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Task Queue Depth",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "scheduled_tasks_total",
+          "refId": "A",
+          "legendFormat": "Total Scheduled Tasks"
+        },
+        {
+          "expr": "task_execution_status_total{status=\"pending\"}",
+          "refId": "B",
+          "legendFormat": "Pending Tasks"
+        },
+        {
+          "expr": "task_execution_status_total{status=\"running\"}",
+          "refId": "C",
+          "legendFormat": "Running Tasks"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Task Execution Timeline",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "task_execution_status_total",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "displayMode": "color-background"
+          }
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "__name__": true,
+              "Time": true,
+              "job": true,
+              "instance": true
+            },
+            "renameByName": {
+              "status": "Status",
+              "Value": "Count"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "refresh": "30s",
+  "schemaVersion": 30,
+  "version": 1,
+  "links": []
+}

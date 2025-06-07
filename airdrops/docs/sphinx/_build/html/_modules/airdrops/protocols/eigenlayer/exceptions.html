@@ -1,0 +1,994 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>airdrops.protocols.eigenlayer.exceptions &mdash; Airdrops Automation API Docs 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Airdrops Automation API Docs
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../protocols.html">Protocols API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../protocols.html#module-airdrops.protocols">Main Protocols Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../protocols.html#module-airdrops.protocols.hyperliquid">Hyperliquid Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.hyperliquid.stake_rotate"><code class="docutils literal notranslate"><span class="pre">stake_rotate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.hyperliquid.vault_cycle"><code class="docutils literal notranslate"><span class="pre">vault_cycle()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.hyperliquid.spot_swap"><code class="docutils literal notranslate"><span class="pre">spot_swap()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.hyperliquid.evm_roundtrip"><code class="docutils literal notranslate"><span class="pre">evm_roundtrip()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.hyperliquid.perform_random_onchain"><code class="docutils literal notranslate"><span class="pre">perform_random_onchain()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../protocols.html#module-airdrops.protocols.layerzero">LayerZero Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.layerzero.layerzero.bridge"><code class="docutils literal notranslate"><span class="pre">bridge()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.layerzero.layerzero.perform_random_bridge"><code class="docutils literal notranslate"><span class="pre">perform_random_bridge()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../protocols.html#module-airdrops.protocols.scroll">Scroll Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.scroll.bridge_assets"><code class="docutils literal notranslate"><span class="pre">bridge_assets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.scroll.swap_tokens"><code class="docutils literal notranslate"><span class="pre">swap_tokens()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.scroll.provide_liquidity_scroll"><code class="docutils literal notranslate"><span class="pre">provide_liquidity_scroll()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.scroll.lend_borrow_layerbank_scroll"><code class="docutils literal notranslate"><span class="pre">lend_borrow_layerbank_scroll()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.scroll.perform_random_activity_scroll"><code class="docutils literal notranslate"><span class="pre">perform_random_activity_scroll()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.ScrollBridgeError"><code class="docutils literal notranslate"><span class="pre">ScrollBridgeError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.InsufficientBalanceError"><code class="docutils literal notranslate"><span class="pre">InsufficientBalanceError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.TransactionRevertedError"><code class="docutils literal notranslate"><span class="pre">TransactionRevertedError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.TransactionRevertedError.__init__"><code class="docutils literal notranslate"><span class="pre">TransactionRevertedError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.RPCError"><code class="docutils literal notranslate"><span class="pre">RPCError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.ApprovalError"><code class="docutils literal notranslate"><span class="pre">ApprovalError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.GasEstimationError"><code class="docutils literal notranslate"><span class="pre">GasEstimationError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.MaxRetriesExceededError"><code class="docutils literal notranslate"><span class="pre">MaxRetriesExceededError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.TransactionBuildError"><code class="docutils literal notranslate"><span class="pre">TransactionBuildError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.TransactionSendError"><code class="docutils literal notranslate"><span class="pre">TransactionSendError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.TransactionReceiptError"><code class="docutils literal notranslate"><span class="pre">TransactionReceiptError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.ScrollValueError"><code class="docutils literal notranslate"><span class="pre">ScrollValueError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.TokenNotSupportedError"><code class="docutils literal notranslate"><span class="pre">TokenNotSupportedError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.ScrollSwapError"><code class="docutils literal notranslate"><span class="pre">ScrollSwapError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.ScrollSwapError.__init__"><code class="docutils literal notranslate"><span class="pre">ScrollSwapError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.InsufficientLiquidityError"><code class="docutils literal notranslate"><span class="pre">InsufficientLiquidityError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.ScrollLendingError"><code class="docutils literal notranslate"><span class="pre">ScrollLendingError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.InsufficientCollateralError"><code class="docutils literal notranslate"><span class="pre">InsufficientCollateralError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.MarketNotEnteredError"><code class="docutils literal notranslate"><span class="pre">MarketNotEnteredError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.RepayAmountExceedsDebtError"><code class="docutils literal notranslate"><span class="pre">RepayAmountExceedsDebtError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.LayerBankComptrollerRejectionError"><code class="docutils literal notranslate"><span class="pre">LayerBankComptrollerRejectionError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.LayerBankComptrollerRejectionError.__init__"><code class="docutils literal notranslate"><span class="pre">LayerBankComptrollerRejectionError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.scroll.exceptions.ScrollRandomActivityError"><code class="docutils literal notranslate"><span class="pre">ScrollRandomActivityError</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../protocols.html#module-airdrops.protocols.zksync">zkSync Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.zksync.zksync.bridge_eth"><code class="docutils literal notranslate"><span class="pre">bridge_eth()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.zksync.zksync.swap_tokens"><code class="docutils literal notranslate"><span class="pre">swap_tokens()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.zksync.zksync.lend_borrow"><code class="docutils literal notranslate"><span class="pre">lend_borrow()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.zksync.zksync.perform_random_activity"><code class="docutils literal notranslate"><span class="pre">perform_random_activity()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../protocols.html#module-airdrops.protocols.eigenlayer">EigenLayer Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.restake_lst"><code class="docutils literal notranslate"><span class="pre">restake_lst()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.DepositCapReachedError"><code class="docutils literal notranslate"><span class="pre">DepositCapReachedError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.EigenLayerRestakeError"><code class="docutils literal notranslate"><span class="pre">EigenLayerRestakeError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.UnsupportedLSTError"><code class="docutils literal notranslate"><span class="pre">UnsupportedLSTError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.eigenlayer.restake_lst"><code class="docutils literal notranslate"><span class="pre">restake_lst()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.eigenlayer.UnsupportedLSTError"><code class="docutils literal notranslate"><span class="pre">UnsupportedLSTError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.eigenlayer.EigenLayerRestakeError"><code class="docutils literal notranslate"><span class="pre">EigenLayerRestakeError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.eigenlayer.DepositCapReachedError"><code class="docutils literal notranslate"><span class="pre">DepositCapReachedError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.exceptions.EigenLayerRestakeError"><code class="docutils literal notranslate"><span class="pre">EigenLayerRestakeError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.exceptions.UnsupportedLSTError"><code class="docutils literal notranslate"><span class="pre">UnsupportedLSTError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../protocols.html#airdrops.protocols.eigenlayer.exceptions.DepositCapReachedError"><code class="docutils literal notranslate"><span class="pre">DepositCapReachedError</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../scheduler.html">Scheduler API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../scheduler.html#module-airdrops.scheduler">Scheduler Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.CentralScheduler"><code class="docutils literal notranslate"><span class="pre">CentralScheduler</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.CentralScheduler.__init__"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.CentralScheduler.add_job"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.add_job()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.CentralScheduler.handle_task_failure"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.handle_task_failure()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.CentralScheduler.manage_task_dependencies"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.manage_task_dependencies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.CentralScheduler.manage_task_priority"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.manage_task_priority()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.CentralScheduler.schedule_dynamically"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.schedule_dynamically()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.CentralScheduler.start"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.start()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.CentralScheduler.stop"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.stop()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../scheduler.html#module-airdrops.scheduler.bot">Scheduler Bot</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskStatus"><code class="docutils literal notranslate"><span class="pre">TaskStatus</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskStatus.PENDING"><code class="docutils literal notranslate"><span class="pre">TaskStatus.PENDING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskStatus.RUNNING"><code class="docutils literal notranslate"><span class="pre">TaskStatus.RUNNING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskStatus.COMPLETED"><code class="docutils literal notranslate"><span class="pre">TaskStatus.COMPLETED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskStatus.FAILED"><code class="docutils literal notranslate"><span class="pre">TaskStatus.FAILED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskStatus.RETRYING"><code class="docutils literal notranslate"><span class="pre">TaskStatus.RETRYING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskStatus.CANCELLED"><code class="docutils literal notranslate"><span class="pre">TaskStatus.CANCELLED</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskPriority"><code class="docutils literal notranslate"><span class="pre">TaskPriority</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskPriority.LOW"><code class="docutils literal notranslate"><span class="pre">TaskPriority.LOW</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskPriority.NORMAL"><code class="docutils literal notranslate"><span class="pre">TaskPriority.NORMAL</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskPriority.HIGH"><code class="docutils literal notranslate"><span class="pre">TaskPriority.HIGH</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskPriority.CRITICAL"><code class="docutils literal notranslate"><span class="pre">TaskPriority.CRITICAL</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition"><code class="docutils literal notranslate"><span class="pre">TaskDefinition</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.task_id"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.task_id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.func"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.func</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.args"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.args</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.kwargs"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.kwargs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.priority"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.priority</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.dependencies"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.dependencies</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.max_retries"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.max_retries</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.retry_delay"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.retry_delay</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.timeout"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.timeout</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.metadata"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.metadata</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.__post_init__"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskDefinition.__init__"><code class="docutils literal notranslate"><span class="pre">TaskDefinition.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskExecution"><code class="docutils literal notranslate"><span class="pre">TaskExecution</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskExecution.task_id"><code class="docutils literal notranslate"><span class="pre">TaskExecution.task_id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskExecution.status"><code class="docutils literal notranslate"><span class="pre">TaskExecution.status</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskExecution.start_time"><code class="docutils literal notranslate"><span class="pre">TaskExecution.start_time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskExecution.end_time"><code class="docutils literal notranslate"><span class="pre">TaskExecution.end_time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskExecution.retry_count"><code class="docutils literal notranslate"><span class="pre">TaskExecution.retry_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskExecution.last_error"><code class="docutils literal notranslate"><span class="pre">TaskExecution.last_error</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskExecution.result"><code class="docutils literal notranslate"><span class="pre">TaskExecution.result</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.TaskExecution.__init__"><code class="docutils literal notranslate"><span class="pre">TaskExecution.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.CentralScheduler"><code class="docutils literal notranslate"><span class="pre">CentralScheduler</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.CentralScheduler.__init__"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.CentralScheduler.add_job"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.add_job()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.CentralScheduler.manage_task_priority"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.manage_task_priority()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.CentralScheduler.manage_task_dependencies"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.manage_task_dependencies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.CentralScheduler.schedule_dynamically"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.schedule_dynamically()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.CentralScheduler.handle_task_failure"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.handle_task_failure()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.CentralScheduler.start"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.start()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.CentralScheduler.stop"><code class="docutils literal notranslate"><span class="pre">CentralScheduler.stop()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../scheduler.html#airdrops.scheduler.bot.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../risk_management.html">Risk Management API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../risk_management.html#risk-management-module">Risk Management Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../risk_management.html#risk-management-core">Risk Management Core</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../capital_allocation.html">Capital Allocation API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../capital_allocation.html#module-airdrops.capital_allocation">Capital Allocation Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.CapitalAllocator"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.CapitalAllocator.__init__"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.CapitalAllocator.allocate_risk_adjusted_capital"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.allocate_risk_adjusted_capital()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.CapitalAllocator.calculate_efficiency_metrics"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.calculate_efficiency_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.CapitalAllocator.optimize_portfolio"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.optimize_portfolio()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.CapitalAllocator.rebalance_portfolio"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.rebalance_portfolio()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../capital_allocation.html#module-airdrops.capital_allocation.engine">Capital Allocation Engine</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.CapitalAllocator"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.CapitalAllocator.__init__"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.CapitalAllocator.optimize_portfolio"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.optimize_portfolio()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.CapitalAllocator.allocate_risk_adjusted_capital"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.allocate_risk_adjusted_capital()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.CapitalAllocator.rebalance_portfolio"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.rebalance_portfolio()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.CapitalAllocator.calculate_efficiency_metrics"><code class="docutils literal notranslate"><span class="pre">CapitalAllocator.calculate_efficiency_metrics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationStrategy"><code class="docutils literal notranslate"><span class="pre">AllocationStrategy</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationStrategy.EQUAL_WEIGHT"><code class="docutils literal notranslate"><span class="pre">AllocationStrategy.EQUAL_WEIGHT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationStrategy.RISK_PARITY"><code class="docutils literal notranslate"><span class="pre">AllocationStrategy.RISK_PARITY</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationStrategy.MEAN_VARIANCE"><code class="docutils literal notranslate"><span class="pre">AllocationStrategy.MEAN_VARIANCE</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationStrategy.KELLY_CRITERION"><code class="docutils literal notranslate"><span class="pre">AllocationStrategy.KELLY_CRITERION</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationTarget"><code class="docutils literal notranslate"><span class="pre">AllocationTarget</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationTarget.protocol"><code class="docutils literal notranslate"><span class="pre">AllocationTarget.protocol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationTarget.target_percentage"><code class="docutils literal notranslate"><span class="pre">AllocationTarget.target_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationTarget.current_percentage"><code class="docutils literal notranslate"><span class="pre">AllocationTarget.current_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationTarget.risk_score"><code class="docutils literal notranslate"><span class="pre">AllocationTarget.risk_score</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationTarget.expected_return"><code class="docutils literal notranslate"><span class="pre">AllocationTarget.expected_return</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.AllocationTarget.__init__"><code class="docutils literal notranslate"><span class="pre">AllocationTarget.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.PortfolioMetrics"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.PortfolioMetrics.total_value"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.total_value</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.PortfolioMetrics.total_return"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.total_return</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.PortfolioMetrics.sharpe_ratio"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.sharpe_ratio</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.PortfolioMetrics.max_drawdown"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.max_drawdown</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.PortfolioMetrics.capital_utilization"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.capital_utilization</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.PortfolioMetrics.protocol_allocations"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.protocol_allocations</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.PortfolioMetrics.__init__"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.RebalanceOrder"><code class="docutils literal notranslate"><span class="pre">RebalanceOrder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.RebalanceOrder.protocol"><code class="docutils literal notranslate"><span class="pre">RebalanceOrder.protocol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.RebalanceOrder.action"><code class="docutils literal notranslate"><span class="pre">RebalanceOrder.action</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.RebalanceOrder.amount"><code class="docutils literal notranslate"><span class="pre">RebalanceOrder.amount</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.RebalanceOrder.priority"><code class="docutils literal notranslate"><span class="pre">RebalanceOrder.priority</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../capital_allocation.html#airdrops.capital_allocation.engine.RebalanceOrder.__init__"><code class="docutils literal notranslate"><span class="pre">RebalanceOrder.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../monitoring.html">Monitoring API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../monitoring.html#module-airdrops.monitoring">Monitoring Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsCollector"><code class="docutils literal notranslate"><span class="pre">MetricsCollector</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsCollector.__init__"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsCollector.collect_all_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_all_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsCollector.collect_capital_allocator_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_capital_allocator_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsCollector.collect_risk_manager_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_risk_manager_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsCollector.collect_scheduler_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_scheduler_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsCollector.collect_system_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_system_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsCollector.export_prometheus_format"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.export_prometheus_format()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsAggregator"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsAggregator.__init__"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsAggregator.add_metrics_to_buffer"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.add_metrics_to_buffer()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsAggregator.aggregate_time_window"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.aggregate_time_window()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsAggregator.get_aggregated_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.get_aggregated_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsAggregator.process_component_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.process_component_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsAggregator.process_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.process_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.MetricsAggregator.process_system_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.process_system_metrics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.Alerter"><code class="docutils literal notranslate"><span class="pre">Alerter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.Alerter.__init__"><code class="docutils literal notranslate"><span class="pre">Alerter.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.Alerter.evaluate_rules"><code class="docutils literal notranslate"><span class="pre">Alerter.evaluate_rules()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.Alerter.get_active_alerts"><code class="docutils literal notranslate"><span class="pre">Alerter.get_active_alerts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.Alerter.get_alert_history"><code class="docutils literal notranslate"><span class="pre">Alerter.get_alert_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.Alerter.load_alert_rules"><code class="docutils literal notranslate"><span class="pre">Alerter.load_alert_rules()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.Alerter.load_notification_channels"><code class="docutils literal notranslate"><span class="pre">Alerter.load_notification_channels()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.Alerter.send_notifications"><code class="docutils literal notranslate"><span class="pre">Alerter.send_notifications()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.HealthChecker"><code class="docutils literal notranslate"><span class="pre">HealthChecker</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.HealthChecker.__init__"><code class="docutils literal notranslate"><span class="pre">HealthChecker.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.HealthChecker.check_component_health"><code class="docutils literal notranslate"><span class="pre">HealthChecker.check_component_health()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.HealthChecker.check_system_health"><code class="docutils literal notranslate"><span class="pre">HealthChecker.check_system_health()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.HealthChecker.start_server"><code class="docutils literal notranslate"><span class="pre">HealthChecker.start_server()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../monitoring.html#module-airdrops.monitoring.collector">Metrics Collector</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.MetricsCollector"><code class="docutils literal notranslate"><span class="pre">MetricsCollector</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.MetricsCollector.__init__"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.MetricsCollector.collect_system_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_system_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.MetricsCollector.collect_risk_manager_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_risk_manager_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.MetricsCollector.collect_capital_allocator_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_capital_allocator_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.MetricsCollector.collect_scheduler_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_scheduler_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.MetricsCollector.collect_all_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.collect_all_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.MetricsCollector.export_prometheus_format"><code class="docutils literal notranslate"><span class="pre">MetricsCollector.export_prometheus_format()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.SystemMetrics"><code class="docutils literal notranslate"><span class="pre">SystemMetrics</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.SystemMetrics.cpu_usage_percent"><code class="docutils literal notranslate"><span class="pre">SystemMetrics.cpu_usage_percent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.SystemMetrics.memory_usage_percent"><code class="docutils literal notranslate"><span class="pre">SystemMetrics.memory_usage_percent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.SystemMetrics.disk_usage_percent"><code class="docutils literal notranslate"><span class="pre">SystemMetrics.disk_usage_percent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.SystemMetrics.network_bytes_sent"><code class="docutils literal notranslate"><span class="pre">SystemMetrics.network_bytes_sent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.SystemMetrics.network_bytes_recv"><code class="docutils literal notranslate"><span class="pre">SystemMetrics.network_bytes_recv</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.SystemMetrics.__init__"><code class="docutils literal notranslate"><span class="pre">SystemMetrics.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.ComponentMetrics"><code class="docutils literal notranslate"><span class="pre">ComponentMetrics</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.ComponentMetrics.component_name"><code class="docutils literal notranslate"><span class="pre">ComponentMetrics.component_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.ComponentMetrics.status"><code class="docutils literal notranslate"><span class="pre">ComponentMetrics.status</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.ComponentMetrics.last_execution_time"><code class="docutils literal notranslate"><span class="pre">ComponentMetrics.last_execution_time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.ComponentMetrics.error_count"><code class="docutils literal notranslate"><span class="pre">ComponentMetrics.error_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.ComponentMetrics.success_count"><code class="docutils literal notranslate"><span class="pre">ComponentMetrics.success_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.collector.ComponentMetrics.__init__"><code class="docutils literal notranslate"><span class="pre">ComponentMetrics.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../monitoring.html#module-airdrops.monitoring.aggregator">Metrics Aggregator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.MetricsAggregator"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.MetricsAggregator.__init__"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.MetricsAggregator.add_metrics_to_buffer"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.add_metrics_to_buffer()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.MetricsAggregator.process_system_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.process_system_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.MetricsAggregator.process_component_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.process_component_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.MetricsAggregator.aggregate_time_window"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.aggregate_time_window()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.MetricsAggregator.process_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.process_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.MetricsAggregator.get_aggregated_metrics"><code class="docutils literal notranslate"><span class="pre">MetricsAggregator.get_aggregated_metrics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregatedMetric"><code class="docutils literal notranslate"><span class="pre">AggregatedMetric</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregatedMetric.metric_name"><code class="docutils literal notranslate"><span class="pre">AggregatedMetric.metric_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregatedMetric.value"><code class="docutils literal notranslate"><span class="pre">AggregatedMetric.value</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregatedMetric.timestamp"><code class="docutils literal notranslate"><span class="pre">AggregatedMetric.timestamp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregatedMetric.labels"><code class="docutils literal notranslate"><span class="pre">AggregatedMetric.labels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregatedMetric.aggregation_type"><code class="docutils literal notranslate"><span class="pre">AggregatedMetric.aggregation_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregatedMetric.__init__"><code class="docutils literal notranslate"><span class="pre">AggregatedMetric.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregationConfig"><code class="docutils literal notranslate"><span class="pre">AggregationConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregationConfig.window_size_seconds"><code class="docutils literal notranslate"><span class="pre">AggregationConfig.window_size_seconds</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregationConfig.aggregation_functions"><code class="docutils literal notranslate"><span class="pre">AggregationConfig.aggregation_functions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregationConfig.retention_period_hours"><code class="docutils literal notranslate"><span class="pre">AggregationConfig.retention_period_hours</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.aggregator.AggregationConfig.__init__"><code class="docutils literal notranslate"><span class="pre">AggregationConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../monitoring.html#module-airdrops.monitoring.alerter">Alerting System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alerter"><code class="docutils literal notranslate"><span class="pre">Alerter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alerter.__init__"><code class="docutils literal notranslate"><span class="pre">Alerter.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alerter.load_alert_rules"><code class="docutils literal notranslate"><span class="pre">Alerter.load_alert_rules()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alerter.load_notification_channels"><code class="docutils literal notranslate"><span class="pre">Alerter.load_notification_channels()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alerter.evaluate_rules"><code class="docutils literal notranslate"><span class="pre">Alerter.evaluate_rules()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alerter.send_notifications"><code class="docutils literal notranslate"><span class="pre">Alerter.send_notifications()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alerter.get_active_alerts"><code class="docutils literal notranslate"><span class="pre">Alerter.get_active_alerts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alerter.get_alert_history"><code class="docutils literal notranslate"><span class="pre">Alerter.get_alert_history()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule"><code class="docutils literal notranslate"><span class="pre">AlertRule</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.name"><code class="docutils literal notranslate"><span class="pre">AlertRule.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.metric_name"><code class="docutils literal notranslate"><span class="pre">AlertRule.metric_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.condition"><code class="docutils literal notranslate"><span class="pre">AlertRule.condition</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.threshold"><code class="docutils literal notranslate"><span class="pre">AlertRule.threshold</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.severity"><code class="docutils literal notranslate"><span class="pre">AlertRule.severity</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.description"><code class="docutils literal notranslate"><span class="pre">AlertRule.description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.for_duration"><code class="docutils literal notranslate"><span class="pre">AlertRule.for_duration</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.labels"><code class="docutils literal notranslate"><span class="pre">AlertRule.labels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.__post_init__"><code class="docutils literal notranslate"><span class="pre">AlertRule.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertRule.__init__"><code class="docutils literal notranslate"><span class="pre">AlertRule.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert"><code class="docutils literal notranslate"><span class="pre">Alert</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.rule_name"><code class="docutils literal notranslate"><span class="pre">Alert.rule_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.metric_name"><code class="docutils literal notranslate"><span class="pre">Alert.metric_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.current_value"><code class="docutils literal notranslate"><span class="pre">Alert.current_value</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.threshold"><code class="docutils literal notranslate"><span class="pre">Alert.threshold</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.severity"><code class="docutils literal notranslate"><span class="pre">Alert.severity</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.status"><code class="docutils literal notranslate"><span class="pre">Alert.status</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.description"><code class="docutils literal notranslate"><span class="pre">Alert.description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.timestamp"><code class="docutils literal notranslate"><span class="pre">Alert.timestamp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.labels"><code class="docutils literal notranslate"><span class="pre">Alert.labels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.firing_since"><code class="docutils literal notranslate"><span class="pre">Alert.firing_since</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.resolved_at"><code class="docutils literal notranslate"><span class="pre">Alert.resolved_at</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.Alert.__init__"><code class="docutils literal notranslate"><span class="pre">Alert.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.NotificationChannel"><code class="docutils literal notranslate"><span class="pre">NotificationChannel</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.NotificationChannel.name"><code class="docutils literal notranslate"><span class="pre">NotificationChannel.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.NotificationChannel.type"><code class="docutils literal notranslate"><span class="pre">NotificationChannel.type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.NotificationChannel.config"><code class="docutils literal notranslate"><span class="pre">NotificationChannel.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.NotificationChannel.enabled"><code class="docutils literal notranslate"><span class="pre">NotificationChannel.enabled</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.NotificationChannel.__init__"><code class="docutils literal notranslate"><span class="pre">NotificationChannel.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertSeverity"><code class="docutils literal notranslate"><span class="pre">AlertSeverity</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertSeverity.LOW"><code class="docutils literal notranslate"><span class="pre">AlertSeverity.LOW</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertSeverity.MEDIUM"><code class="docutils literal notranslate"><span class="pre">AlertSeverity.MEDIUM</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertSeverity.HIGH"><code class="docutils literal notranslate"><span class="pre">AlertSeverity.HIGH</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertSeverity.CRITICAL"><code class="docutils literal notranslate"><span class="pre">AlertSeverity.CRITICAL</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertStatus"><code class="docutils literal notranslate"><span class="pre">AlertStatus</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertStatus.FIRING"><code class="docutils literal notranslate"><span class="pre">AlertStatus.FIRING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertStatus.RESOLVED"><code class="docutils literal notranslate"><span class="pre">AlertStatus.RESOLVED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.alerter.AlertStatus.PENDING"><code class="docutils literal notranslate"><span class="pre">AlertStatus.PENDING</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../monitoring.html#module-airdrops.monitoring.health_checker">Health Checker</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.HealthChecker"><code class="docutils literal notranslate"><span class="pre">HealthChecker</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.HealthChecker.__init__"><code class="docutils literal notranslate"><span class="pre">HealthChecker.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.HealthChecker.check_system_health"><code class="docutils literal notranslate"><span class="pre">HealthChecker.check_system_health()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.HealthChecker.check_component_health"><code class="docutils literal notranslate"><span class="pre">HealthChecker.check_component_health()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.HealthChecker.start_server"><code class="docutils literal notranslate"><span class="pre">HealthChecker.start_server()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.HealthStatus"><code class="docutils literal notranslate"><span class="pre">HealthStatus</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.HealthStatus.OK"><code class="docutils literal notranslate"><span class="pre">HealthStatus.OK</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.HealthStatus.WARNING"><code class="docutils literal notranslate"><span class="pre">HealthStatus.WARNING</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.HealthStatus.CRITICAL"><code class="docutils literal notranslate"><span class="pre">HealthStatus.CRITICAL</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.ComponentHealth"><code class="docutils literal notranslate"><span class="pre">ComponentHealth</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.ComponentHealth.component_name"><code class="docutils literal notranslate"><span class="pre">ComponentHealth.component_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.ComponentHealth.status"><code class="docutils literal notranslate"><span class="pre">ComponentHealth.status</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.ComponentHealth.message"><code class="docutils literal notranslate"><span class="pre">ComponentHealth.message</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.ComponentHealth.last_check"><code class="docutils literal notranslate"><span class="pre">ComponentHealth.last_check</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.ComponentHealth.metrics"><code class="docutils literal notranslate"><span class="pre">ComponentHealth.metrics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.ComponentHealth.__init__"><code class="docutils literal notranslate"><span class="pre">ComponentHealth.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.SystemHealth"><code class="docutils literal notranslate"><span class="pre">SystemHealth</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.SystemHealth.overall_status"><code class="docutils literal notranslate"><span class="pre">SystemHealth.overall_status</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.SystemHealth.timestamp"><code class="docutils literal notranslate"><span class="pre">SystemHealth.timestamp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.SystemHealth.components"><code class="docutils literal notranslate"><span class="pre">SystemHealth.components</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.SystemHealth.summary"><code class="docutils literal notranslate"><span class="pre">SystemHealth.summary</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../monitoring.html#airdrops.monitoring.health_checker.SystemHealth.__init__"><code class="docutils literal notranslate"><span class="pre">SystemHealth.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analytics.html">Analytics API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analytics.html#module-airdrops.analytics">Analytics Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropTracker"><code class="docutils literal notranslate"><span class="pre">AirdropTracker</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropTracker.__init__"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropTracker.get_airdrops_by_date_range"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.get_airdrops_by_date_range()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropTracker.get_airdrops_by_protocol"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.get_airdrops_by_protocol()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropTracker.get_airdrops_by_wallet"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.get_airdrops_by_wallet()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropTracker.record_airdrop"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.record_airdrop()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent"><code class="docutils literal notranslate"><span class="pre">AirdropEvent</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.ConfigDict"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.ConfigDict</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.model_config"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.validate_protocol_name"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.validate_protocol_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.validate_token_symbol"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.validate_token_symbol()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.protocol_name"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.token_symbol"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.token_symbol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.amount_received"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.amount_received</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.estimated_value_usd"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.estimated_value_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.wallet_address"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.wallet_address</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.transaction_hash"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.transaction_hash</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.block_number"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.block_number</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.event_date"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.event_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropEvent.notes"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.notes</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropReporter"><code class="docutils literal notranslate"><span class="pre">AirdropReporter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropReporter.__init__"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropReporter.enable_portfolio_analytics"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.enable_portfolio_analytics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropReporter.enable_roi_analysis"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.enable_roi_analysis()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropReporter.export_report"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.export_report()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropReporter.generate_comprehensive_report"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.generate_comprehensive_report()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropReporter.generate_protocol_report"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.generate_protocol_report()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ReportFormat"><code class="docutils literal notranslate"><span class="pre">ReportFormat</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ReportFormat.JSON"><code class="docutils literal notranslate"><span class="pre">ReportFormat.JSON</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ReportFormat.CSV"><code class="docutils literal notranslate"><span class="pre">ReportFormat.CSV</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ReportFormat.CONSOLE"><code class="docutils literal notranslate"><span class="pre">ReportFormat.CONSOLE</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIOptimizer"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIOptimizer.__init__"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIOptimizer.calculate_portfolio_roi"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.calculate_portfolio_roi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIOptimizer.calculate_protocol_roi"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.calculate_protocol_roi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIOptimizer.generate_optimization_suggestions"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.generate_optimization_suggestions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIOptimizer.set_protocol_cost_data"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.set_protocol_cost_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics"><code class="docutils literal notranslate"><span class="pre">ROIMetrics</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.model_config"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.protocol_name"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.total_revenue_usd"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.total_revenue_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.total_cost_usd"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.total_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.roi_percentage"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.roi_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.profit_usd"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.profit_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.transaction_count"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.transaction_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.revenue_per_transaction"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.revenue_per_transaction</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.cost_per_transaction"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.cost_per_transaction</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.ROIMetrics.calculation_date"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.calculation_date</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationSuggestion"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationSuggestion.model_config"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationSuggestion.protocol_name"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationSuggestion.suggestion_type"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.suggestion_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationSuggestion.priority"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.priority</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationSuggestion.description"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationSuggestion.expected_impact"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.expected_impact</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationSuggestion.current_roi"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.current_roi</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationSuggestion.potential_roi"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.potential_roi</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostData"><code class="docutils literal notranslate"><span class="pre">CostData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostData.model_config"><code class="docutils literal notranslate"><span class="pre">CostData.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostData.protocol_name"><code class="docutils literal notranslate"><span class="pre">CostData.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostData.total_gas_cost_usd"><code class="docutils literal notranslate"><span class="pre">CostData.total_gas_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostData.transaction_count"><code class="docutils literal notranslate"><span class="pre">CostData.transaction_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostData.average_gas_cost_usd"><code class="docutils literal notranslate"><span class="pre">CostData.average_gas_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostData.manual_cost_usd"><code class="docutils literal notranslate"><span class="pre">CostData.manual_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostData.time_investment_hours"><code class="docutils literal notranslate"><span class="pre">CostData.time_investment_hours</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostModel"><code class="docutils literal notranslate"><span class="pre">CostModel</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostModel.SIMPLE_GAS"><code class="docutils literal notranslate"><span class="pre">CostModel.SIMPLE_GAS</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostModel.MANUAL_INPUT"><code class="docutils literal notranslate"><span class="pre">CostModel.MANUAL_INPUT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.CostModel.ESTIMATED"><code class="docutils literal notranslate"><span class="pre">CostModel.ESTIMATED</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationStrategy"><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationStrategy.ROI_MAXIMIZATION"><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy.ROI_MAXIMIZATION</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationStrategy.RISK_ADJUSTED"><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy.RISK_ADJUSTED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OptimizationStrategy.DIVERSIFIED"><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy.DIVERSIFIED</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropPredictor"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropPredictor.__init__"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropPredictor.get_data_source_status"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor.get_data_source_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropPredictor.predict_airdrop_timing"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor.predict_airdrop_timing()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.AirdropPredictor.update_prediction_model"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor.update_prediction_model()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult"><code class="docutils literal notranslate"><span class="pre">PredictionResult</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.model_config"><code class="docutils literal notranslate"><span class="pre">PredictionResult.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.validate_protocol_name"><code class="docutils literal notranslate"><span class="pre">PredictionResult.validate_protocol_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.protocol_name"><code class="docutils literal notranslate"><span class="pre">PredictionResult.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.prediction_windows"><code class="docutils literal notranslate"><span class="pre">PredictionResult.prediction_windows</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.confidence_level"><code class="docutils literal notranslate"><span class="pre">PredictionResult.confidence_level</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.model_version"><code class="docutils literal notranslate"><span class="pre">PredictionResult.model_version</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.data_sources_used"><code class="docutils literal notranslate"><span class="pre">PredictionResult.data_sources_used</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.prediction_date"><code class="docutils literal notranslate"><span class="pre">PredictionResult.prediction_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.next_review_date"><code class="docutils literal notranslate"><span class="pre">PredictionResult.next_review_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionResult.metadata"><code class="docutils literal notranslate"><span class="pre">PredictionResult.metadata</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionWindow"><code class="docutils literal notranslate"><span class="pre">PredictionWindow</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionWindow.model_config"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionWindow.validate_end_after_start"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.validate_end_after_start()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionWindow.start_date"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.start_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionWindow.end_date"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.end_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionWindow.probability"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.probability</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionConfidence"><code class="docutils literal notranslate"><span class="pre">PredictionConfidence</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionConfidence.LOW"><code class="docutils literal notranslate"><span class="pre">PredictionConfidence.LOW</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionConfidence.MEDIUM"><code class="docutils literal notranslate"><span class="pre">PredictionConfidence.MEDIUM</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PredictionConfidence.HIGH"><code class="docutils literal notranslate"><span class="pre">PredictionConfidence.HIGH</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.DataSourceType"><code class="docutils literal notranslate"><span class="pre">DataSourceType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.DataSourceType.HISTORICAL_AIRDROPS"><code class="docutils literal notranslate"><span class="pre">DataSourceType.HISTORICAL_AIRDROPS</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.DataSourceType.MARKET_DATA"><code class="docutils literal notranslate"><span class="pre">DataSourceType.MARKET_DATA</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.DataSourceType.ONCHAIN_ACTIVITY"><code class="docutils literal notranslate"><span class="pre">DataSourceType.ONCHAIN_ACTIVITY</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.DataSourceType.SOCIAL_SENTIMENT"><code class="docutils literal notranslate"><span class="pre">DataSourceType.SOCIAL_SENTIMENT</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.MarketDataStub"><code class="docutils literal notranslate"><span class="pre">MarketDataStub</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.MarketDataStub.get_token_price_history"><code class="docutils literal notranslate"><span class="pre">MarketDataStub.get_token_price_history()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OnChainActivityStub"><code class="docutils literal notranslate"><span class="pre">OnChainActivityStub</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.OnChainActivityStub.get_protocol_activity_metrics"><code class="docutils literal notranslate"><span class="pre">OnChainActivityStub.get_protocol_activity_metrics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.SocialSentimentStub"><code class="docutils literal notranslate"><span class="pre">SocialSentimentStub</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.SocialSentimentStub.get_sentiment_score"><code class="docutils literal notranslate"><span class="pre">SocialSentimentStub.get_sentiment_score()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioPerformanceAnalyzer"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioPerformanceAnalyzer.__init__"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioPerformanceAnalyzer.calculate_portfolio_metrics"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer.calculate_portfolio_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioPerformanceAnalyzer.calculate_portfolio_value_over_time"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer.calculate_portfolio_value_over_time()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioPerformanceAnalyzer.compare_to_benchmark"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer.compare_to_benchmark()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.model_config"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.calculation_date"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.calculation_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.total_portfolio_value_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.total_portfolio_value_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.total_profit_loss_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.total_profit_loss_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.total_cost_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.total_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.portfolio_roi_percentage"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.portfolio_roi_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.protocol_count"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.protocol_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.token_count"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.token_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.diversification_index"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.diversification_index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.largest_position_percentage"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.largest_position_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioMetrics.value_at_risk_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.value_at_risk_usd</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioSnapshot"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioSnapshot.model_config"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioSnapshot.snapshot_date"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.snapshot_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioSnapshot.total_value_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.total_value_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioSnapshot.protocol_allocations"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.protocol_allocations</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioSnapshot.token_allocations"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.token_allocations</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.PortfolioSnapshot.diversification_score"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.diversification_score</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkComparison"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkComparison.model_config"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkComparison.benchmark_type"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.benchmark_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkComparison.portfolio_return_percentage"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.portfolio_return_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkComparison.benchmark_return_percentage"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.benchmark_return_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkComparison.alpha_percentage"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.alpha_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkComparison.comparison_period_days"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.comparison_period_days</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkComparison.calculation_date"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.calculation_date</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkType"><code class="docutils literal notranslate"><span class="pre">BenchmarkType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkType.ETH"><code class="docutils literal notranslate"><span class="pre">BenchmarkType.ETH</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkType.BTC"><code class="docutils literal notranslate"><span class="pre">BenchmarkType.BTC</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.BenchmarkType.MARKET_INDEX"><code class="docutils literal notranslate"><span class="pre">BenchmarkType.MARKET_INDEX</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analytics.html#module-airdrops.analytics.tracker">Airdrop Tracker</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.Base"><code class="docutils literal notranslate"><span class="pre">Base</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.Base.__init__"><code class="docutils literal notranslate"><span class="pre">Base.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.Base.metadata"><code class="docutils literal notranslate"><span class="pre">Base.metadata</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.Base.registry"><code class="docutils literal notranslate"><span class="pre">Base.registry</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.id"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.protocol_name"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.token_symbol"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.token_symbol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.amount_received"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.amount_received</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.estimated_value_usd"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.estimated_value_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.wallet_address"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.wallet_address</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.transaction_hash"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.transaction_hash</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.block_number"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.block_number</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.event_date"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.event_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.created_at"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.created_at</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.notes"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.notes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEventModel.__init__"><code class="docutils literal notranslate"><span class="pre">AirdropEventModel.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent"><code class="docutils literal notranslate"><span class="pre">AirdropEvent</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.protocol_name"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.token_symbol"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.token_symbol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.amount_received"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.amount_received</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.estimated_value_usd"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.estimated_value_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.wallet_address"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.wallet_address</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.transaction_hash"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.transaction_hash</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.block_number"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.block_number</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.event_date"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.event_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.notes"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.notes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.validate_protocol_name"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.validate_protocol_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.validate_token_symbol"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.validate_token_symbol()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.ConfigDict"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.ConfigDict</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropEvent.model_config"><code class="docutils literal notranslate"><span class="pre">AirdropEvent.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropTracker"><code class="docutils literal notranslate"><span class="pre">AirdropTracker</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropTracker.__init__"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropTracker.record_airdrop"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.record_airdrop()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropTracker.get_airdrops_by_protocol"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.get_airdrops_by_protocol()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropTracker.get_airdrops_by_wallet"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.get_airdrops_by_wallet()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.tracker.AirdropTracker.get_airdrops_by_date_range"><code class="docutils literal notranslate"><span class="pre">AirdropTracker.get_airdrops_by_date_range()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analytics.html#module-airdrops.analytics.reporter">Airdrop Reporter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ReportFormat"><code class="docutils literal notranslate"><span class="pre">ReportFormat</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ReportFormat.JSON"><code class="docutils literal notranslate"><span class="pre">ReportFormat.JSON</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ReportFormat.CSV"><code class="docutils literal notranslate"><span class="pre">ReportFormat.CSV</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ReportFormat.CONSOLE"><code class="docutils literal notranslate"><span class="pre">ReportFormat.CONSOLE</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ProtocolSummary"><code class="docutils literal notranslate"><span class="pre">ProtocolSummary</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ProtocolSummary.protocol_name"><code class="docutils literal notranslate"><span class="pre">ProtocolSummary.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ProtocolSummary.total_events"><code class="docutils literal notranslate"><span class="pre">ProtocolSummary.total_events</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ProtocolSummary.total_tokens_received"><code class="docutils literal notranslate"><span class="pre">ProtocolSummary.total_tokens_received</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ProtocolSummary.total_estimated_value_usd"><code class="docutils literal notranslate"><span class="pre">ProtocolSummary.total_estimated_value_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ProtocolSummary.unique_tokens"><code class="docutils literal notranslate"><span class="pre">ProtocolSummary.unique_tokens</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ProtocolSummary.first_airdrop_date"><code class="docutils literal notranslate"><span class="pre">ProtocolSummary.first_airdrop_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ProtocolSummary.last_airdrop_date"><code class="docutils literal notranslate"><span class="pre">ProtocolSummary.last_airdrop_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.ProtocolSummary.model_config"><code class="docutils literal notranslate"><span class="pre">ProtocolSummary.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport"><code class="docutils literal notranslate"><span class="pre">AirdropReport</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.report_generated_at"><code class="docutils literal notranslate"><span class="pre">AirdropReport.report_generated_at</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.total_airdrops"><code class="docutils literal notranslate"><span class="pre">AirdropReport.total_airdrops</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.total_protocols"><code class="docutils literal notranslate"><span class="pre">AirdropReport.total_protocols</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.total_estimated_value_usd"><code class="docutils literal notranslate"><span class="pre">AirdropReport.total_estimated_value_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.date_range_start"><code class="docutils literal notranslate"><span class="pre">AirdropReport.date_range_start</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.date_range_end"><code class="docutils literal notranslate"><span class="pre">AirdropReport.date_range_end</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.protocol_summaries"><code class="docutils literal notranslate"><span class="pre">AirdropReport.protocol_summaries</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.top_protocols_by_value"><code class="docutils literal notranslate"><span class="pre">AirdropReport.top_protocols_by_value</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.monthly_breakdown"><code class="docutils literal notranslate"><span class="pre">AirdropReport.monthly_breakdown</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.roi_metrics"><code class="docutils literal notranslate"><span class="pre">AirdropReport.roi_metrics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.optimization_suggestions"><code class="docutils literal notranslate"><span class="pre">AirdropReport.optimization_suggestions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.portfolio_metrics"><code class="docutils literal notranslate"><span class="pre">AirdropReport.portfolio_metrics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReport.model_config"><code class="docutils literal notranslate"><span class="pre">AirdropReport.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReporter"><code class="docutils literal notranslate"><span class="pre">AirdropReporter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReporter.__init__"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReporter.enable_roi_analysis"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.enable_roi_analysis()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReporter.enable_portfolio_analytics"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.enable_portfolio_analytics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReporter.generate_comprehensive_report"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.generate_comprehensive_report()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReporter.generate_protocol_report"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.generate_protocol_report()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.reporter.AirdropReporter.export_report"><code class="docutils literal notranslate"><span class="pre">AirdropReporter.export_report()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analytics.html#module-airdrops.analytics.optimizer">ROI Optimizer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostModel"><code class="docutils literal notranslate"><span class="pre">CostModel</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostModel.SIMPLE_GAS"><code class="docutils literal notranslate"><span class="pre">CostModel.SIMPLE_GAS</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostModel.MANUAL_INPUT"><code class="docutils literal notranslate"><span class="pre">CostModel.MANUAL_INPUT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostModel.ESTIMATED"><code class="docutils literal notranslate"><span class="pre">CostModel.ESTIMATED</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationStrategy"><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationStrategy.ROI_MAXIMIZATION"><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy.ROI_MAXIMIZATION</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationStrategy.RISK_ADJUSTED"><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy.RISK_ADJUSTED</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationStrategy.DIVERSIFIED"><code class="docutils literal notranslate"><span class="pre">OptimizationStrategy.DIVERSIFIED</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostData"><code class="docutils literal notranslate"><span class="pre">CostData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostData.protocol_name"><code class="docutils literal notranslate"><span class="pre">CostData.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostData.total_gas_cost_usd"><code class="docutils literal notranslate"><span class="pre">CostData.total_gas_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostData.transaction_count"><code class="docutils literal notranslate"><span class="pre">CostData.transaction_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostData.average_gas_cost_usd"><code class="docutils literal notranslate"><span class="pre">CostData.average_gas_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostData.manual_cost_usd"><code class="docutils literal notranslate"><span class="pre">CostData.manual_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostData.time_investment_hours"><code class="docutils literal notranslate"><span class="pre">CostData.time_investment_hours</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.CostData.model_config"><code class="docutils literal notranslate"><span class="pre">CostData.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics"><code class="docutils literal notranslate"><span class="pre">ROIMetrics</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.protocol_name"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.total_revenue_usd"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.total_revenue_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.total_cost_usd"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.total_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.roi_percentage"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.roi_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.profit_usd"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.profit_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.transaction_count"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.transaction_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.revenue_per_transaction"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.revenue_per_transaction</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.cost_per_transaction"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.cost_per_transaction</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.calculation_date"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.calculation_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIMetrics.model_config"><code class="docutils literal notranslate"><span class="pre">ROIMetrics.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationSuggestion"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationSuggestion.protocol_name"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationSuggestion.suggestion_type"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.suggestion_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationSuggestion.priority"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.priority</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationSuggestion.description"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationSuggestion.expected_impact"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.expected_impact</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationSuggestion.current_roi"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.current_roi</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationSuggestion.potential_roi"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.potential_roi</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.OptimizationSuggestion.model_config"><code class="docutils literal notranslate"><span class="pre">OptimizationSuggestion.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIOptimizer"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIOptimizer.__init__"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIOptimizer.set_protocol_cost_data"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.set_protocol_cost_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIOptimizer.calculate_protocol_roi"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.calculate_protocol_roi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIOptimizer.calculate_portfolio_roi"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.calculate_portfolio_roi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.optimizer.ROIOptimizer.generate_optimization_suggestions"><code class="docutils literal notranslate"><span class="pre">ROIOptimizer.generate_optimization_suggestions()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analytics.html#module-airdrops.analytics.portfolio">Portfolio Performance Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkType"><code class="docutils literal notranslate"><span class="pre">BenchmarkType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkType.ETH"><code class="docutils literal notranslate"><span class="pre">BenchmarkType.ETH</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkType.BTC"><code class="docutils literal notranslate"><span class="pre">BenchmarkType.BTC</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkType.MARKET_INDEX"><code class="docutils literal notranslate"><span class="pre">BenchmarkType.MARKET_INDEX</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioSnapshot"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioSnapshot.snapshot_date"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.snapshot_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioSnapshot.total_value_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.total_value_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioSnapshot.protocol_allocations"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.protocol_allocations</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioSnapshot.token_allocations"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.token_allocations</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioSnapshot.diversification_score"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.diversification_score</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioSnapshot.model_config"><code class="docutils literal notranslate"><span class="pre">PortfolioSnapshot.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.calculation_date"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.calculation_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.total_portfolio_value_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.total_portfolio_value_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.total_profit_loss_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.total_profit_loss_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.total_cost_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.total_cost_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.portfolio_roi_percentage"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.portfolio_roi_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.protocol_count"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.protocol_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.token_count"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.token_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.diversification_index"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.diversification_index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.largest_position_percentage"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.largest_position_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.value_at_risk_usd"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.value_at_risk_usd</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioMetrics.model_config"><code class="docutils literal notranslate"><span class="pre">PortfolioMetrics.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkComparison"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkComparison.benchmark_type"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.benchmark_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkComparison.portfolio_return_percentage"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.portfolio_return_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkComparison.benchmark_return_percentage"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.benchmark_return_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkComparison.alpha_percentage"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.alpha_percentage</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkComparison.comparison_period_days"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.comparison_period_days</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkComparison.calculation_date"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.calculation_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.BenchmarkComparison.model_config"><code class="docutils literal notranslate"><span class="pre">BenchmarkComparison.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioPerformanceAnalyzer"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioPerformanceAnalyzer.__init__"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioPerformanceAnalyzer.calculate_portfolio_metrics"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer.calculate_portfolio_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioPerformanceAnalyzer.calculate_portfolio_value_over_time"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer.calculate_portfolio_value_over_time()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.portfolio.PortfolioPerformanceAnalyzer.compare_to_benchmark"><code class="docutils literal notranslate"><span class="pre">PortfolioPerformanceAnalyzer.compare_to_benchmark()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analytics.html#module-airdrops.analytics.predictor">Airdrop Predictor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.DataSourceType"><code class="docutils literal notranslate"><span class="pre">DataSourceType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.DataSourceType.HISTORICAL_AIRDROPS"><code class="docutils literal notranslate"><span class="pre">DataSourceType.HISTORICAL_AIRDROPS</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.DataSourceType.MARKET_DATA"><code class="docutils literal notranslate"><span class="pre">DataSourceType.MARKET_DATA</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.DataSourceType.ONCHAIN_ACTIVITY"><code class="docutils literal notranslate"><span class="pre">DataSourceType.ONCHAIN_ACTIVITY</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.DataSourceType.SOCIAL_SENTIMENT"><code class="docutils literal notranslate"><span class="pre">DataSourceType.SOCIAL_SENTIMENT</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionConfidence"><code class="docutils literal notranslate"><span class="pre">PredictionConfidence</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionConfidence.LOW"><code class="docutils literal notranslate"><span class="pre">PredictionConfidence.LOW</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionConfidence.MEDIUM"><code class="docutils literal notranslate"><span class="pre">PredictionConfidence.MEDIUM</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionConfidence.HIGH"><code class="docutils literal notranslate"><span class="pre">PredictionConfidence.HIGH</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionWindow"><code class="docutils literal notranslate"><span class="pre">PredictionWindow</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionWindow.start_date"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.start_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionWindow.end_date"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.end_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionWindow.probability"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.probability</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionWindow.validate_end_after_start"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.validate_end_after_start()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionWindow.model_config"><code class="docutils literal notranslate"><span class="pre">PredictionWindow.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult"><code class="docutils literal notranslate"><span class="pre">PredictionResult</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.protocol_name"><code class="docutils literal notranslate"><span class="pre">PredictionResult.protocol_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.prediction_windows"><code class="docutils literal notranslate"><span class="pre">PredictionResult.prediction_windows</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.confidence_level"><code class="docutils literal notranslate"><span class="pre">PredictionResult.confidence_level</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.model_version"><code class="docutils literal notranslate"><span class="pre">PredictionResult.model_version</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.data_sources_used"><code class="docutils literal notranslate"><span class="pre">PredictionResult.data_sources_used</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.prediction_date"><code class="docutils literal notranslate"><span class="pre">PredictionResult.prediction_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.next_review_date"><code class="docutils literal notranslate"><span class="pre">PredictionResult.next_review_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.metadata"><code class="docutils literal notranslate"><span class="pre">PredictionResult.metadata</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.validate_protocol_name"><code class="docutils literal notranslate"><span class="pre">PredictionResult.validate_protocol_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.PredictionResult.model_config"><code class="docutils literal notranslate"><span class="pre">PredictionResult.model_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.MarketDataStub"><code class="docutils literal notranslate"><span class="pre">MarketDataStub</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.MarketDataStub.get_token_price_history"><code class="docutils literal notranslate"><span class="pre">MarketDataStub.get_token_price_history()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.OnChainActivityStub"><code class="docutils literal notranslate"><span class="pre">OnChainActivityStub</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.OnChainActivityStub.get_protocol_activity_metrics"><code class="docutils literal notranslate"><span class="pre">OnChainActivityStub.get_protocol_activity_metrics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.SocialSentimentStub"><code class="docutils literal notranslate"><span class="pre">SocialSentimentStub</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.SocialSentimentStub.get_sentiment_score"><code class="docutils literal notranslate"><span class="pre">SocialSentimentStub.get_sentiment_score()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.AirdropPredictor"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.AirdropPredictor.__init__"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.AirdropPredictor.predict_airdrop_timing"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor.predict_airdrop_timing()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.AirdropPredictor.get_data_source_status"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor.get_data_source_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analytics.html#airdrops.analytics.predictor.AirdropPredictor.update_prediction_model"><code class="docutils literal notranslate"><span class="pre">AirdropPredictor.update_prediction_model()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../shared.html">Shared Utilities API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../shared.html#module-airdrops.shared">Shared Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../shared.html#module-airdrops.shared.config">Configuration</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Airdrops Automation API Docs</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">airdrops.protocols.eigenlayer.exceptions</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for airdrops.protocols.eigenlayer.exceptions</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Custom exceptions for EigenLayer protocol operations.&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="EigenLayerRestakeError">
+<a class="viewcode-back" href="../../../../protocols.html#airdrops.protocols.eigenlayer.EigenLayerRestakeError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EigenLayerRestakeError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base exception for EigenLayer restaking operations.&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+
+<div class="viewcode-block" id="UnsupportedLSTError">
+<a class="viewcode-back" href="../../../../protocols.html#airdrops.protocols.eigenlayer.UnsupportedLSTError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UnsupportedLSTError</span><span class="p">(</span><span class="n">EigenLayerRestakeError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when an unsupported LST symbol is provided.&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+
+<div class="viewcode-block" id="DepositCapReachedError">
+<a class="viewcode-back" href="../../../../protocols.html#airdrops.protocols.eigenlayer.DepositCapReachedError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DepositCapReachedError</span><span class="p">(</span><span class="n">EigenLayerRestakeError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when deposit would exceed strategy cap.&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Airdrops Automation Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

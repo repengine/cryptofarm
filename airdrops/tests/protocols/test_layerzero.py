@@ -894,6 +894,330 @@ class TestLayerZeroModule(unittest.TestCase):
         exception_message = str(context.exception)
         self.assertIn("Failed to estimate LayerZero fee", exception_message)
 
+    @patch("airdrops.protocols.layerzero.layerzero._get_contract")
+    def test_check_or_approve_token_approval_transaction_failure(
+        self, mock_get_contract: MagicMock
+    ) -> None:
+        """Test token approval when approval transaction fails."""
+        mock_w3 = MagicMock()
+        mock_w3.eth.get_transaction_count.return_value = 42
+        mock_w3.to_wei.return_value = 20000000000
+        mock_w3.eth.account.sign_transaction.return_value = MagicMock(
+            raw_transaction=b"signed_tx"
+        )
+        mock_w3.eth.send_raw_transaction.return_value = MagicMock(
+            hex=lambda: "0x" + "f" * 40
+        )
+
+        # Transaction fails with status 0
+        mock_w3.eth.wait_for_transaction_receipt.return_value = {
+            "status": 0,
+            "transactionHash": Web3.to_bytes(hexstr="0x" + "f" * 40),
+        }
+        mock_token = MagicMock()
+        allowance_return = mock_token.functions.allowance.return_value.call
+        allowance_return.return_value = 0  # No allowance
+        approve_build_transaction = (
+            mock_token.functions.approve.return_value.build_transaction
+        )
+        approve_build_transaction.return_value = {
+            "from": self.user_address,
+            "nonce": 42,
+            "gas": 100000,
+            "gasPrice": 20000000000,
+        }
+        mock_get_contract.return_value = mock_token
+
+        token_addr_cs = Web3.to_checksum_address(
+            self.mock_config["layerzero"]["tokens"]["USDC"][1]["address"]
+        )
+        spender_addr_cs = Web3.to_checksum_address(
+            self.mock_config["layerzero"]["chains"][1]["stargate_router_address"]
+        )
+
+        result = layerzero._check_or_approve_token(
+            mock_w3,
+            token_addr_cs,
+            Web3.to_checksum_address(self.user_address),
+            spender_addr_cs,
+            1000000,
+            self.private_key,
+            {
+                "gas_limit": 100000,
+                "gas_price_gwei": 20,
+                "transaction_timeout_seconds": 300,
+            },
+        )
+
+        self.assertFalse(result)
+
+    @patch("airdrops.protocols.layerzero.layerzero._get_contract")
+    def test_check_or_approve_token_exception_handling(
+        self, mock_get_contract: MagicMock
+    ) -> None:
+        """Test token approval exception handling."""
+        mock_w3 = MagicMock()
+        mock_token = MagicMock()
+        # Simulate exception during allowance check
+        allowance_return = mock_token.functions.allowance.return_value.call
+        allowance_return.side_effect = Exception("RPC error")
+        mock_get_contract.return_value = mock_token
+
+        token_addr_cs = Web3.to_checksum_address(
+            self.mock_config["layerzero"]["tokens"]["USDC"][1]["address"]
+        )
+        spender_addr_cs = Web3.to_checksum_address(
+            self.mock_config["layerzero"]["chains"][1]["stargate_router_address"]
+        )
+
+        result = layerzero._check_or_approve_token(
+            mock_w3,
+            token_addr_cs,
+            Web3.to_checksum_address(self.user_address),
+            spender_addr_cs,
+            1000000,
+            self.private_key,
+            {
+                "gas_limit": 100000,
+                "gas_price_gwei": 20,
+                "transaction_timeout_seconds": 300,
+            },
+        )
+
+        self.assertFalse(result)
+
+    def test_bridge_token_not_configured_for_source_chain(self) -> None:
+        """Test bridge with token not configured for source chain."""
+        # Create config where USDC is not configured for source chain
+        config_missing_source = copy.deepcopy(self.mock_config)
+        config_missing_source["layerzero"]["tokens"]["USDC"].pop(1, None)
+
+        success, result = layerzero.bridge(
+            source_chain_id=1,
+            destination_chain_id=42161,
+            source_token_symbol="USDC",
+            amount_in_source_token_units=Decimal("100"),
+            user_address=self.user_address,
+            slippage_bps=50,
+            config=config_missing_source,
+            private_key=self.private_key,
+        )
+
+        self.assertFalse(success)
+        self.assertIn("Token USDC not configured for source chain", result)
+
+    def test_bridge_token_not_configured_for_destination_chain(self) -> None:
+        """Test bridge with token not configured for destination chain."""
+        # Create config where USDC is not configured for destination chain
+        config_missing_dest = copy.deepcopy(self.mock_config)
+        config_missing_dest["layerzero"]["tokens"]["USDC"].pop(42161, None)
+
+        success, result = layerzero.bridge(
+            source_chain_id=1,
+            destination_chain_id=42161,
+            source_token_symbol="USDC",
+            amount_in_source_token_units=Decimal("100"),
+            user_address=self.user_address,
+            slippage_bps=50,
+            config=config_missing_dest,
+            private_key=self.private_key,
+        )
+
+        self.assertFalse(success)
+        self.assertIn("Token USDC not configured for destination chain", result)
+
+    @patch("random.choices")
+    def test_perform_random_bridge_chain_mapping_failure(
+        self, mock_choices: MagicMock
+    ) -> None:
+        """Test perform_random_bridge when chain name to ID mapping fails."""
+        mock_choices.side_effect = [
+            ["nonexistent_chain"],  # Source chain name that doesn't exist
+            ["arbitrum"],  # Destination chain name
+        ]
+
+        # Create config with chain that has no matching ID
+        config_bad_chain = copy.deepcopy(self.random_bridge_config)
+        config_bad_chain["layerzero"]["perform_random_bridge_settings"][
+            "enabled_chains"
+        ] = ["nonexistent_chain", "arbitrum"]
+        config_bad_chain["layerzero"]["perform_random_bridge_settings"][
+            "chain_weights"
+        ] = {"nonexistent_chain": 50, "arbitrum": 50}
+
+        success, message = layerzero.perform_random_bridge(
+            self.user_address, config_bad_chain, self.private_key
+        )
+
+        self.assertFalse(success)
+        self.assertEqual(message, "Could not map selected chain names to chain IDs.")
+
+    @patch("random.choices")
+    def test_perform_random_bridge_zero_weights_fallback(
+        self, mock_choices: MagicMock
+    ) -> None:
+        """Test perform_random_bridge with zero weights fallback."""
+        mock_choices.side_effect = [
+            ["ethereum"],  # Source chain
+            ["arbitrum"],  # Destination chain
+            ["USDC"],  # Token
+        ]
+
+        # Create config with zero weights
+        config_zero_weights = copy.deepcopy(self.random_bridge_config)
+        config_zero_weights["layerzero"]["perform_random_bridge_settings"][
+            "chain_weights"
+        ] = {"ethereum": 0, "arbitrum": 0, "optimism": 0}
+        config_zero_weights["layerzero"]["perform_random_bridge_settings"][
+            "token_weights"
+        ] = {"USDC": 0, "ETH": 0}
+
+        with patch("airdrops.protocols.layerzero.layerzero.bridge") as mock_bridge:
+            with patch("random.uniform", return_value=50.0):
+                with patch("random.randint", return_value=25):
+                    mock_bridge.return_value = (True, "0x" + "a" * 40)
+
+                    success, message = layerzero.perform_random_bridge(
+                        self.user_address, config_zero_weights, self.private_key
+                    )
+
+                    self.assertTrue(success)
+                    self.assertIn("Successfully initiated random bridge", message)
+
+    @patch("random.choices")
+    def test_perform_random_bridge_no_valid_tokens_with_weights(
+        self, mock_choices: MagicMock
+    ) -> None:
+        """Test perform_random_bridge when no tokens have positive weights."""
+        mock_choices.side_effect = [
+            ["ethereum"],  # Source chain
+            ["arbitrum"],  # Destination chain
+        ]
+
+        # Create config with empty enabled_tokens but non-empty token_weights
+        config_no_tokens = copy.deepcopy(self.random_bridge_config)
+        config_no_tokens["layerzero"]["perform_random_bridge_settings"][
+            "enabled_tokens"
+        ] = []
+
+        success, message = layerzero.perform_random_bridge(
+            self.user_address, config_no_tokens, self.private_key
+        )
+
+        self.assertFalse(success)
+        self.assertEqual(message, "enabled_chains or enabled_tokens cannot be empty.")
+
+    @patch("random.choices")
+    @patch("random.uniform")
+    @patch("random.randint")
+    def test_perform_random_bridge_key_error_handling(
+        self,
+        mock_randint: MagicMock,
+        mock_uniform: MagicMock,
+        mock_choices: MagicMock,
+    ) -> None:
+        """Test perform_random_bridge KeyError handling."""
+        mock_choices.side_effect = [
+            ["ethereum"],  # Source chain
+            ["arbitrum"],  # Destination chain
+            ["USDC"],  # Token
+        ]
+        mock_uniform.return_value = 50.0
+        mock_randint.return_value = 25
+
+        # Create config missing token decimals to trigger KeyError
+        config_missing_decimals = copy.deepcopy(self.random_bridge_config)
+        config_missing_decimals["layerzero"]["tokens"]["USDC"][1].pop("decimals", None)
+
+        success, message = layerzero.perform_random_bridge(
+            self.user_address, config_missing_decimals, self.private_key
+        )
+
+        self.assertFalse(success)
+        self.assertIn("Configuration key error during random bridge", message)
+
+    @patch("random.choices")
+    @patch("random.uniform")
+    @patch("random.randint")
+    def test_perform_random_bridge_value_error_handling(
+        self,
+        mock_randint: MagicMock,
+        mock_uniform: MagicMock,
+        mock_choices: MagicMock,
+    ) -> None:
+        """Test perform_random_bridge ValueError handling."""
+        mock_choices.side_effect = [
+            ["ethereum"],  # Source chain
+            ["arbitrum"],  # Destination chain
+            ["USDC"],  # Token
+        ]
+        mock_uniform.return_value = 50.0
+        mock_randint.return_value = 25
+
+        # Create config with invalid amount settings to trigger ValueError
+        config_invalid_amount = copy.deepcopy(self.random_bridge_config)
+        config_invalid_amount["layerzero"]["perform_random_bridge_settings"][
+            "amount_usd_min"
+        ] = -10.0  # Invalid negative amount
+
+        success, message = layerzero.perform_random_bridge(
+            self.user_address, config_invalid_amount, self.private_key
+        )
+
+        self.assertFalse(success)
+        self.assertEqual(message, "Invalid amount_usd_min/max settings.")
+
+    @patch("random.choices")
+    @patch("random.uniform")
+    @patch("random.randint")
+    def test_perform_random_bridge_unexpected_exception_handling(
+        self,
+        mock_randint: MagicMock,
+        mock_uniform: MagicMock,
+        mock_choices: MagicMock,
+    ) -> None:
+        """Test perform_random_bridge unexpected exception handling."""
+        mock_choices.side_effect = [
+            ["ethereum"],  # Source chain
+            ["arbitrum"],  # Destination chain
+            ["USDC"],  # Token
+        ]
+        mock_uniform.return_value = 50.0
+        mock_randint.side_effect = RuntimeError("Unexpected error")
+
+        success, message = layerzero.perform_random_bridge(
+            self.user_address, self.random_bridge_config, self.private_key
+        )
+
+        self.assertFalse(success)
+        self.assertIn("Unexpected error during random bridge", message)
+
+    def test_get_contract_function(self) -> None:
+        """Test _get_contract helper function."""
+        mock_w3 = MagicMock()
+        mock_contract = MagicMock()
+        mock_w3.eth.contract.return_value = mock_contract
+
+        address = Web3.to_checksum_address("0x1234567890123456789012345678901234567890")
+        abi = [{"name": "test", "type": "function"}]
+
+        result = layerzero._get_contract(mock_w3, address, abi)
+
+        self.assertEqual(result, mock_contract)
+        mock_w3.eth.contract.assert_called_once_with(address=address, abi=abi)
+
+    @patch("airdrops.protocols.layerzero.layerzero.Web3")
+    def test_get_web3_provider_exception_handling(
+        self, mock_web3_class: MagicMock
+    ) -> None:
+        """Test Web3 provider creation with exception."""
+        mock_web3_class.side_effect = Exception("Connection error")
+
+        with self.assertRaises(ValueError) as context:
+            layerzero._get_web3_provider("https://test.rpc")
+
+        self.assertIn("Error creating Web3 provider", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

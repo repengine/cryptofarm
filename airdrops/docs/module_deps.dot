@@ -4,6 +4,13 @@ digraph module_deps {
 
   "airdrops (project)" [label="airdrops\n(Python 3.11 Project)"];
 
+  // Core Modules
+  "risk_management" [label="risk_management\n(Risk Assessment & Control)", color=lightgreen];
+  "capital_allocation" [label="capital_allocation\n(Portfolio Optimization & Allocation)", color=lightblue];
+  "scheduler" [label="scheduler\n(Task Orchestration & Scheduling)", color=lightyellow];
+  "monitoring" [label="monitoring\n(Metrics Collection & Aggregation)", color=lightcoral];
+  "analytics" [label="analytics\n(Airdrop Tracking & Reporting)", color=lightpink];
+
   // External Dependencies
   "web3" [label="web3\n(v7.12.0)"];
   "hyperliquid-python-sdk" [label="hyperliquid-python-sdk\n(v0.15.0)"];
@@ -11,12 +18,52 @@ digraph module_deps {
   "python-dotenv" [label="python-dotenv\n(v1.1.0)"];
   "requests" [label="requests\n(v2.32.3)"];
   "pendulum" [label="pendulum\n(v3.1.0)"];
+  "numpy" [label="numpy\n(>=1.24.0)"];
+  "apscheduler" [label="apscheduler\n(>=4.0.0)"];
+  "prometheus-client" [label="prometheus-client\n(>=0.20.0)"];
+  "psutil" [label="psutil\n(>=5.9.0)"];
+  "pyyaml" [label="pyyaml\n(>=6.0.0)"];
+  "fastapi" [label="fastapi\n(>=0.115.0)"];
+  "uvicorn" [label="uvicorn\n(>=0.32.0)"];
+  "sqlalchemy" [label="sqlalchemy\n(>=2.0.0)"];
+  "pydantic" [label="pydantic\n(>=2.0.0)"];
+  "sphinx" [label="sphinx\n(^7.0.0)", color=wheat];
+  "sphinx-rtd-theme" [label="sphinx-rtd-theme\n(^2.0.0)", color=wheat];
+  "sphinx-autodoc-typehints" [label="sphinx-autodoc-typehints\n(^2.0.0)", color=wheat];
 
-  // Relationships
+  // Module Relationships
+  "airdrops (project)" -> "risk_management";
+  "airdrops (project)" -> "capital_allocation";
+  "airdrops (project)" -> "scheduler";
+  "airdrops (project)" -> "monitoring";
+  "airdrops (project)" -> "analytics";
+  "capital_allocation" -> "risk_management";
+  "scheduler" -> "risk_management";
+  "scheduler" -> "capital_allocation";
+  "monitoring" -> "risk_management";
+  "monitoring" -> "capital_allocation";
+  "monitoring" -> "scheduler";
+  "analytics" -> "monitoring";
+  "risk_management" -> "web3";
+  "risk_management" -> "requests";
+  "capital_allocation" -> "numpy";
+  "scheduler" -> "apscheduler";
+  "monitoring" -> "prometheus-client";
+  "monitoring" -> "psutil";
+  "monitoring" -> "pyyaml";
+  "monitoring" -> "fastapi";
+  "monitoring" -> "uvicorn";
+  "analytics" -> "sqlalchemy";
+  "analytics" -> "pydantic";
+
+  // External Dependencies
   "airdrops (project)" -> "web3";
   "airdrops (project)" -> "hyperliquid-python-sdk";
   "airdrops (project)" -> "solana";
   "airdrops (project)" -> "python-dotenv";
   "airdrops (project)" -> "requests";
   "airdrops (project)" -> "pendulum";
+  "airdrops (project)" -> "numpy";
+  "airdrops (project)" -> "prometheus-client";
+  "airdrops (project)" -> "psutil";
 }

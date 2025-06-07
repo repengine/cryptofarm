@@ -1,0 +1,160 @@
+# Alert Rules Configuration for Airdrops Monitoring System
+# This file defines alert rules that are evaluated against metrics
+
+rules:
+  # System Resource Alerts
+  - name: "high_cpu_usage"
+    metric_name: "system.cpu_usage_percent"
+    condition: "gt"
+    threshold: 80.0
+    severity: "high"
+    description: "System CPU usage is above 80%"
+    for_duration: 300  # 5 minutes
+    labels:
+      component: "system"
+      resource: "cpu"
+
+  - name: "critical_cpu_usage"
+    metric_name: "system.cpu_usage_percent"
+    condition: "gt"
+    threshold: 95.0
+    severity: "critical"
+    description: "System CPU usage is critically high (>95%)"
+    for_duration: 60  # 1 minute
+    labels:
+      component: "system"
+      resource: "cpu"
+
+  - name: "high_memory_usage"
+    metric_name: "system.memory_usage_percent"
+    condition: "gt"
+    threshold: 85.0
+    severity: "high"
+    description: "System memory usage is above 85%"
+    for_duration: 300  # 5 minutes
+    labels:
+      component: "system"
+      resource: "memory"
+
+  - name: "disk_space_low"
+    metric_name: "system.disk_usage_percent"
+    condition: "gt"
+    threshold: 90.0
+    severity: "critical"
+    description: "Disk space usage is above 90%"
+    for_duration: 60  # 1 minute
+    labels:
+      component: "system"
+      resource: "disk"
+
+  # Risk Management Alerts
+  - name: "circuit_breaker_active"
+    metric_name: "risk_manager.circuit_breaker_active"
+    condition: "eq"
+    threshold: 1.0
+    severity: "critical"
+    description: "Risk management circuit breaker has been activated"
+    for_duration: 0  # Immediate
+    labels:
+      component: "risk_manager"
+      type: "circuit_breaker"
+
+  - name: "high_risk_level"
+    metric_name: "risk_level"
+    condition: "gte"
+    threshold: 2.0  # High or Critical
+    severity: "high"
+    description: "Risk level is high or critical"
+    for_duration: 180  # 3 minutes
+    labels:
+      component: "risk_manager"
+      type: "risk_assessment"
+
+  - name: "portfolio_value_drop"
+    metric_name: "portfolio_value_usd"
+    condition: "lt"
+    threshold: 80000.0  # 20% drop from 100k baseline
+    severity: "medium"
+    description: "Portfolio value has dropped significantly"
+    for_duration: 600  # 10 minutes
+    labels:
+      component: "risk_manager"
+      type: "portfolio_value"
+
+  # Capital Allocation Alerts
+  - name: "low_capital_utilization"
+    metric_name: "capital_utilization_percent"
+    condition: "lt"
+    threshold: 20.0
+    severity: "medium"
+    description: "Capital utilization is below 20%"
+    for_duration: 1800  # 30 minutes
+    labels:
+      component: "capital_allocator"
+      type: "utilization"
+
+  - name: "high_capital_utilization"
+    metric_name: "capital_utilization_percent"
+    condition: "gt"
+    threshold: 95.0
+    severity: "high"
+    description: "Capital utilization is above 95%"
+    for_duration: 300  # 5 minutes
+    labels:
+      component: "capital_allocator"
+      type: "utilization"
+
+  # Scheduler Alerts
+  - name: "scheduler_not_running"
+    metric_name: "scheduler.scheduler_running"
+    condition: "eq"
+    threshold: 0.0
+    severity: "critical"
+    description: "Central scheduler is not running"
+    for_duration: 60  # 1 minute
+    labels:
+      component: "scheduler"
+      type: "status"
+
+  - name: "high_task_failure_rate"
+    metric_name: "scheduler.tasks_failed"
+    condition: "gt"
+    threshold: 10.0
+    severity: "high"
+    description: "High number of failed tasks detected"
+    for_duration: 300  # 5 minutes
+    labels:
+      component: "scheduler"
+      type: "task_failures"
+
+  - name: "no_scheduled_tasks"
+    metric_name: "scheduled_tasks_total"
+    condition: "eq"
+    threshold: 0.0
+    severity: "medium"
+    description: "No tasks are currently scheduled"
+    for_duration: 900  # 15 minutes
+    labels:
+      component: "scheduler"
+      type: "task_count"
+
+  # Component Health Alerts
+  - name: "component_unhealthy"
+    metric_name: "component_status"
+    condition: "eq"
+    threshold: 0.0
+    severity: "high"
+    description: "A system component is reporting unhealthy status"
+    for_duration: 120  # 2 minutes
+    labels:
+      type: "component_health"
+
+  - name: "high_component_errors"
+    metric_name: "component_errors_total"
+    condition: "gt"
+    threshold: 5.0
+    severity: "medium"
+    description: "Component is experiencing high error rates"
+    for_duration: 300  # 5 minutes
+    labels:
+      type: "component_errors"

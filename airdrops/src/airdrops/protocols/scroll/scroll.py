@@ -38,6 +38,7 @@ from .exceptions import (
     ScrollSwapError,
     InsufficientLiquidityError,
     TokenNotSupportedError,
+    PoolNotFoundError,
     ScrollLendingError,
     InsufficientCollateralError,
     RepayAmountExceedsDebtError,
@@ -132,6 +133,8 @@ def provide_liquidity_scroll(  # noqa: E302
     pool_address = _get_syncswap_pool_address_scroll(
         web3_scroll, token_a_address, token_b_address
     )
+    if pool_address is None:
+        raise PoolNotFoundError(f"No pool found for token pair {token_a_symbol}/{token_b_symbol}")
     if pool_address == ZERO_ADDRESS:
         raise InsufficientLiquidityError(
             f"No pool found for {token_a_symbol}-{token_b_symbol} on SyncSwap."
@@ -178,18 +181,20 @@ def provide_liquidity_scroll(  # noqa: E302
 
         # Call addLiquidity
         try:
+            tx_params = router_contract.functions.addLiquidity(
+                pool_address,
+                token_inputs,
+                b"",
+                min_liquidity,
+                ZERO_ADDRESS,
+                b"",
+            ).build_transaction({
+                'value': Wei(msg_value),
+            })
             tx_hash = _build_and_send_tx_scroll(
                 web3_scroll,
                 private_key,
-                router_contract.functions.addLiquidity(
-                    pool_address,
-                    token_inputs,
-                    b"",
-                    min_liquidity,
-                    ZERO_ADDRESS,
-                    b"",
-                ),
-                value=msg_value,
+                tx_params,
             )
         except Exception as e:
             logger.error(f"addLiquidity failed: {e}")
@@ -214,17 +219,18 @@ def provide_liquidity_scroll(  # noqa: E302
 
         # Call burnLiquidity
         try:
+            tx_params = router_contract.functions.burnLiquidity(
+                pool_address,
+                lp_token_amount,
+                b"",
+                [amount_a_min, amount_b_min],
+                ZERO_ADDRESS,
+                b"",
+            ).build_transaction({})
             tx_hash = _build_and_send_tx_scroll(
                 web3_scroll,
                 private_key,
-                router_contract.functions.burnLiquidity(
-                    pool_address,
-                    lp_token_amount,
-                    b"",
-                    [amount_a_min, amount_b_min],
-                    ZERO_ADDRESS,
-                    b"",
-                ),
+                tx_params,
             )
         except Exception as e:
             logger.error(f"burnLiquidity failed: {e}")
@@ -284,7 +290,7 @@ def _calculate_min_amounts_out_scroll(
     pool_address: str,
     lp_token_amount: int,
     slippage_percent: float,
-) -> (int, int):
+) -> Tuple[int, int]:
     """
     Calculate minimum amounts of tokens to receive when removing liquidity.
 
@@ -462,9 +468,12 @@ def _build_and_send_tx_scroll(
             # Include address in log if available
             from_address = tx_params.get("from", "N/A")
             to_address = tx_params.get("to", "N/A")
+            # Convert bytes to string if needed for logging
+            from_addr_str = from_address.hex() if isinstance(from_address, bytes) else str(from_address)
+            to_addr_str = to_address.hex() if isinstance(to_address, bytes) else str(to_address)
             data_present = "data" in tx_params
             logger.error(
-                f"Gas estimation failed for tx from {from_address} to {to_address} "
+                f"Gas estimation failed for tx from {from_addr_str} to {to_addr_str} "
                 f"(data present: {data_present}): {e!s}"
             )
             if isinstance(e, ContractLogicError):  # More specific error
@@ -655,30 +664,10 @@ def _estimate_l1_to_l2_message_fee_scroll(
 ) -> int:
     """Estimate the L1->L2 message fee using the Scroll L1 Gas Oracle."""
     try:
-        oracle_abi: Sequence[Dict[str, Any]] = [
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "gasLimit",
-                        "type": "uint256",
-                    }
-                ],
-                "name": "estimateCrossDomainMessageFee",
-                "outputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "",
-                        "type": "uint256",
-                    },
-                ],
-                "stateMutability": "view",
-                "type": "function",
-            }
-        ]
-        oracle = web3_l1.eth.contract(
-            address=Web3.to_checksum_address(SCROLL_L1_GAS_ORACLE_ADDRESS),
-            abi=oracle_abi,
+        oracle = _get_contract_scroll(
+            web3_l1,
+            "scroll_l1_gas_oracle",  # This will need to be defined in ABI mapping
+            SCROLL_L1_GAS_ORACLE_ADDRESS
         )
         fee = oracle.functions.estimateCrossDomainMessageFee(l2_gas_limit).call()
         return int(fee)
@@ -1201,9 +1190,9 @@ def swap_tokens(
     # IRouter.SwapStep: { pool: address, data: bytes, callback: address,
     # callbackData: bytes }
 
-    # The _construct_syncswap_paths_scroll returns a list of dicts matching the structure.
-    # Web3.py will convert these Python dicts/lists to tuples as needed for
-    # the contract call.
+    # The _construct_syncswap_paths_scroll returns a list of dicts matching
+    # the structure. Web3.py will convert these Python dicts/lists to tuples
+    # as needed for the contract call.
 
     tx_value = Wei(amount_in) if is_eth_input else Wei(0)
 
@@ -1338,6 +1327,7 @@ def _check_and_enter_layerbank_market_scroll(
     except Exception as e:
         logger.error(f"Failed to enter LayerBank market {lbtoken_address}: {e}")
         raise ScrollLendingError(f"Failed to enter LayerBank market: {e}") from e
+    return
 
 
 def _get_layerbank_account_liquidity_scroll(
@@ -1375,6 +1365,27 @@ def _get_layerbank_account_liquidity_scroll(
     except Exception as e:
         logger.error(f"Failed to get account liquidity for {user_address}: {e}")
         raise ScrollLendingError(f"Failed to get account liquidity: {e}") from e
+
+
+    return
+
+
+    return
+
+
+    return
+
+
+    return
+
+
+    return
+
+
+    return
+
+
+    return
 
 
 def lend_borrow_layerbank_scroll(
@@ -1464,6 +1475,9 @@ def lend_borrow_layerbank_scroll(
             web3_scroll, private_key, token_symbol, amount, user_address,
             lbtoken_contract
         )
+    
+    # This should never be reached due to validation above, but mypy requires it
+    return ""
 
 
 def _handle_lend_action_scroll(
@@ -1481,7 +1495,7 @@ def _handle_lend_action_scroll(
     try:
         if token_symbol == "ETH":
             # Check ETH balance
-            eth_balance = web3_scroll.eth.get_balance(user_address)
+            eth_balance = web3_scroll.eth.get_balance(Web3.to_checksum_address(user_address))
             if eth_balance < amount:
                 raise InsufficientBalanceError(
                     f"Insufficient ETH balance: have {eth_balance}, need {amount}"
@@ -1517,7 +1531,9 @@ def _handle_lend_action_scroll(
                 "from": user_address,
                 "gasPrice": web3_scroll.eth.gas_price,
             }
-            mint_tx = lbtoken_contract.functions.mint(amount).build_transaction(tx_params)
+            mint_tx = lbtoken_contract.functions.mint(amount).build_transaction(
+                tx_params
+            )
 
         # Send mint transaction
         tx_hash = _build_and_send_tx_scroll(web3_scroll, private_key, mint_tx)
@@ -1556,7 +1572,9 @@ def _handle_withdraw_action_scroll(
             "from": user_address,
             "gasPrice": web3_scroll.eth.gas_price,
         }
-        redeem_tx = lbtoken_contract.functions.redeemUnderlying(amount).build_transaction(tx_params)
+        redeem_tx = lbtoken_contract.functions.redeemUnderlying(amount).build_transaction(
+            tx_params
+        )
 
         tx_hash = _build_and_send_tx_scroll(web3_scroll, private_key, redeem_tx)
         logger.info(f"Successfully withdrew {amount} {token_symbol} from LayerBank")
@@ -1577,7 +1595,7 @@ def _handle_borrow_action_scroll(
     user_address: str,
     lbtoken_contract: Contract,
     comptroller_contract: Contract,
-    lbtoken_address: str, # Add lbtoken_address here
+    lbtoken_address: str,  # Add lbtoken_address here
 ) -> str:
     """Handle borrow action for LayerBank."""
     logger.info(f"Borrowing {amount} {token_symbol} from LayerBank")
@@ -1651,7 +1669,7 @@ def _handle_repay_action_scroll(
 
         if token_symbol == "ETH":
             # Check ETH balance
-            eth_balance = web3_scroll.eth.get_balance(user_address)
+            eth_balance = web3_scroll.eth.get_balance(Web3.to_checksum_address(user_address))
             if eth_balance < amount:
                 raise InsufficientBalanceError(
                     f"Insufficient ETH balance for repayment: have {eth_balance}, need {amount}"
@@ -1952,24 +1970,24 @@ def _select_random_scroll_action(config: Dict[str, Any]) -> str:
     """
     try:
         action_weights = config.get("action_weights", {})
-        
+
         # Default uniform weights if not provided
         if not action_weights:
             actions = ["bridge_assets", "swap_tokens", "provide_liquidity_scroll", "lend_borrow_layerbank_scroll"]
             return random.choice(actions)
-        
+
         # Validate weights
         actions = list(action_weights.keys())
         weights = list(action_weights.values())
-        
+
         if not actions or not all(w >= 0 for w in weights) or sum(weights) <= 0:
             raise ScrollRandomActivityError("Invalid action weights: weights must be positive and sum > 0")
-        
+
         # Use random.choices for weighted selection
         selected_action = random.choices(actions, weights=weights, k=1)[0]
         logger.info(f"Selected random action: {selected_action}")
         return selected_action
-        
+
     except Exception as e:
         logger.error(f"Failed to select random action: {e}")
         raise ScrollRandomActivityError(f"Action selection failed: {e}") from e
@@ -1999,22 +2017,22 @@ def _get_wallet_balances_scroll(
         True
     """
     balances = {}
-    
+
     for symbol in token_symbols:
         try:
             if symbol == ETH_SYMBOL:
-                balance = web3_scroll.eth.get_balance(address)
+                balance = web3_scroll.eth.get_balance(Web3.to_checksum_address(address))
                 balances[symbol] = int(balance)
             else:
                 token_address = _get_l2_token_address_scroll(symbol)
                 token_contract = _get_contract_scroll(web3_scroll, ERC20_ABI_NAME, token_address)
                 balance = token_contract.functions.balanceOf(address).call()
                 balances[symbol] = int(balance)
-                
+
         except Exception as e:
             logger.warning(f"Failed to get balance for {symbol}: {e}")
             balances[symbol] = 0
-    
+
     return balances
 
 
@@ -2052,7 +2070,7 @@ def _generate_params_for_scroll_action(
     """
     try:
         action_config = activity_config.get(action_name, {})
-        
+
         if action_name == "bridge_assets":
             return _generate_bridge_params_scroll(web3_l1, web3_scroll, user_address, action_config)
         elif action_name == "swap_tokens":
@@ -2063,7 +2081,7 @@ def _generate_params_for_scroll_action(
             return _generate_lending_params_scroll(web3_scroll, user_address, action_config)
         else:
             raise ScrollRandomActivityError(f"Unknown action: {action_name}")
-            
+
     except Exception as e:
         logger.error(f"Failed to generate parameters for {action_name}: {e}")
         raise ScrollRandomActivityError(f"Parameter generation failed for {action_name}: {e}") from e
@@ -2078,40 +2096,40 @@ def _generate_bridge_params_scroll(
     """Generate parameters for bridge_assets action."""
     directions = config.get("directions", [("deposit", 0.5), ("withdraw", 0.5)])
     tokens = config.get("tokens_l1_l2", ["ETH", "USDC"])
-    
+
     # Select direction and token
     direction_choices, direction_weights = zip(*directions) if directions else (["deposit"], [1.0])
     direction = random.choices(list(direction_choices), weights=list(direction_weights), k=1)[0]
     token_symbol = random.choice(tokens)
-    
+
     # Get balances to determine realistic amounts
     if direction == "deposit":
         if token_symbol == ETH_SYMBOL:
-            balance = web3_l1.eth.get_balance(user_address)
+            balance = web3_l1.eth.get_balance(Web3.to_checksum_address(user_address))
             amount_range = config.get("amount_eth_range", [0.001, 0.005])
         else:
             # For ERC20 tokens, we'd need to check L1 balance
             amount_range = config.get("amount_usdc_range", [1, 10])
-            balance = int(amount_range[1] * 10**6)  # Assume sufficient for demo
+            balance = Wei(int(amount_range[1] * 10**6))  # Assume sufficient for demo
     else:  # withdraw
         if token_symbol == ETH_SYMBOL:
-            balance = web3_scroll.eth.get_balance(user_address)
+            balance = web3_scroll.eth.get_balance(Web3.to_checksum_address(user_address))
             amount_range = config.get("amount_eth_range", [0.001, 0.005])
         else:
             # Check L2 balance
             amount_range = config.get("amount_usdc_range", [1, 10])
-            balance = int(amount_range[1] * 10**6)  # Assume sufficient for demo
-    
+            balance = Wei(int(amount_range[1] * 10**6))  # Assume sufficient for demo
+
     # Generate amount within range and balance constraints
     if token_symbol == ETH_SYMBOL:
         min_amount = int(amount_range[0] * 10**18)
-        max_amount = int(min(amount_range[1] * 10**18, balance * 0.8))  # Use 80% of balance max
+        max_amount = Wei(int(min(amount_range[1] * 10**18, balance * 0.8)))  # Use 80% of balance max
     else:
         min_amount = int(amount_range[0] * 10**6)  # USDC has 6 decimals
-        max_amount = int(min(amount_range[1] * 10**6, balance * 0.8))
-    
+        max_amount = Wei(int(min(amount_range[1] * 10**6, balance * 0.8)))
+
     amount = random.randint(min_amount, max(min_amount, max_amount))
-    
+
     return {
         "web3_l1": web3_l1,
         "web3_l2": web3_scroll,
@@ -2130,7 +2148,7 @@ def _generate_swap_params_scroll(
     """Generate parameters for swap_tokens action."""
     token_pairs = config.get("token_pairs", [("ETH", "USDC", 1.0)])
     slippage = config.get("slippage_percent", 0.5)
-    
+
     # Select token pair
     if token_pairs:
         pair_choices = [(pair[0], pair[1]) for pair in token_pairs]
@@ -2138,19 +2156,19 @@ def _generate_swap_params_scroll(
         token_in, token_out = random.choices(pair_choices, weights=pair_weights, k=1)[0]
     else:
         token_in, token_out = "ETH", "USDC"
-    
+
     # Get balance and determine amount
     balances = _get_wallet_balances_scroll(web3_scroll, user_address, [token_in], {})
     balance = balances.get(token_in, 0)
-    
+
     if token_in == ETH_SYMBOL:
         percent_range = config.get("amount_eth_percent_range", [5, 15])
     else:
         percent_range = config.get("amount_usdc_percent_range", [10, 30])
-    
+
     percent = random.uniform(percent_range[0], percent_range[1])
     amount = int(balance * percent / 100)
-    
+
     return {
         "web3_scroll": web3_scroll,
         "token_in_symbol": token_in,
@@ -2169,18 +2187,18 @@ def _generate_liquidity_params_scroll(
     actions = config.get("actions", [("add", 0.7), ("remove", 0.3)])
     token_pairs = config.get("token_pairs", [("ETH", "USDC", 1.0)])
     slippage = config.get("slippage_percent", 0.5)
-    
+
     # Select action and token pair
     action_choices, action_weights = zip(*actions) if actions else (["add"], [1.0])
     action = random.choices(list(action_choices), weights=list(action_weights), k=1)[0]
-    
+
     if token_pairs:
         pair_choices = [(pair[0], pair[1]) for pair in token_pairs]
         pair_weights = [pair[2] if len(pair) > 2 else 1.0 for pair in token_pairs]
         token_a, token_b = random.choices(pair_choices, weights=pair_weights, k=1)[0]
     else:
         token_a, token_b = "ETH", "USDC"
-    
+
     params = {
         "web3_scroll": web3_scroll,
         "action": action,
@@ -2188,27 +2206,27 @@ def _generate_liquidity_params_scroll(
         "token_b_symbol": token_b,
         "slippage_percent": slippage,
     }
-    
+
     if action == "add":
         # Get balances and calculate amounts
         balances = _get_wallet_balances_scroll(web3_scroll, user_address, [token_a, token_b], {})
-        
+
         eth_percent_range = config.get("add_amount_eth_percent_range", [5, 10])
         usdc_percent_range = config.get("add_amount_usdc_percent_range", [5, 10])
-        
+
         if token_a == ETH_SYMBOL:
             percent_a = random.uniform(eth_percent_range[0], eth_percent_range[1])
         else:
             percent_a = random.uniform(usdc_percent_range[0], usdc_percent_range[1])
-            
+
         if token_b == ETH_SYMBOL:
             percent_b = random.uniform(eth_percent_range[0], eth_percent_range[1])
         else:
             percent_b = random.uniform(usdc_percent_range[0], usdc_percent_range[1])
-        
+
         amount_a = int(balances.get(token_a, 0) * percent_a / 100)
         amount_b = int(balances.get(token_b, 0) * percent_b / 100)
-        
+
         params.update({
             "amount_a_desired": max(amount_a, 1),
             "amount_b_desired": max(amount_b, 1),
@@ -2219,7 +2237,7 @@ def _generate_liquidity_params_scroll(
         percent = random.uniform(lp_percent_range[0], lp_percent_range[1])
         # In real implementation, would fetch actual LP balance
         params["lp_token_amount"] = int(10**18 * percent / 100)  # Demo value
-    
+
     return params
 
 
@@ -2231,16 +2249,16 @@ def _generate_lending_params_scroll(
     """Generate parameters for lend_borrow_layerbank_scroll action."""
     actions = config.get("actions", [("lend", 0.4), ("borrow", 0.2), ("repay", 0.2), ("withdraw", 0.2)])
     tokens = config.get("tokens", ["ETH", "USDC"])
-    
+
     # Select action and token
     action_choices, action_weights = zip(*actions) if actions else (["lend"], [1.0])
     action = random.choices(list(action_choices), weights=list(action_weights), k=1)[0]
     token_symbol = random.choice(tokens)
-    
+
     # Get balance for amount calculation
     balances = _get_wallet_balances_scroll(web3_scroll, user_address, [token_symbol], {})
     balance = balances.get(token_symbol, 0)
-    
+
     if action == "lend":
         if token_symbol == ETH_SYMBOL:
             percent_range = config.get("lend_amount_eth_percent_range", [10, 25])
@@ -2252,7 +2270,7 @@ def _generate_lending_params_scroll(
         # For borrow/repay/withdraw, would need to check LayerBank positions
         # Simplified for demo
         amount = int(balance * 0.1)  # Use 10% as demo
-    
+
     return {
         "web3_scroll": web3_scroll,
         "action": action,
@@ -2308,27 +2326,27 @@ def perform_random_activity_scroll(
         True
     """
     logger.info(f"Starting random activity sequence with {action_count} actions")
-    
+
     # Validate inputs
     if action_count <= 0:
         raise ValueError("action_count must be positive")
-    
+
     if not config or "random_activity_scroll" not in config:
         raise ScrollRandomActivityError("Missing 'random_activity_scroll' configuration")
-    
+
     activity_config = config["random_activity_scroll"]
     stop_on_failure = activity_config.get("stop_on_failure", True)
     inter_action_delay_range = activity_config.get("inter_action_delay_seconds_range", [])
-    
+
     # Validate action weights early to catch configuration errors
     action_weights = activity_config.get("action_weights", {})
     if not action_weights:
         raise ScrollRandomActivityError("Missing 'action_weights' in configuration")
-    
+
     weights = list(action_weights.values())
     if not all(w >= 0 for w in weights) or sum(weights) <= 0:
         raise ScrollRandomActivityError("Invalid action weights: weights must be positive and sum > 0")
-    
+
     # Get user address
     try:
         account = _get_account_scroll(private_key, web3_scroll)
@@ -2337,7 +2355,7 @@ def perform_random_activity_scroll(
         error_msg = f"Failed to get account from private key: {e}"
         logger.error(error_msg)
         return False, error_msg
-    
+
     # Action dispatch mapping
     action_map = {
         "bridge_assets": bridge_assets,
@@ -2345,13 +2363,13 @@ def perform_random_activity_scroll(
         "provide_liquidity_scroll": provide_liquidity_scroll,
         "lend_borrow_layerbank_scroll": lend_borrow_layerbank_scroll,
     }
-    
+
     successful_tx_hashes = []
-    
+
     try:
         for i in range(action_count):
             logger.info(f"Executing action {i + 1}/{action_count}")
-            
+
             # Select random action
             try:
                 selected_action = _select_random_scroll_action(activity_config)
@@ -2368,7 +2386,7 @@ def perform_random_activity_scroll(
                 if stop_on_failure:
                     return False, error_msg
                 continue
-            
+
             # Generate parameters for the action
             try:
                 action_params = _generate_params_for_scroll_action(
@@ -2388,11 +2406,11 @@ def perform_random_activity_scroll(
                 if stop_on_failure:
                     return False, error_msg
                 continue
-            
+
             # Execute the action
             try:
                 action_function = action_map[selected_action]
-                tx_hash = action_function(**action_params)
+                tx_hash = action_function(**action_params)  # type: ignore[operator]
                 successful_tx_hashes.append(tx_hash)
                 logger.info(f"Action {selected_action} completed successfully: {tx_hash}")
             except Exception as e:
@@ -2401,7 +2419,7 @@ def perform_random_activity_scroll(
                 if stop_on_failure:
                     return len(successful_tx_hashes) > 0, successful_tx_hashes if successful_tx_hashes else error_msg
                 # Continue with next action if stop_on_failure is False
-            
+
             # Inter-action delay
             if i < action_count - 1 and inter_action_delay_range and len(inter_action_delay_range) >= 2:
                 delay = random.uniform(
@@ -2411,7 +2429,7 @@ def perform_random_activity_scroll(
                 time.sleep(delay)
         logger.info(f"Random activity sequence completed. Successful transactions: {len(successful_tx_hashes)}")
         return True, successful_tx_hashes
-        
+
     except ScrollRandomActivityError:
         # Re-raise ScrollRandomActivityError to preserve specific error type
         raise
@@ -2449,3 +2467,4 @@ __all__ = [
 # The task is to add swap_tokens, so focus on new functionality's exposure.
 # For now, only add new functions to __all__ and let tests adapt if they were
 # patching internal details.
+

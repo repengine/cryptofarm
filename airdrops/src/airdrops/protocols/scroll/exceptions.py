@@ -103,6 +103,9 @@ class InsufficientLiquidityError(ScrollSwapError):
     """Raised if liquidity is insufficient for a swap or no path is found."""
 
     pass
+class PoolNotFoundError(ScrollSwapError):
+    """Raised when a SyncSwap pool is not found."""
+    pass
 
 
 # Note: SlippageTooHighError was considered but is generally handled by amountOutMin.

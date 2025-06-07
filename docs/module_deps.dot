@@ -1,0 +1,29 @@
+digraph module_dependencies {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue];
+    
+    // Core modules
+    "airdrops.scheduler" [fillcolor=lightgreen];
+    "airdrops.risk_management" [fillcolor=lightgreen];
+    "airdrops.capital_allocation" [fillcolor=lightgreen];
+    
+    // External dependencies
+    "apscheduler" [fillcolor=lightyellow, shape=ellipse];
+    "logging" [fillcolor=lightyellow, shape=ellipse];
+    "datetime" [fillcolor=lightyellow, shape=ellipse];
+    "typing" [fillcolor=lightyellow, shape=ellipse];
+    "dataclasses" [fillcolor=lightyellow, shape=ellipse];
+    "enum" [fillcolor=lightyellow, shape=ellipse];
+    
+    // Dependencies
+    "airdrops.scheduler" -> "apscheduler";
+    "airdrops.scheduler" -> "logging";
+    "airdrops.scheduler" -> "datetime";
+    "airdrops.scheduler" -> "typing";
+    "airdrops.scheduler" -> "dataclasses";
+    "airdrops.scheduler" -> "enum";
+    
+    // Integration dependencies
+    "airdrops.scheduler" -> "airdrops.risk_management" [style=dashed, label="integration"];
+    "airdrops.scheduler" -> "airdrops.capital_allocation" [style=dashed, label="integration"];
+}

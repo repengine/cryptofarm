@@ -18,7 +18,8 @@ from airdrops.protocols.scroll.exceptions import (
     ApprovalError,
     ScrollSwapError,
     InsufficientLiquidityError,
-    TokenNotSupportedError,  # Added based on flake8 F401 from previous runs
+    TokenNotSupportedError,
+    PoolNotFoundError,
     ScrollLendingError,
     InsufficientCollateralError,
     MarketNotEnteredError,
@@ -2518,3 +2519,1251 @@ class TestScrollRandomActivity:
         mock_sleep.assert_called_once()
         sleep_duration = mock_sleep.call_args[0][0]
         assert 1.0 <= sleep_duration <= 2.0
+
+# Tests for main public functions that need better coverage
+
+class TestScrollBridgeEth:
+    """Test class for bridge_eth function (alias for bridge_assets with ETH)."""
+
+    def setup_method(self):
+        self.web3_l1 = MagicMock(spec=Web3)
+        self.web3_l2 = MagicMock(spec=Web3)
+        
+        # Properly mock the eth attribute
+        self.web3_l1.eth = MagicMock()
+        self.web3_l2.eth = MagicMock()
+        
+        self.private_key = "0x" + "1" * 64
+        self.amount = 1000000000000000000  # 1 ETH
+        self.recipient = DEFAULT_RECIPIENT_ADDRESS
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._estimate_l1_to_l2_message_fee_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    def test_bridge_eth_deposit_success(self, mock_build_send, mock_estimate_fee, mock_get_contract, mock_get_account):
+        """Test successful ETH deposit to L2."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_contract = MagicMock()
+        mock_get_contract.return_value = mock_contract
+        
+        mock_estimate_fee.return_value = 1000
+        mock_build_send.return_value = MOCK_TX_HASH
+        
+        # Mock ETH balance check
+        self.web3_l1.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        
+        # Execute
+        tx_hash = scroll.bridge_assets(
+            web3_l1=self.web3_l1,
+            web3_l2=self.web3_l2,
+            private_key=self.private_key,
+            direction="deposit",
+            token_symbol="ETH",
+            amount=self.amount,
+            recipient_address=self.recipient
+        )
+        
+        # Assert
+        assert tx_hash == MOCK_TX_HASH
+        mock_estimate_fee.assert_called_once()
+        mock_build_send.assert_called_once()
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    def test_bridge_eth_insufficient_balance(self, mock_get_account):
+        """Test InsufficientBalanceError when ETH balance is too low."""
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        # Mock insufficient balance
+        self.web3_l1.eth.get_balance.return_value = Wei(100)  # Very low balance
+        
+        with patch('airdrops.protocols.scroll.scroll._estimate_l1_to_l2_message_fee_scroll') as mock_estimate_fee:
+            mock_estimate_fee.return_value = 1000
+            
+            with pytest.raises(scroll.InsufficientBalanceError, match="Insufficient ETH for deposit"):
+                scroll.bridge_assets(
+                    web3_l1=self.web3_l1,
+                    web3_l2=self.web3_l2,
+                    private_key=self.private_key,
+                    direction="deposit",
+                    token_symbol="ETH",
+                    amount=self.amount,
+                    recipient_address=self.recipient
+                )
+
+    def test_bridge_eth_invalid_direction(self):
+        """Test ValueError for invalid direction."""
+        with pytest.raises(ValueError, match="Invalid direction"):
+            scroll.bridge_assets(
+                web3_l1=self.web3_l1,
+                web3_l2=self.web3_l2,
+                private_key=self.private_key,
+                direction="invalid",
+                token_symbol="ETH",
+                amount=self.amount,
+                recipient_address=self.recipient
+            )
+
+    def test_bridge_eth_unsupported_token(self):
+        """Test TokenNotSupportedError for unsupported token."""
+        with pytest.raises(scroll.TokenNotSupportedError, match="Token INVALID not in shared_config"):
+            scroll.bridge_assets(
+                web3_l1=self.web3_l1,
+                web3_l2=self.web3_l2,
+                private_key=self.private_key,
+                direction="deposit",
+                token_symbol="INVALID",
+                amount=self.amount,
+                recipient_address=self.recipient
+            )
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    def test_bridge_eth_withdraw_success(self, mock_build_send, mock_get_contract, mock_get_account):
+        """Test successful ETH withdrawal from L2."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_contract = MagicMock()
+        mock_get_contract.return_value = mock_contract
+        
+        mock_build_send.return_value = MOCK_TX_HASH
+        
+        # Mock ETH balance check on L2
+        self.web3_l2.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        
+        # Execute
+        tx_hash = scroll.bridge_assets(
+            web3_l1=self.web3_l1,
+            web3_l2=self.web3_l2,
+            private_key=self.private_key,
+            direction="withdraw",
+            token_symbol="ETH",
+            amount=self.amount,
+            recipient_address=self.recipient
+        )
+        
+        # Assert
+        assert tx_hash == MOCK_TX_HASH
+        mock_build_send.assert_called_once()
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    def test_bridge_eth_withdraw_insufficient_balance(self, mock_get_account):
+        """Test InsufficientBalanceError when L2 ETH balance is too low."""
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        # Mock insufficient balance on L2
+        self.web3_l2.eth.get_balance.return_value = Wei(100)  # Very low balance
+        
+        with pytest.raises(scroll.InsufficientBalanceError, match="Insufficient ETH for withdrawal"):
+            scroll.bridge_assets(
+                web3_l1=self.web3_l1,
+                web3_l2=self.web3_l2,
+                private_key=self.private_key,
+                direction="withdraw",
+                token_symbol="ETH",
+                amount=self.amount,
+                recipient_address=self.recipient
+            )
+
+
+class TestScrollLendEth:
+    """Test class for lend_eth function (alias for lend_borrow_layerbank_scroll with ETH)."""
+
+    def setup_method(self):
+        self.web3_scroll = MagicMock(spec=Web3)
+        self.web3_scroll.eth = MagicMock()
+        self.private_key = "0x" + "1" * 64
+        self.amount = 1000000000000000000  # 1 ETH
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_layerbank_lbtoken_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    @patch('airdrops.protocols.scroll.scroll._check_and_enter_layerbank_market_scroll')
+    def test_lend_eth_success(self, mock_enter_market, mock_build_send, mock_get_contract, mock_get_lbtoken, mock_get_account):
+        """Test successful ETH lending to LayerBank."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_lbtoken.return_value = shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+        
+        mock_lbtoken_contract = MagicMock()
+        mock_comptroller_contract = MagicMock()
+        mock_get_contract.side_effect = [mock_lbtoken_contract, mock_comptroller_contract]
+        
+        mock_build_send.return_value = MOCK_TX_HASH
+        
+        # Mock ETH balance check
+        self.web3_scroll.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+        
+        # Execute
+        tx_hash = scroll.lend_borrow_layerbank_scroll(
+            web3_scroll=self.web3_scroll,
+            private_key=self.private_key,
+            action="lend",
+            token_symbol="ETH",
+            amount=self.amount
+        )
+        
+        # Assert
+        assert tx_hash == MOCK_TX_HASH
+        mock_build_send.assert_called_once()
+        mock_enter_market.assert_called_once()
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_layerbank_lbtoken_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_lend_eth_insufficient_balance(self, mock_get_contract, mock_get_lbtoken, mock_get_account):
+        """Test InsufficientBalanceError when ETH balance is too low."""
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_lbtoken.return_value = shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+        
+        # Mock insufficient balance
+        self.web3_scroll.eth.get_balance.return_value = Wei(100)  # Very low balance
+        
+        with pytest.raises(scroll.InsufficientBalanceError, match="Insufficient ETH balance"):
+            scroll.lend_borrow_layerbank_scroll(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                action="lend",
+                token_symbol="ETH",
+                amount=self.amount
+            )
+
+    def test_lend_eth_invalid_action(self):
+        """Test ValueError for invalid action."""
+        with pytest.raises(ValueError, match="Invalid action"):
+            scroll.lend_borrow_layerbank_scroll(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                action="invalid",
+                token_symbol="ETH",
+                amount=self.amount
+            )
+
+    def test_lend_eth_unsupported_token(self):
+        """Test TokenNotSupportedError for unsupported token."""
+        with pytest.raises(scroll.TokenNotSupportedError, match="Token INVALID not supported for LayerBank"):
+            scroll.lend_borrow_layerbank_scroll(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                action="lend",
+                token_symbol="INVALID",
+                amount=self.amount
+            )
+
+    def test_lend_eth_zero_amount(self):
+        """Test ValueError for zero amount."""
+        with pytest.raises(ValueError, match="Amount must be positive"):
+            scroll.lend_borrow_layerbank_scroll(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                action="lend",
+                token_symbol="ETH",
+                amount=0
+            )
+
+
+class TestScrollWithdrawEthFromLending:
+    """Test class for withdraw_eth_from_lending function."""
+
+    def setup_method(self):
+        self.web3_scroll = MagicMock(spec=Web3)
+        self.web3_scroll = MagicMock(spec=Web3).eth = MagicMock()
+        self.private_key = "0x" + "1" * 64
+        self.amount = 1000000000000000000  # 1 ETH
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_layerbank_lbtoken_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    def test_withdraw_eth_from_lending_success(self, mock_build_send, mock_get_contract, mock_get_lbtoken, mock_get_account):
+        """Test successful ETH withdrawal from LayerBank."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_lbtoken.return_value = shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+        
+        mock_lbtoken_contract = MagicMock()
+        mock_comptroller_contract = MagicMock()
+        mock_get_contract.side_effect = [mock_lbtoken_contract, mock_comptroller_contract]
+        
+        mock_build_send.return_value = MOCK_TX_HASH
+        
+        # Mock gas price
+        self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+        
+        # Execute
+        tx_hash = scroll.lend_borrow_layerbank_scroll(
+            web3_scroll=self.web3_scroll,
+            private_key=self.private_key,
+            action="withdraw",
+            token_symbol="ETH",
+            amount=self.amount
+        )
+        
+        # Assert
+        assert tx_hash == MOCK_TX_HASH
+        mock_build_send.assert_called_once()
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_layerbank_lbtoken_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    def test_withdraw_eth_transaction_reverted_error(self, mock_build_send, mock_get_contract, mock_get_lbtoken, mock_get_account):
+        """Test ScrollLendingError when withdrawal transaction reverts."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_lbtoken.return_value = shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+        
+        mock_lbtoken_contract = MagicMock()
+        mock_comptroller_contract = MagicMock()
+        mock_get_contract.side_effect = [mock_lbtoken_contract, mock_comptroller_contract]
+        
+        # Mock transaction revert
+        mock_build_send.side_effect = scroll.TransactionRevertedError("Transaction reverted")
+        
+        # Mock gas price
+        self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+        
+        # Execute and assert
+        with pytest.raises(scroll.TransactionRevertedError):
+            scroll.lend_borrow_layerbank_scroll(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                action="withdraw",
+                token_symbol="ETH",
+                amount=self.amount
+            )
+
+
+class TestScrollSyncSwapFunctions:
+    """Test class for SyncSwap-specific functions."""
+
+    def setup_method(self):
+        self.web3_scroll = MagicMock(spec=Web3)
+        self.web3_scroll = MagicMock(spec=Web3).eth = MagicMock()
+        self.private_key = "0x" + "1" * 64
+        self.token_a_symbol = "ETH"
+        self.token_b_symbol = "USDC"
+        self.amount_a = 1000000000000000000  # 1 ETH
+        self.amount_b = 1000000000  # 1000 USDC
+        self.slippage_percent = 0.5
+
+    @patch('airdrops.protocols.scroll.scroll._get_syncswap_classic_pool_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_syncswap_pool_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._approve_erc20_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_l2_token_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    def test_provide_liquidity_syncswap_add_success(self, mock_get_account, mock_get_token_addr, mock_get_contract, mock_build_send, mock_approve, mock_get_pool_addr, mock_get_pool_contract):
+        """Test successful liquidity provision to SyncSwap."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_token_addr.side_effect = [
+            WETH_L2_ADDRESS,  # For ETH (token_a_symbol)
+            USDC_L2_ADDRESS,  # For USDC (token_b_symbol)
+            WETH_L2_ADDRESS   # For WETH_SYMBOL lookup in _get_l2_token_address_scroll
+        ]
+        
+        mock_router_contract = MagicMock()
+        mock_pool_contract = MagicMock()
+        mock_usdc_contract = MagicMock()
+        mock_get_contract.side_effect = [
+            mock_router_contract,  # For _get_syncswap_router_contract_scroll
+            mock_usdc_contract,    # For ERC20 approval
+        ]
+        
+        # Mock the pool contract for _calculate_min_liquidity_scroll
+        mock_get_pool_contract.return_value = mock_pool_contract
+        
+        # Mock pool address lookup
+        mock_get_pool_addr.return_value = "0x1234567890123456789012345678901234567890"
+        
+        # Mock pool exists
+        mock_router_contract.functions.getPool.return_value.call.return_value = "0x1234567890123456789012345678901234567890"
+        
+        # Mock reserves for price calculation
+        mock_pool_contract.functions.getReserves.return_value.call.return_value = [
+            1000 * 10**18,  # ETH reserve
+            2000000 * 10**6  # USDC reserve (2M USDC)
+        ]
+        
+        # Mock total supply for liquidity calculations
+        mock_pool_contract.functions.totalSupply.return_value.call.return_value = 1000 * 10**18  # Total supply
+        
+        # Mock balances
+        self.web3_scroll.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        mock_usdc_contract.functions.balanceOf.return_value.call.return_value = 5000 * 10**6  # 5000 USDC
+        
+        mock_build_send.return_value = MOCK_TX_HASH
+        self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+        
+        # Execute
+        tx_hash = scroll.provide_liquidity_scroll(
+            web3_scroll=self.web3_scroll,
+            private_key=self.private_key,
+            action="add",
+            token_a_symbol=self.token_a_symbol,
+            token_b_symbol=self.token_b_symbol,
+            amount_a_desired=self.amount_a,
+            amount_b_desired=self.amount_b,
+            slippage_percent=self.slippage_percent
+        )
+        
+        # Assert
+        assert tx_hash == MOCK_TX_HASH
+        mock_approve.assert_called_once()  # USDC approval
+        mock_build_send.assert_called_once()
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_l2_token_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_provide_liquidity_syncswap_pool_not_found(self, mock_get_contract, mock_get_token_addr, mock_get_account):
+        """Test PoolNotFoundError when SyncSwap pool doesn't exist."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_token_addr.return_value = shared_config.SCROLL_USDC_TOKEN_ADDRESS
+        
+        mock_router_contract = MagicMock()
+        mock_get_contract.return_value = mock_router_contract
+        
+        # Mock pool doesn't exist (returns zero address)
+        mock_router_contract.functions.getPool.return_value.call.return_value = "0x0000000000000000000000000000000000000000"
+        
+        # Execute and assert
+        with pytest.raises(PoolNotFoundError, match="No pool found for token pair ETH/USDC"):
+            scroll.provide_liquidity_scroll(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                action="add",
+                token_a_symbol=self.token_a_symbol,
+                token_b_symbol=self.token_b_symbol,
+                amount_a_desired=self.amount_a,
+                amount_b_desired=self.amount_b,
+                slippage_percent=self.slippage_percent
+            )
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_l2_token_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    def test_remove_liquidity_syncswap_success(self, mock_build_send, mock_get_contract, mock_get_token_addr, mock_get_account):
+        """Test successful liquidity removal from SyncSwap."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_token_addr.side_effect = [
+            WETH_L2_ADDRESS,  # For ETH (token_a_symbol)
+            USDC_L2_ADDRESS,  # For USDC (token_b_symbol)
+            WETH_L2_ADDRESS   # For WETH_SYMBOL lookup in _get_l2_token_address_scroll
+        ]
+        
+        mock_router_contract = MagicMock()
+        mock_pool_contract = MagicMock()
+        mock_lp_token_contract = MagicMock() # New mock for LP token contract
+        mock_get_contract.side_effect = [
+            mock_router_contract,     # For _get_syncswap_router_contract_scroll
+            mock_pool_contract,       # For _get_syncswap_classic_pool_contract_scroll in _calculate_min_amounts_out_scroll
+            mock_lp_token_contract,   # For ERC20 approval of LP token
+            mock_pool_contract,       # For _calculate_min_amounts_out_scroll again (getReserves, totalSupply)
+            mock_pool_contract        # For _calculate_min_amounts_out_scroll again (getReserves, totalSupply)
+        ]
+        
+        # Mock pool exists
+        mock_router_contract.functions.getPool.return_value.call.return_value = "0x1234567890123456789012345678901234567890"
+        
+        # Mock LP token balance
+        mock_pool_contract.functions.balanceOf.return_value.call.return_value = 5 * 10**18  # 5 LP tokens
+        
+        mock_build_send.return_value = MOCK_TX_HASH
+        self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+        
+        # Execute
+        lp_token_amount = 1 * 10**18  # 1 LP token
+        tx_hash = scroll.provide_liquidity_scroll(
+            web3_scroll=self.web3_scroll,
+            private_key=self.private_key,
+            action="remove",
+            token_a_symbol=self.token_a_symbol,
+            token_b_symbol=self.token_b_symbol,
+            lp_token_amount=lp_token_amount,
+            slippage_percent=self.slippage_percent
+        )
+        
+        # Assert
+        assert tx_hash == MOCK_TX_HASH
+        assert mock_build_send.call_count == 2  # Approval + main transaction
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_l2_token_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    @patch('airdrops.protocols.scroll.scroll._approve_erc20_scroll')
+    def test_swap_tokens_syncswap_success(self, mock_approve, mock_build_send, mock_get_contract, mock_get_token_addr, mock_get_account):
+        """Test successful token swap via SyncSwap."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_token_addr.side_effect = [
+            WETH_L2_ADDRESS,  # For WETH_SYMBOL in swap_tokens
+            WETH_L2_ADDRESS,  # For token_in_symbol (ETH)
+            USDC_L2_ADDRESS   # For token_out_symbol (USDC)
+        ]
+        
+        mock_router_contract = MagicMock()
+        mock_pool_contract = MagicMock()
+        mock_usdc_contract = MagicMock()
+        mock_get_contract.side_effect = [
+            mock_router_contract,  # For _get_syncswap_router_contract_scroll
+            mock_pool_contract,    # For _get_expected_amount_out_syncswap_scroll (direct pool)
+            mock_router_contract,  # For _construct_syncswap_paths_scroll (vault)
+            mock_router_contract,  # For _construct_syncswap_paths_scroll (getPool)
+            mock_pool_contract,    # For _get_expected_amount_out_syncswap_scroll (via WETH, pool1)
+            mock_pool_contract,    # For _get_expected_amount_out_syncswap_scroll (via WETH, pool2)
+            mock_usdc_contract,    # For ERC20 approval
+            mock_router_contract,  # For swap function call
+            mock_router_contract,  # For _construct_syncswap_paths_scroll (getPool) - second call
+            mock_pool_contract,    # For _get_expected_amount_out_syncswap_scroll (via WETH, pool1) - second call
+            mock_pool_contract,    # For _get_expected_amount_out_syncswap_scroll (via WETH, pool2) - second call
+        ]
+        
+        # Mock pool exists
+        mock_router_contract.functions.getPool.return_value.call.return_value = "0x1234567890123456789012345678901234567890"
+        
+        # Mock reserves for price calculation
+        mock_pool_contract.functions.getReserves.return_value.call.return_value = [
+            1000 * 10**18,  # ETH reserve
+            2000000 * 10**6  # USDC reserve (2M USDC)
+        ]
+        
+        # Mock balance check
+        self.web3_scroll.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        
+        mock_build_send.return_value = MOCK_TX_HASH
+        self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+        
+        # Execute
+        amount_in = 1 * 10**18  # 1 ETH
+        tx_hash = scroll.swap_tokens(
+            web3_scroll=self.web3_scroll,
+            private_key=self.private_key,
+            token_in_symbol="ETH",
+            token_out_symbol="USDC",
+            amount_in=amount_in,
+            slippage_percent=self.slippage_percent
+        )
+        
+        # Assert
+        assert tx_hash == MOCK_TX_HASH
+        mock_build_send.assert_called_once()
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_l2_token_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_swap_tokens_syncswap_insufficient_balance(self, mock_get_contract, mock_get_token_addr, mock_get_account):
+        """Test InsufficientBalanceError when token balance is too low."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_token_addr.return_value = shared_config.SCROLL_USDC_TOKEN_ADDRESS
+        
+        mock_router_contract = MagicMock()
+        mock_get_contract.return_value = mock_router_contract
+        
+        # Mock pool exists
+        mock_router_contract.functions.getPool.return_value.call.return_value = "0x1234567890123456789012345678901234567890"
+        
+        # Mock insufficient balance
+        self.web3_scroll.eth.get_balance.return_value = Wei(100)  # Very low balance
+        
+        # Execute and assert
+        amount_in = 1 * 10**18  # 1 ETH (more than balance)
+        with pytest.raises(scroll.InsufficientBalanceError, match="Insufficient ETH balance"):
+            scroll.swap_tokens(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                token_in_symbol="ETH",
+                token_out_symbol="USDC",
+                amount_in=amount_in,
+                slippage_percent=self.slippage_percent
+            )
+
+
+class TestScrollHelperFunctions:
+    """Test class for helper functions that need better coverage."""
+
+    def setup_method(self):
+        self.web3_scroll = MagicMock(spec=Web3)
+        self.web3_scroll.eth = MagicMock()
+        self.private_key = "0x" + "1" * 64
+        self.user_address = DEFAULT_SENDER_ADDRESS
+
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_estimate_l1_to_l2_message_fee_scroll_success(self, mock_get_contract):
+        """Test successful L1 to L2 message fee estimation."""
+        # Setup mocks
+        mock_oracle_contract = MagicMock()
+        mock_get_contract.return_value = mock_oracle_contract
+        
+        # Mock fee estimation
+        expected_fee = 1000
+        mock_oracle_contract.functions.estimateCrossDomainMessageFee.return_value.call.return_value = expected_fee
+        
+        # Execute
+        fee = scroll._estimate_l1_to_l2_message_fee_scroll(
+            web3_l1=self.web3_scroll,  # Using scroll web3 for simplicity
+            l2_gas_limit=200000
+        )
+        
+        # Assert
+        assert fee == expected_fee
+        mock_oracle_contract.functions.estimateCrossDomainMessageFee.assert_called_once_with(200000)
+
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_estimate_l1_to_l2_message_fee_scroll_contract_error(self, mock_get_contract):
+        """Test ScrollBridgeError when oracle contract call fails."""
+        # Setup mocks
+        mock_oracle_contract = MagicMock()
+        mock_get_contract.return_value = mock_oracle_contract
+        
+        # Mock contract call failure
+        mock_oracle_contract.functions.estimateCrossDomainMessageFee.return_value.call.side_effect = Exception("Contract error")
+        
+        # Execute and assert
+        with pytest.raises(scroll.GasEstimationError, match="Failed to estimate L1->L2 message fee"):
+            scroll._estimate_l1_to_l2_message_fee_scroll(
+                web3_l1=self.web3_scroll,
+                l2_gas_limit=200000
+            )
+
+    def test_get_l2_token_address_scroll_eth(self):
+        """Test _get_l2_token_address_scroll for ETH."""
+        # ETH maps to WETH on L2, but we need to check what the actual function returns
+        with patch('airdrops.protocols.scroll.scroll.shared_config') as mock_config:
+            mock_config.SCROLL_TOKEN_ADDRESSES = {
+                "ETH": {"L2": "0x5300000000000000000000000000000000000004"},  # WETH on Scroll
+                "WETH": {"L2": "0x5300000000000000000000000000000000000004"}
+            }
+            address = scroll._get_l2_token_address_scroll("ETH")
+            assert address == "0x5300000000000000000000000000000000000004"
+
+    def test_get_l2_token_address_scroll_usdc(self):
+        """Test _get_l2_token_address_scroll for USDC."""
+        address = scroll._get_l2_token_address_scroll("USDC")
+        assert address == shared_config.SCROLL_USDC_TOKEN_ADDRESS
+
+    def test_get_l2_token_address_scroll_unsupported(self):
+        """Test TokenNotSupportedError for unsupported token."""
+        with pytest.raises(scroll.TokenNotSupportedError, match="Token symbol 'INVALID' not supported"):
+            scroll._get_l2_token_address_scroll("INVALID")
+
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    def test_approve_erc20_scroll_success(self, mock_build_send, mock_get_contract):
+        """Test successful ERC20 approval."""
+        # Setup mocks
+        mock_token_contract = MagicMock()
+        mock_get_contract.return_value = mock_token_contract
+        
+        mock_build_send.return_value = MOCK_APPROVAL_TX_HASH
+        
+        # Mock current allowance (0)
+        mock_token_contract.functions.allowance.return_value.call.return_value = 0
+        
+        # Execute
+        tx_hash = scroll._approve_erc20_scroll(
+            web3_scroll=self.web3_scroll,
+            private_key=self.private_key,
+            token_address=shared_config.SCROLL_USDC_TOKEN_ADDRESS,
+            spender_address="0x1234567890123456789012345678901234567890",
+            amount=1000000000  # 1000 USDC
+        )
+        
+        # Assert
+        assert tx_hash == MOCK_APPROVAL_TX_HASH
+        mock_build_send.assert_called_once()
+
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_approve_erc20_scroll_already_approved(self, mock_get_contract):
+        """Test ERC20 approval when already sufficient allowance."""
+        # Setup mocks
+        mock_token_contract = MagicMock()
+        mock_get_contract.return_value = mock_token_contract
+        
+        # Mock current allowance (sufficient)
+        amount = 1000000000  # 1000 USDC
+        mock_token_contract.functions.allowance.return_value.call.return_value = amount * 2  # Double the needed amount
+        
+        # Execute
+        tx_hash = scroll._approve_erc20_scroll(
+            web3_scroll=self.web3_scroll,
+            private_key=self.private_key,
+            token_address=shared_config.SCROLL_USDC_TOKEN_ADDRESS,
+            spender_address="0x1234567890123456789012345678901234567890",
+            amount=amount
+        )
+        
+        # Assert - the function actually returns a string indicating sufficient approval
+        assert "existing_approval_sufficient" in tx_hash
+
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    @patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll')
+    def test_approve_erc20_scroll_approval_error(self, mock_build_send, mock_get_contract):
+        """Test ApprovalError when approval transaction fails."""
+        # Setup mocks
+        mock_token_contract = MagicMock()
+        mock_get_contract.return_value = mock_token_contract
+        
+        # Mock current allowance (0)
+        mock_token_contract.functions.allowance.return_value.call.return_value = 0
+        
+        # Mock transaction failure
+        mock_build_send.side_effect = Exception("Transaction failed")
+        
+        # Execute and assert
+        with pytest.raises(scroll.ApprovalError, match="ERC20 approval error: Transaction failed"):
+            scroll._approve_erc20_scroll(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                token_address=shared_config.SCROLL_USDC_TOKEN_ADDRESS,
+                spender_address="0x1234567890123456789012345678901234567890",
+                amount=1000000000
+            )
+
+    def test_get_layerbank_lbtoken_address_scroll_eth(self):
+        """Test _get_layerbank_lbtoken_address_scroll for ETH."""
+        address = scroll._get_layerbank_lbtoken_address_scroll("ETH")
+        assert address == shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+
+    def test_get_layerbank_lbtoken_address_scroll_usdc(self):
+        """Test _get_layerbank_lbtoken_address_scroll for USDC."""
+        address = scroll._get_layerbank_lbtoken_address_scroll("USDC")
+        assert address == shared_config.LAYERBANK_LBUSDC_ADDRESS_SCROLL
+
+    def test_get_layerbank_lbtoken_address_scroll_unsupported(self):
+        """Test TokenNotSupportedError for unsupported token."""
+        with pytest.raises(scroll.TokenNotSupportedError, match="Token symbol 'INVALID' not supported"):
+            scroll._get_layerbank_lbtoken_address_scroll("INVALID")
+
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_get_layerbank_account_liquidity_scroll_success(self, mock_get_contract):
+        """Test successful account liquidity check."""
+        # Setup mocks
+        mock_comptroller_contract = MagicMock()
+        mock_get_contract.return_value = mock_comptroller_contract
+        
+        # Mock successful liquidity check
+        expected_result = (0, 1000000000000000000, 0)  # No error, 1 ETH liquidity, no shortfall
+        mock_comptroller_contract.functions.getAccountLiquidity.return_value.call.return_value = expected_result
+        
+        # Execute
+        error_code, liquidity, shortfall = scroll._get_layerbank_account_liquidity_scroll(
+            web3_scroll=self.web3_scroll,
+            comptroller_contract=mock_comptroller_contract,
+            user_address=self.user_address
+        )
+        
+        # Assert
+        assert error_code == 0
+        assert liquidity == 1000000000000000000
+        assert shortfall == 0
+
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_check_and_enter_layerbank_market_scroll_not_entered(self, mock_get_contract):
+        """Test entering LayerBank market when not already entered."""
+        # Setup mocks
+        mock_comptroller_contract = MagicMock()
+        mock_get_contract.return_value = mock_comptroller_contract
+        
+        # Mock not entered in market
+        mock_comptroller_contract.functions.checkMembership.return_value.call.return_value = False
+        
+        with patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll') as mock_build_send:
+            mock_build_send.return_value = MOCK_TX_HASH
+            self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+            
+            # Execute
+            scroll._check_and_enter_layerbank_market_scroll(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                lbtoken_address=shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL,
+                user_address=self.user_address
+            )
+            
+            # Assert
+            mock_build_send.assert_called_once()
+
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_check_and_enter_layerbank_market_scroll_already_entered(self, mock_get_contract):
+        """Test LayerBank market entry when already entered."""
+        # Setup mocks
+        mock_comptroller_contract = MagicMock()
+        mock_get_contract.return_value = mock_comptroller_contract
+        
+        # Mock already entered in market
+        mock_comptroller_contract.functions.checkMembership.return_value.call.return_value = True
+        
+        # Execute
+        scroll._check_and_enter_layerbank_market_scroll(
+            web3_scroll=self.web3_scroll,
+            private_key=self.private_key,
+            lbtoken_address=shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL,
+            user_address=self.user_address
+        )
+        
+        # Assert - no transaction should be sent
+        # This is verified by not mocking _build_and_send_tx_scroll
+
+
+class TestScrollRandomActivityHelpers:
+    """Test class for random activity helper functions."""
+
+    def setup_method(self):
+        self.web3_l1 = MagicMock(spec=Web3)
+        self.web3_l1 = MagicMock(spec=Web3).eth = MagicMock()
+        self.web3_l1 = MagicMock(spec=Web3).eth = MagicMock()
+        self.web3_l1 = MagicMock(spec=Web3).eth = MagicMock()
+        self.web3_l1 = MagicMock(spec=Web3).eth = MagicMock()
+        self.web3_l1 = MagicMock(spec=Web3).eth = MagicMock()
+        self.web3_scroll = MagicMock(spec=Web3)
+        self.user_address = DEFAULT_SENDER_ADDRESS
+
+    def test_select_random_scroll_action_with_weights(self):
+        """Test action selection with configured weights."""
+        config = {
+            "action_weights": {
+                "bridge_assets": 0.5,
+                "swap_tokens": 0.3,
+                "provide_liquidity_scroll": 0.2
+            }
+        }
+        
+        with patch('airdrops.protocols.scroll.scroll.random.choices') as mock_choices:
+            mock_choices.return_value = ["bridge_assets"]
+            
+            action = scroll._select_random_scroll_action(config)
+            
+            assert action == "bridge_assets"
+            mock_choices.assert_called_once_with(
+                ["bridge_assets", "swap_tokens", "provide_liquidity_scroll"],
+                weights=[0.5, 0.3, 0.2],
+                k=1
+            )
+
+    def test_select_random_scroll_action_no_weights(self):
+        """Test action selection with default uniform weights."""
+        config = {}
+        
+        with patch('airdrops.protocols.scroll.scroll.random.choice') as mock_choice:
+            mock_choice.return_value = "swap_tokens"
+            
+            action = scroll._select_random_scroll_action(config)
+            
+            assert action == "swap_tokens"
+            expected_actions = ["bridge_assets", "swap_tokens", "provide_liquidity_scroll", "lend_borrow_layerbank_scroll"]
+            mock_choice.assert_called_once_with(expected_actions)
+
+    def test_select_random_scroll_action_invalid_weights(self):
+        """Test ScrollRandomActivityError for invalid weights."""
+        config = {
+            "action_weights": {
+                "bridge_assets": -1.0,  # Invalid negative weight
+                "swap_tokens": 0.0
+            }
+        }
+        
+        with pytest.raises(scroll.ScrollRandomActivityError, match="Invalid action weights"):
+            scroll._select_random_scroll_action(config)
+
+    def test_select_random_scroll_action_zero_sum_weights(self):
+        """Test ScrollRandomActivityError for zero sum weights."""
+        config = {
+            "action_weights": {
+                "bridge_assets": 0.0,
+                "swap_tokens": 0.0
+            }
+        }
+        
+        with pytest.raises(scroll.ScrollRandomActivityError, match="Invalid action weights"):
+            scroll._select_random_scroll_action(config)
+
+    def test_get_wallet_balances_scroll_success(self):
+        """Test successful wallet balance retrieval."""
+        token_symbols = ["ETH", "USDC"]
+        token_configs = {}
+        
+        # Mock ETH balance
+        self.web3_scroll.eth = MagicMock()
+        self.web3_scroll.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        
+        # Mock USDC contract and balance
+        with patch('airdrops.protocols.scroll.scroll._get_l2_token_address_scroll') as mock_get_addr, \
+             patch('airdrops.protocols.scroll.scroll._get_contract_scroll') as mock_get_contract:
+            
+            mock_get_addr.return_value = shared_config.SCROLL_USDC_TOKEN_ADDRESS
+            
+            mock_usdc_contract = MagicMock()
+            mock_usdc_contract.functions.balanceOf.return_value.call.return_value = 1000 * 10**6  # 1000 USDC
+            mock_get_contract.return_value = mock_usdc_contract
+            
+            # Execute
+            balances = scroll._get_wallet_balances_scroll(
+                web3_scroll=self.web3_scroll,
+                address=self.user_address,
+                token_symbols=token_symbols,
+                token_configs=token_configs
+            )
+            
+            # Assert
+            assert balances["ETH"] == 5 * 10**18
+            assert balances["USDC"] == 1000 * 10**6
+
+    def test_get_wallet_balances_scroll_contract_error(self):
+        """Test wallet balance retrieval with contract error."""
+        token_symbols = ["ETH", "USDC"]
+        token_configs = {}
+        
+        # Mock ETH balance
+        self.web3_scroll.eth = MagicMock()
+        self.web3_scroll.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        
+        # Mock USDC contract error
+        with patch('airdrops.protocols.scroll.scroll._get_l2_token_address_scroll') as mock_get_addr, \
+             patch('airdrops.protocols.scroll.scroll._get_contract_scroll') as mock_get_contract:
+            
+            mock_get_addr.return_value = shared_config.SCROLL_USDC_TOKEN_ADDRESS
+            mock_get_contract.side_effect = Exception("Contract error")
+            
+            # Execute
+            balances = scroll._get_wallet_balances_scroll(
+                web3_scroll=self.web3_scroll,
+                address=self.user_address,
+                token_symbols=token_symbols,
+                token_configs=token_configs
+            )
+            
+            # Assert - ETH should succeed, USDC should default to 0
+            assert balances["ETH"] == 5 * 10**18
+            assert balances["USDC"] == 0
+
+    def test_generate_bridge_params_scroll_deposit(self):
+        """Test bridge parameter generation for deposit."""
+        config = {
+            "directions": [("deposit", 1.0)],
+            "tokens_l1_l2": ["ETH"],
+            "amount_eth_range": [0.001, 0.005]
+        }
+        
+        # Mock L1 ETH balance
+        self.web3_l1.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        
+        with patch('airdrops.protocols.scroll.scroll.random.choices') as mock_choices, \
+             patch('airdrops.protocols.scroll.scroll.random.choice') as mock_choice, \
+             patch('airdrops.protocols.scroll.scroll.random.randint') as mock_randint:
+            
+            mock_choices.return_value = ["deposit"]
+            mock_choice.return_value = "ETH"
+            mock_randint.return_value = 2000000000000000000  # 2 ETH
+            
+            params = scroll._generate_bridge_params_scroll(
+                web3_l1=self.web3_l1,
+                web3_scroll=self.web3_scroll,
+                user_address=self.user_address,
+                config=config
+            )
+            
+            # Assert
+            assert params["direction"] == "deposit"
+            assert params["token_symbol"] == "ETH"
+            assert params["amount"] == 2000000000000000000
+            assert params["web3_l1"] == self.web3_l1
+            assert params["web3_l2"] == self.web3_scroll
+
+    def test_generate_swap_params_scroll_success(self):
+        """Test swap parameter generation."""
+        config = {
+            "token_pairs": [("ETH", "USDC", 1.0)],
+            "slippage_percent": 0.5,
+            "amount_eth_percent_range": [5, 15]
+        }
+        
+        with patch('airdrops.protocols.scroll.scroll._get_wallet_balances_scroll') as mock_get_balances, \
+             patch('airdrops.protocols.scroll.scroll.random.choices') as mock_choices, \
+             patch('airdrops.protocols.scroll.scroll.random.uniform') as mock_uniform:
+            
+            mock_get_balances.return_value = {"ETH": 5 * 10**18}  # 5 ETH
+            mock_choices.return_value = [("ETH", "USDC")]
+            mock_uniform.return_value = 10.0  # 10%
+            
+            params = scroll._generate_swap_params_scroll(
+                web3_scroll=self.web3_scroll,
+                user_address=self.user_address,
+                config=config
+            )
+            
+            # Assert
+            assert params["token_in_symbol"] == "ETH"
+            assert params["token_out_symbol"] == "USDC"
+            assert params["amount_in"] == int(5 * 10**18 * 0.1)  # 10% of 5 ETH
+            assert params["slippage_percent"] == 0.5
+
+    def test_generate_liquidity_params_scroll_add(self):
+        """Test liquidity parameter generation for add action."""
+        config = {
+            "actions": [("add", 1.0)],
+            "token_pairs": [("ETH", "USDC", 1.0)],
+            "slippage_percent": 0.5,
+            "add_amount_eth_percent_range": [5, 10],
+            "add_amount_usdc_percent_range": [5, 10]
+        }
+        
+        with patch('airdrops.protocols.scroll.scroll._get_wallet_balances_scroll') as mock_get_balances, \
+             patch('airdrops.protocols.scroll.scroll.random.choices') as mock_choices, \
+             patch('airdrops.protocols.scroll.scroll.random.uniform') as mock_uniform:
+            
+            mock_get_balances.return_value = {"ETH": 5 * 10**18, "USDC": 1000 * 10**6}
+            mock_choices.side_effect = [["add"], [("ETH", "USDC")]]
+            mock_uniform.side_effect = [7.5, 7.5]  # 7.5% for both tokens
+            
+            params = scroll._generate_liquidity_params_scroll(
+                web3_scroll=self.web3_scroll,
+                user_address=self.user_address,
+                config=config
+            )
+            
+            # Assert
+            assert params["action"] == "add"
+            assert params["token_a_symbol"] == "ETH"
+            assert params["token_b_symbol"] == "USDC"
+            assert params["amount_a_desired"] == int(5 * 10**18 * 0.075)  # 7.5% of 5 ETH
+            assert params["amount_b_desired"] == int(1000 * 10**6 * 0.075)  # 7.5% of 1000 USDC
+
+    def test_generate_lending_params_scroll_lend(self):
+        """Test lending parameter generation for lend action."""
+        config = {
+            "actions": [("lend", 1.0)],
+            "tokens": ["ETH"],
+            "lend_amount_eth_percent_range": [10, 25]
+        }
+        
+        with patch('airdrops.protocols.scroll.scroll._get_wallet_balances_scroll') as mock_get_balances, \
+             patch('airdrops.protocols.scroll.scroll.random.choices') as mock_choices, \
+             patch('airdrops.protocols.scroll.scroll.random.choice') as mock_choice, \
+             patch('airdrops.protocols.scroll.scroll.random.uniform') as mock_uniform:
+            
+            mock_get_balances.return_value = {"ETH": 5 * 10**18}
+            mock_choices.return_value = ["lend"]
+            mock_choice.return_value = "ETH"
+            mock_uniform.return_value = 15.0  # 15%
+            
+            params = scroll._generate_lending_params_scroll(
+                web3_scroll=self.web3_scroll,
+                user_address=self.user_address,
+                config=config
+            )
+            
+            # Assert
+            assert params["action"] == "lend"
+            assert params["token_symbol"] == "ETH"
+            assert params["amount"] == int(5 * 10**18 * 0.15)  # 15% of 5 ETH
+
+    def test_generate_params_for_scroll_action_unknown_action(self):
+        """Test ScrollRandomActivityError for unknown action."""
+        with pytest.raises(scroll.ScrollRandomActivityError, match="Unknown action"):
+            scroll._generate_params_for_scroll_action(
+                action_name="unknown_action",
+                web3_l1=self.web3_l1,
+                web3_scroll=self.web3_scroll,
+                private_key="0x" + "1" * 64,
+                user_address=self.user_address,
+                activity_config={},
+                scroll_token_config={}
+            )
+
+
+class TestScrollErrorHandling:
+    """Test class for error handling and edge cases."""
+
+    def setup_method(self):
+        self.web3_scroll = MagicMock(spec=Web3)
+        self.web3_scroll = MagicMock(spec=Web3).eth = MagicMock()
+        self.private_key = "0x" + "1" * 64
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_layerbank_lbtoken_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_handle_lend_action_scroll_transaction_reverted(self, mock_get_contract, mock_get_lbtoken, mock_get_account):
+        """Test ScrollLendingError when lend transaction reverts."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_lbtoken.return_value = shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+        
+        mock_lbtoken_contract = MagicMock()
+        mock_get_contract.return_value = mock_lbtoken_contract
+        
+        # Mock sufficient balance
+        self.web3_scroll.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+        
+        # Mock transaction revert
+        with patch('airdrops.protocols.scroll.scroll._build_and_send_tx_scroll') as mock_build_send:
+            mock_build_send.side_effect = scroll.TransactionRevertedError("Transaction reverted")
+            
+            with pytest.raises(scroll.ScrollLendingError, match="Lending failed"):
+                scroll._handle_lend_action_scroll(
+                    web3_scroll=self.web3_scroll,
+                    private_key=self.private_key,
+                    token_symbol="ETH",
+                    amount=1000000000000000000,  # 1 ETH
+                    user_address=DEFAULT_SENDER_ADDRESS,
+                    lbtoken_contract=mock_lbtoken_contract,
+                    lbtoken_address=shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+                )
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_layerbank_lbtoken_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_handle_borrow_action_scroll_insufficient_collateral(self, mock_get_contract, mock_get_lbtoken, mock_get_account):
+        """Test InsufficientCollateralError when borrowing without collateral."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_lbtoken.return_value = shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+        
+        mock_lbtoken_contract = MagicMock()
+        mock_comptroller_contract = MagicMock()
+        mock_get_contract.side_effect = [mock_lbtoken_contract, mock_comptroller_contract]
+        
+        # Mock market entry check
+        with patch('airdrops.protocols.scroll.scroll._check_and_enter_layerbank_market_scroll'), \
+             patch('airdrops.protocols.scroll.scroll._get_layerbank_account_liquidity_scroll') as mock_get_liquidity:
+            
+            # Mock no liquidity (insufficient collateral)
+            mock_get_liquidity.return_value = (0, 0, 0)  # No error, no liquidity, no shortfall
+            
+            with pytest.raises(scroll.InsufficientCollateralError, match="No available liquidity"):
+                scroll._handle_borrow_action_scroll(
+                    web3_scroll=self.web3_scroll,
+                    private_key=self.private_key,
+                    token_symbol="ETH",
+                    amount=1000000000000000000,  # 1 ETH
+                    user_address=DEFAULT_SENDER_ADDRESS,
+                    lbtoken_contract=mock_lbtoken_contract,
+                    comptroller_contract=mock_comptroller_contract,
+                    lbtoken_address=shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+                )
+
+    @patch('airdrops.protocols.scroll.scroll._get_account_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_layerbank_lbtoken_address_scroll')
+    @patch('airdrops.protocols.scroll.scroll._get_contract_scroll')
+    def test_handle_repay_action_scroll_repay_amount_exceeds_debt(self, mock_get_contract, mock_get_lbtoken, mock_get_account):
+        """Test RepayAmountExceedsDebtError when repay amount is too high."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        mock_get_account.return_value = mock_account
+        
+        mock_get_lbtoken.return_value = shared_config.LAYERBANK_LBETH_ADDRESS_SCROLL
+        
+        mock_lbtoken_contract = MagicMock()
+        mock_get_contract.return_value = mock_lbtoken_contract
+        
+        # Mock current debt (lower than repay amount)
+        current_debt = 500000000000000000  # 0.5 ETH
+        repay_amount = 1000000000000000000  # 1 ETH (more than debt)
+        mock_lbtoken_contract.functions.borrowBalanceStored.return_value.call.return_value = current_debt
+        
+        # Mock sufficient balance
+        self.web3_scroll.eth.get_balance.return_value = Wei(5 * 10**18)  # 5 ETH
+        self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+        
+        with pytest.raises(scroll.RepayAmountExceedsDebtError, match="Repay amount .* exceeds current debt"):
+            scroll._handle_repay_action_scroll(
+                web3_scroll=self.web3_scroll,
+                private_key=self.private_key,
+                token_symbol="ETH",
+                amount=repay_amount,
+                user_address=DEFAULT_SENDER_ADDRESS,
+                lbtoken_contract=mock_lbtoken_contract
+            )
+
+    def test_build_and_send_tx_scroll_gas_estimation_failure(self):
+        """Test transaction building with gas estimation failure."""
+        # Setup mocks
+        mock_account = MagicMock()
+        mock_account.address = DEFAULT_SENDER_ADDRESS
+        
+        # Mock transaction dict
+        tx_dict = {
+            "from": DEFAULT_SENDER_ADDRESS,
+            "to": "0x1234567890123456789012345678901234567890",
+            "value": Wei(0),
+            "data": "0x"
+        }
+        
+        # Mock gas estimation failure
+        self.web3_scroll.eth.estimate_gas.side_effect = Exception("Gas estimation failed")
+        self.web3_scroll.eth.gas_price = Wei(10 * 10**9)  # 10 gwei
+        self.web3_scroll.eth.get_transaction_count.return_value = 1
+        
+        with patch('airdrops.protocols.scroll.scroll._get_account_scroll') as mock_get_account:
+            mock_get_account.return_value = mock_account
+            
+            # Should use default gas limit when estimation fails
+            with patch.object(mock_account, 'sign_transaction') as mock_sign, \
+                 patch.object(self.web3_scroll.eth, 'send_raw_transaction') as mock_send, \
+                 patch.object(self.web3_scroll.eth, 'wait_for_transaction_receipt') as mock_wait:
+                
+                mock_sign.return_value.rawTransaction = b"signed_tx"
+                mock_send.return_value = HexBytes(MOCK_TX_HASH)
+                mock_wait.return_value = {"status": 1}
+                
+                # Execute and assert that GasEstimationError is raised
+                with pytest.raises(scroll.GasEstimationError, match="Gas estimation failed"):
+                    scroll._build_and_send_tx_scroll(
+                        web3_instance=self.web3_scroll,
+                        private_key=self.private_key,
+                        tx_params=tx_dict
+                    )

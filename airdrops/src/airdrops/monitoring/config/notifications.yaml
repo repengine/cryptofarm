@@ -1,0 +1,127 @@
+# Notification Channels Configuration for Airdrops Monitoring System
+# This file defines notification channels for alert delivery
+
+channels:
+  # Email Notification Channel
+  - name: "email_alerts"
+    type: "email"
+    enabled: true
+    config:
+      smtp_host: "smtp.gmail.com"
+      smtp_port: 587
+      use_tls: true
+      from: "alerts@airdrop-automation.com"
+      to: "admin@airdrop-automation.com"
+      # Note: For production, use environment variables:
+      # username: ${SMTP_USERNAME}
+      # password: ${SMTP_PASSWORD}
+      username: "your-email@gmail.com"
+      password: "your-app-password"
+
+  # Slack Notification Channel
+  - name: "slack_critical"
+    type: "slack"
+    enabled: true
+    config:
+      # Slack webhook URL - replace with your actual webhook
+      webhook_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+      channel: "#alerts-critical"
+      username: "Airdrop Monitor"
+      icon_emoji: ":warning:"
+
+  # Slack Channel for General Alerts
+  - name: "slack_general"
+    type: "slack"
+    enabled: true
+    config:
+      webhook_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+      channel: "#alerts-general"
+      username: "Airdrop Monitor"
+      icon_emoji: ":information_source:"
+
+  # Discord Notification Channel
+  - name: "discord_alerts"
+    type: "webhook"
+    enabled: false  # Disabled by default
+    config:
+      url: "https://discord.com/api/webhooks/YOUR/DISCORD/WEBHOOK"
+      headers:
+        Content-Type: "application/json"
+
+  # Generic Webhook for Custom Integrations
+  - name: "custom_webhook"
+    type: "webhook"
+    enabled: false  # Disabled by default
+    config:
+      url: "https://your-custom-endpoint.com/alerts"
+      headers:
+        Authorization: "Bearer YOUR_API_TOKEN"
+        Content-Type: "application/json"
+
+  # PagerDuty Integration (via webhook)
+  - name: "pagerduty_critical"
+    type: "webhook"
+    enabled: false  # Disabled by default
+    config:
+      url: "https://events.pagerduty.com/v2/enqueue"
+      headers:
+        Authorization: "Token token=YOUR_PAGERDUTY_TOKEN"
+        Content-Type: "application/json"
+
+  # Microsoft Teams Webhook
+  - name: "teams_alerts"
+    type: "webhook"
+    enabled: false  # Disabled by default
+    config:
+      url: "https://outlook.office.com/webhook/YOUR/TEAMS/WEBHOOK"
+      headers:
+        Content-Type: "application/json"
+
+  # Local File Logging (for testing)
+  - name: "file_logger"
+    type: "webhook"
+    enabled: false  # Disabled by default - for testing only
+    config:
+      url: "http://localhost:8080/alerts"  # Local test endpoint
+      headers:
+        Content-Type: "application/json"
+
+# Channel Routing Rules (future enhancement)
+# This section can be used to route specific alert types to specific channels
+routing_rules:
+  # Critical alerts go to multiple channels
+  critical:
+    - "email_alerts"
+    - "slack_critical"
+    - "pagerduty_critical"
+  
+  # High severity alerts
+  high:
+    - "email_alerts"
+    - "slack_critical"
+  
+  # Medium severity alerts
+  medium:
+    - "slack_general"
+  
+  # Low severity alerts
+  low:
+    - "slack_general"
+
+# Global notification settings
+settings:
+  # Maximum number of notifications per hour to prevent spam
+  rate_limit_per_hour: 100
+  
+  # Minimum time between duplicate alerts (in seconds)
+  duplicate_suppression_window: 300  # 5 minutes
+  
+  # Retry settings for failed notifications
+  retry_attempts: 3
+  retry_delay: 30  # seconds
+  
+  # Notification templates
+  templates:
+    email_subject: "[{severity}] {rule_name} - Airdrop Monitoring"
+    slack_title: ":warning: {rule_name}"
+    webhook_format: "json"  # json or form

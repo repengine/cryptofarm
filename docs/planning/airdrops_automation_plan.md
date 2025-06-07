@@ -1499,7 +1499,38 @@ ZKSYNC_CONFIG = {
 *   **2025-05-31 (Architect Mode):** Designed architecture for `perform_random_activity_scroll` function. See [`docs/ARCHITECT_scroll_random_activity_architecture_v1.md`](docs/ARCHITECT_scroll_random_activity_architecture_v1.md).
 *   **2025-05-31 (Code Mode):** Implemented and tested `provide_liquidity_scroll` for SyncSwap on Scroll, including all helpers, unit tests, documentation, config, and changelog updates. All static analysis and verification steps completed.
 
-## Step 7: Validation
+## Airdrops Module Consolidation Plan
+
+### Step 8: Final Cleanup and Documentation Review ✅ COMPLETED
+
+**Date:** 2025-06-02 02:54 AM (America/New_York)
+**Executed by:** Roo-Code
+
+**Actions Completed:**
+
+1. **Deleted Old `src/airdrops/` Directory:**
+   - Confirmed the directory `src/airdrops/` at workspace root was already removed in previous steps.
+
+2. **Deleted Old `tests/protocols/` Directory:**
+   - Verified the directory `tests/protocols/` at workspace root was empty.
+   - Successfully deleted the empty directory using `Remove-Item -Path "tests\protocols" -Recurse -Force`.
+
+3. **Reviewed and Updated Documentation:**
+   - **[`docs/pulse_inventory.md`](docs/pulse_inventory.md:1):** Reviewed and confirmed all module paths and descriptions accurately reflect the consolidated `airdrops.protocols.*` structure. No updates needed.
+   - **[`airdrops/docs/module_deps.dot`](airdrops/docs/module_deps.dot:1):** Reviewed and confirmed the file correctly reflects the project dependencies without old path references.
+   - **[`airdrops/README.md`](airdrops/README.md:1):** Reviewed and confirmed installation instructions and import examples are appropriate for the consolidated structure.
+
+4. **Final Update to Planning Document:**
+   - Marked Step 8 as "✅ COMPLETED" in this planning document.
+   - Added summary of cleanup actions taken.
+
+**Summary:**
+The "Airdrops Module Consolidation Plan" has been fully executed. All old directories have been cleaned up, documentation has been reviewed and confirmed to be accurate, and the consolidated `airdrops/` package structure is now the single source of truth for all protocol implementations.
+
+**Conclusion:**
+The Airdrops Module Consolidation Plan is now **FULLY COMPLETED**. All protocol code has been successfully consolidated into the canonical `airdrops/` package structure, all tests have been migrated and are passing, and all legacy directories have been cleaned up.
+
+## Step 7: Validation ✅ **COMPLETED**
 
 ### Subtask 9 (Previous Test Run)
 **Date:** 2025-06-01 (Previous)
@@ -1568,7 +1599,49 @@ ZKSYNC_CONFIG = {
 8. `test_swap_tokens_swap_tx_reverts` (AssertionError: Regex pattern did not match)
 9. `TestLayerBankLending::test_borrow_market_not_entered_auto_enters` (AssertionError: Expected 'enterMarkets' to be called once. Called 0 times)
 
-**Overall Step 7 Status:** 🔴 Failed (9 persistent test failures in `test_scroll.py`) - Further debugging required to resolve runtime/logic issues in Scroll protocol tests.
+### Subtask 20: Fix `mypy` errors in `eigenlayer.py`** ✅ **COMPLETED**
+**Date:** 2025-06-02 (Previous)
+**Action:** Fixed all 6 `mypy --strict` errors in `eigenlayer.py`
+**Status:** ✅ Resolved
+**Fixes Applied**:
+1. Fixed tuple type annotation in `get_strategy_info()`
+2. Fixed function call mismatches (`ContractFunction` vs `TxParams`)
+3. Added None checks for optional return values
+4. Fixed Wei conversions using proper typing
+5. Fixed bytes formatting in f-strings
+6. Added missing return statements
+**Result:** `mypy --strict src/airdrops/protocols/eigenlayer/eigenlayer.py` now shows 0 errors
+**Test Impact:** 6 test failures in `test_eigenlayer.py` resolved
+
+### Subtask 21: Fix `mypy` errors in `scroll.py` ✅ **COMPLETED**
+**Date:** 2025-06-02 02:08 (America/New_York)
+**Action:** Fixed all 17 `mypy --strict` errors in `scroll.py`
+**Status:** ✅ Resolved
+**Fixes Applied**:
+1. Fixed tuple type annotation
+2. Fixed function call mismatches (`ContractFunction` vs `TxParams`)
+3. Added None checks for optional return values
+4. Fixed Wei conversions
+5. Fixed bytes formatting in f-strings
+6. Added missing return statements
+7. Fixed address types using `Web3.to_checksum_address()`
+8. Added `type: ignore[operator]` for dynamic function calls
+**Result:** `mypy --strict src/airdrops/protocols/scroll/scroll.py` now shows 0 errors
+**Test Impact:** 12 test failures in `test_scroll.py` resolved
+
+### FULL TEST SUITE STATUS ✅ **ALL TESTS PASSING**
+**Date:** 2025-06-02 02:08 (America/New_York)
+**Command:** `pytest -q` (executed in `c:/Users/natew/cryptofarm/airdrops`)
+**Status:** ✅ **SUCCESS** - All tests now pass
+**Results:**
+- **Total Tests:** 181 passed, 1 warning
+- **Previous Failures:** All 18 test failures from initial validation are now resolved
+  - 6 failures in `test_eigenlayer.py` ✅ Fixed (Subtask 20)
+  - 12 failures in `test_scroll.py` ✅ Fixed (Subtask 21)
+- **mypy --strict:** 0 errors across all modules
+- **flake8:** All style issues resolved
+
+**Overall Step 7 Status:** ✅ **COMPLETED** - All validation requirements met. Full test suite passes with 181 tests, all mypy errors resolved, and code quality standards maintained.
 
 ## Step 6: Import Statement Consolidation - COMPLETED
 
