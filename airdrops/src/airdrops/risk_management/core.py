@@ -163,7 +163,7 @@ class RiskManager:
                 # Monitor ETH balances across networks
                 for network, web3 in self.web3_providers.items():
                     if web3.is_connected():
-                        balance_wei = web3.eth.get_balance(address)
+                        balance_wei = web3.eth.get_balance(Web3.to_checksum_address(address))
                         balance_eth = Decimal(str(web3.from_wei(balance_wei, 'ether')))
 
                         # Convert to USD (placeholder - would use price oracle)
@@ -314,7 +314,7 @@ class RiskManager:
             protocol_exposures = self.monitor_positions(wallet_addresses)
 
             # Calculate total portfolio value
-            portfolio_value = sum(protocol_exposures.values())
+            portfolio_value = Decimal(str(sum(protocol_exposures.values())))
 
             # Mock P&L calculation (would use historical data)
             portfolio_pnl = portfolio_value * Decimal("0.05")  # 5% gain
@@ -424,8 +424,6 @@ class RiskManager:
                 "max_position_size": max_protocol_exposure * volatility_multiplier,
                 "max_transaction_size": max_transaction_size * volatility_multiplier,
                 "max_asset_concentration": max_asset_concentration,
-                "protocol": protocol,
-                "asset": asset,
                 "volatility_adjustment": volatility_multiplier
             }
 

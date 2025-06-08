@@ -3,6 +3,23 @@ Protocols API
 
 The protocols module provides interfaces for interacting with various blockchain protocols and DeFi platforms. Each protocol implementation handles the specific requirements and APIs for that platform.
 
+.. contents:: Table of Contents
+   :local:
+   :depth: 2
+
+Overview
+--------
+
+The protocols module enables automated interactions with multiple DeFi protocols:
+
+* **Scroll** - Layer 2 scaling solution with full DeFi ecosystem
+* **zkSync Era** - Layer 2 with native account abstraction
+* **LayerZero** - Omnichain interoperability protocol
+* **Hyperliquid** - High-performance perpetuals DEX
+* **EigenLayer** - Ethereum restaking protocol
+
+Each protocol provides operations like bridging, swapping, lending, and liquidity provision.
+
 Main Protocols Module
 ---------------------
 

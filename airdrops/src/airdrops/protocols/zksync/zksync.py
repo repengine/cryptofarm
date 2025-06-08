@@ -6,11 +6,14 @@ This module provides functionalities to interact with the zkSync Era network,
 including bridging, DEX swaps, and lending protocol interactions.
 """
 
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Tuple, Dict, Any, List, Optional, cast
 import logging
 import random
 from decimal import Decimal
 from web3 import Web3
+from web3.types import TxParams
+from web3.contract import Contract
+from web3.contract.contract import ContractFunction
 from eth_account import Account
 
 # Configure logging for this module
@@ -86,7 +89,7 @@ def _get_web3_instance(rpc_url: str, chain_name: str) -> Web3:
 
 
 def _estimate_l1_gas(
-    contract_function, transaction_params: Dict[str, Any], multiplier: float = 1.2
+    contract_function: ContractFunction, transaction_params: Dict[str, Any], multiplier: float = 1.2
 ) -> int:
     """
     Estimate gas for L1 transaction with safety multiplier.
@@ -100,7 +103,7 @@ def _estimate_l1_gas(
         Estimated gas limit
     """
     try:
-        estimated_gas = contract_function.estimate_gas(transaction_params)
+        estimated_gas = contract_function.estimate_gas(cast(TxParams, transaction_params))
         return int(estimated_gas * multiplier)
     except Exception as e:
         logger.warning(f"Gas estimation failed: {e}, using default")
@@ -109,7 +112,7 @@ def _estimate_l1_gas(
 
 def _build_l1_deposit_transaction(
     w3_l1: Web3,
-    bridge_contract,
+    bridge_contract: Contract,
     user_address: str,
     amount_wei: int,
     l2_gas_limit: int,
@@ -158,7 +161,7 @@ def _build_l1_deposit_transaction(
         "from": user_address,
         "value": total_value,
         "gasPrice": gas_price,
-        "nonce": w3_l1.eth.get_transaction_count(user_address),
+        "nonce": w3_l1.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
     }
 
     # Estimate gas
@@ -166,13 +169,13 @@ def _build_l1_deposit_transaction(
     transaction_params["gas"] = gas_limit
 
     # Build the transaction
-    transaction = contract_function.build_transaction(transaction_params)
+    transaction = contract_function.build_transaction(cast(TxParams, transaction_params))
 
-    return transaction
+    return cast(Dict[str, Any], transaction)
 
 
 def _build_l2_withdrawal_transaction(
-    w3_l2: Web3, bridge_contract, user_address: str, amount_wei: int
+    w3_l2: Web3, bridge_contract: Contract, user_address: str, amount_wei: int
 ) -> Dict[str, Any]:
     """
     Build L2 to L1 withdrawal transaction.
@@ -195,12 +198,12 @@ def _build_l2_withdrawal_transaction(
         "from": user_address,
         "value": amount_wei,
         "gasPrice": w3_l2.eth.gas_price,
-        "nonce": w3_l2.eth.get_transaction_count(user_address),
+        "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
     }
 
     # Estimate gas for L2
     try:
-        estimated_gas = contract_function.estimate_gas(transaction_params)
+        estimated_gas = contract_function.estimate_gas(cast(TxParams, transaction_params))
         gas_limit = int(estimated_gas * 1.5)  # L2 gas multiplier
     except Exception:
         gas_limit = 100000  # Default L2 gas limit
@@ -208,9 +211,9 @@ def _build_l2_withdrawal_transaction(
     transaction_params["gas"] = gas_limit
 
     # Build the transaction
-    transaction = contract_function.build_transaction(transaction_params)
+    transaction = contract_function.build_transaction(cast(TxParams, transaction_params))
 
-    return transaction
+    return cast(Dict[str, Any], transaction)
 
 
 def bridge_eth(
@@ -312,7 +315,7 @@ def _execute_l1_to_l2_deposit(
 
         # Load L1 bridge contract (minimal ABI for requestL2Transaction)
         l1_bridge_abi = _get_l1_bridge_abi()
-        bridge_contract = w3_l1.eth.contract(address=l1_bridge_addr, abi=l1_bridge_abi)
+        bridge_contract = w3_l1.eth.contract(address=Web3.to_checksum_address(l1_bridge_addr), abi=l1_bridge_abi)
 
         # Get L2 gas parameters from config or use defaults
         settings = config.get("settings", {})
@@ -341,7 +344,7 @@ def _execute_l1_to_l2_deposit(
         # Wait for transaction receipt
         receipt = w3_l1.eth.wait_for_transaction_receipt(tx_hash)
 
-        if receipt.status == 1:
+        if receipt.get('status') == 1:
             logger.info(f"L1->L2 deposit successful: {tx_hash_hex}")
             return True, tx_hash_hex
         else:
@@ -368,7 +371,7 @@ def _execute_l2_to_l1_withdrawal(
 
         # Load L2 bridge contract (minimal ABI for withdraw)
         l2_bridge_abi = _get_l2_bridge_abi()
-        bridge_contract = w3_l2.eth.contract(address=l2_bridge_addr, abi=l2_bridge_abi)
+        bridge_contract = w3_l2.eth.contract(address=Web3.to_checksum_address(l2_bridge_addr), abi=l2_bridge_abi)
 
         # Build transaction
         transaction = _build_l2_withdrawal_transaction(
@@ -385,7 +388,7 @@ def _execute_l2_to_l1_withdrawal(
         # Wait for transaction receipt
         receipt = w3_l2.eth.wait_for_transaction_receipt(tx_hash)
 
-        if receipt.status == 1:
+        if receipt.get('status') == 1:
             logger.info(f"L2->L1 withdrawal initiated: {tx_hash_hex}")
             return True, tx_hash_hex
         else:
@@ -397,7 +400,7 @@ def _execute_l2_to_l1_withdrawal(
         return False, f"L2->L1 withdrawal error: {str(e)}"
 
 
-def _get_l1_bridge_abi() -> list:
+def _get_l1_bridge_abi() -> List[Dict[str, Any]]:
     """Get minimal ABI for L1 bridge contract."""
     return [
         {
@@ -429,7 +432,7 @@ def _get_l1_bridge_abi() -> list:
     ]
 
 
-def _get_l2_bridge_abi() -> list:
+def _get_l2_bridge_abi() -> List[Dict[str, Any]]:
     """Get minimal ABI for L2 bridge contract."""
     return [
         {
@@ -743,7 +746,7 @@ def _execute_syncswap_swap(
 
         # Load router contract
         router_abi = _get_syncswap_router_abi()
-        router_contract = w3_l2.eth.contract(address=router_address, abi=router_abi)
+        router_contract = w3_l2.eth.contract(address=Web3.to_checksum_address(router_address), abi=router_abi)
 
         # Handle token approval if needed (non-ETH input)
         if token_in_address.lower() != NATIVE_ETH_ADDRESS.lower():
@@ -799,7 +802,7 @@ def lend_borrow(
     amount: int,
     lending_protocol_name: str,
     config: Dict[str, Any],
-    collateral_status: bool = None,
+    collateral_status: Optional[bool] = None,
 ) -> Tuple[bool, str]:
     """
     Interact with a lending protocol on zkSync Era (EraLend).
@@ -908,7 +911,7 @@ def _validate_lend_borrow_inputs(
     amount: int,
     lending_protocol_name: str,
     config: Dict[str, Any],
-    collateral_status: bool = None,
+    collateral_status: Optional[bool] = None,
 ) -> None:
     """
     Validate inputs for lend_borrow function.
@@ -976,7 +979,7 @@ def _execute_lending_action(
     amount: int,
     lending_protocol_name: str,
     config: Dict[str, Any],
-    collateral_status: bool = None,
+    collateral_status: Optional[bool] = None,
 ) -> Tuple[bool, str]:
     """
     Execute the specified lending action.
@@ -1023,6 +1026,8 @@ def _execute_lending_action(
                 w3_l2, user_address, private_key, token_address, amount, protocol_config
             )
         elif action == "set_collateral":
+            if collateral_status is None:
+                return False, "collateral_status is required for set_collateral action"
             return _execute_set_collateral_action(
                 w3_l2,
                 user_address,
@@ -1059,7 +1064,7 @@ def _execute_supply_action(
 
             gateway_abi = _get_eralend_weth_gateway_abi()
             gateway_contract = w3_l2.eth.contract(
-                address=gateway_address, abi=gateway_abi
+                address=Web3.to_checksum_address(gateway_address), abi=gateway_abi
             )
 
             # Build depositETH transaction
@@ -1074,7 +1079,7 @@ def _execute_supply_action(
                 "from": user_address,
                 "value": amount,
                 "gasPrice": w3_l2.eth.gas_price,
-                "nonce": w3_l2.eth.get_transaction_count(user_address),
+                "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
             }
         else:
             # ERC20 token supply
@@ -1088,7 +1093,7 @@ def _execute_supply_action(
 
             # Call supply function on lending pool manager
             pool_abi = _get_eralend_lending_pool_abi()
-            pool_contract = w3_l2.eth.contract(address=pool_address, abi=pool_abi)
+            pool_contract = w3_l2.eth.contract(address=Web3.to_checksum_address(pool_address), abi=pool_abi)
 
             referral_code = protocol_config.get("referral_code", 0)
             contract_function = pool_contract.functions.supply(
@@ -1098,7 +1103,7 @@ def _execute_supply_action(
             transaction_params = {
                 "from": user_address,
                 "gasPrice": w3_l2.eth.gas_price,
-                "nonce": w3_l2.eth.get_transaction_count(user_address),
+                "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
             }
 
         return _build_and_send_lending_transaction(
@@ -1131,7 +1136,7 @@ def _execute_withdraw_action(
 
             gateway_abi = _get_eralend_weth_gateway_abi()
             gateway_contract = w3_l2.eth.contract(
-                address=gateway_address, abi=gateway_abi
+                address=Web3.to_checksum_address(gateway_address), abi=gateway_abi
             )
 
             contract_function = gateway_contract.functions.withdrawETH(
@@ -1140,7 +1145,7 @@ def _execute_withdraw_action(
         else:
             # ERC20 token withdrawal
             pool_abi = _get_eralend_lending_pool_abi()
-            pool_contract = w3_l2.eth.contract(address=pool_address, abi=pool_abi)
+            pool_contract = w3_l2.eth.contract(address=Web3.to_checksum_address(pool_address), abi=pool_abi)
 
             contract_function = pool_contract.functions.withdraw(
                 token_address, amount, user_address
@@ -1149,7 +1154,7 @@ def _execute_withdraw_action(
         transaction_params = {
             "from": user_address,
             "gasPrice": w3_l2.eth.gas_price,
-            "nonce": w3_l2.eth.get_transaction_count(user_address),
+            "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
         }
 
         return _build_and_send_lending_transaction(
@@ -1182,7 +1187,7 @@ def _execute_borrow_action(
 
             gateway_abi = _get_eralend_weth_gateway_abi()
             gateway_contract = w3_l2.eth.contract(
-                address=gateway_address, abi=gateway_abi
+                address=Web3.to_checksum_address(gateway_address), abi=gateway_abi
             )
 
             interest_rate_mode = protocol_config.get("interest_rate_mode", 2)
@@ -1194,7 +1199,7 @@ def _execute_borrow_action(
         else:
             # ERC20 token borrowing
             pool_abi = _get_eralend_lending_pool_abi()
-            pool_contract = w3_l2.eth.contract(address=pool_address, abi=pool_abi)
+            pool_contract = w3_l2.eth.contract(address=Web3.to_checksum_address(pool_address), abi=pool_abi)
 
             interest_rate_mode = protocol_config.get("interest_rate_mode", 2)
             referral_code = protocol_config.get("referral_code", 0)
@@ -1206,7 +1211,7 @@ def _execute_borrow_action(
         transaction_params = {
             "from": user_address,
             "gasPrice": w3_l2.eth.gas_price,
-            "nonce": w3_l2.eth.get_transaction_count(user_address),
+            "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
         }
 
         return _build_and_send_lending_transaction(
@@ -1239,7 +1244,7 @@ def _execute_repay_action(
 
             gateway_abi = _get_eralend_weth_gateway_abi()
             gateway_contract = w3_l2.eth.contract(
-                address=gateway_address, abi=gateway_abi
+                address=Web3.to_checksum_address(gateway_address), abi=gateway_abi
             )
 
             interest_rate_mode = protocol_config.get("interest_rate_mode", 2)
@@ -1252,7 +1257,7 @@ def _execute_repay_action(
                 "from": user_address,
                 "value": amount,
                 "gasPrice": w3_l2.eth.gas_price,
-                "nonce": w3_l2.eth.get_transaction_count(user_address),
+                "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
             }
         else:
             # ERC20 token repayment
@@ -1264,7 +1269,7 @@ def _execute_repay_action(
                 return False, "Token approval failed"
 
             pool_abi = _get_eralend_lending_pool_abi()
-            pool_contract = w3_l2.eth.contract(address=pool_address, abi=pool_abi)
+            pool_contract = w3_l2.eth.contract(address=Web3.to_checksum_address(pool_address), abi=pool_abi)
 
             interest_rate_mode = protocol_config.get("interest_rate_mode", 2)
 
@@ -1275,7 +1280,7 @@ def _execute_repay_action(
             transaction_params = {
                 "from": user_address,
                 "gasPrice": w3_l2.eth.gas_price,
-                "nonce": w3_l2.eth.get_transaction_count(user_address),
+                "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
             }
 
         return _build_and_send_lending_transaction(
@@ -1299,7 +1304,7 @@ def _execute_set_collateral_action(
     try:
         pool_address = protocol_config["lending_pool_manager"]
         pool_abi = _get_eralend_lending_pool_abi()
-        pool_contract = w3_l2.eth.contract(address=pool_address, abi=pool_abi)
+        pool_contract = w3_l2.eth.contract(address=Web3.to_checksum_address(pool_address), abi=pool_abi)
 
         contract_function = pool_contract.functions.setUserUseReserveAsCollateral(
             token_address, collateral_status
@@ -1308,7 +1313,7 @@ def _execute_set_collateral_action(
         transaction_params = {
             "from": user_address,
             "gasPrice": w3_l2.eth.gas_price,
-            "nonce": w3_l2.eth.get_transaction_count(user_address),
+            "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
         }
 
         return _build_and_send_lending_transaction(
@@ -1424,7 +1429,7 @@ def _handle_token_approval(
     try:
         # Load token contract
         erc20_abi = _get_erc20_abi()
-        token_contract = w3_l2.eth.contract(address=token_address, abi=erc20_abi)
+        token_contract = w3_l2.eth.contract(address=Web3.to_checksum_address(token_address), abi=erc20_abi)
 
         # Check current allowance
         current_allowance = token_contract.functions.allowance(
@@ -1444,12 +1449,12 @@ def _handle_token_approval(
         transaction_params = {
             "from": user_address,
             "gasPrice": w3_l2.eth.gas_price,
-            "nonce": w3_l2.eth.get_transaction_count(user_address),
+            "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
         }
 
         # Estimate gas
         try:
-            estimated_gas = approve_function.estimate_gas(transaction_params)
+            estimated_gas = approve_function.estimate_gas(cast(TxParams, transaction_params))
             gas_limit = int(estimated_gas * 1.5)  # L2 gas multiplier
         except Exception:
             gas_limit = 100000  # Default gas limit
@@ -1457,7 +1462,7 @@ def _handle_token_approval(
         transaction_params["gas"] = gas_limit
 
         # Build and sign transaction
-        transaction = approve_function.build_transaction(transaction_params)
+        transaction = approve_function.build_transaction(cast(TxParams, transaction_params))
         account = Account.from_key(private_key)
         signed_txn = account.sign_transaction(transaction)
 
@@ -1465,7 +1470,7 @@ def _handle_token_approval(
         tx_hash = w3_l2.eth.send_raw_transaction(signed_txn.raw_transaction)
         receipt = w3_l2.eth.wait_for_transaction_receipt(tx_hash)
 
-        if receipt.status == 1:
+        if receipt.get('status') == 1:
             logger.info(f"Token approval successful: {tx_hash.hex()}")
             return True
         else:
@@ -1479,7 +1484,7 @@ def _handle_token_approval(
 
 def _build_and_send_swap_transaction(
     w3_l2: Web3,
-    router_contract,
+    router_contract: Contract,
     user_address: str,
     private_key: str,
     token_in_address: str,
@@ -1528,12 +1533,12 @@ def _build_and_send_swap_transaction(
             "from": user_address,
             "value": msg_value,
             "gasPrice": w3_l2.eth.gas_price,
-            "nonce": w3_l2.eth.get_transaction_count(user_address),
+            "nonce": w3_l2.eth.get_transaction_count(Web3.to_checksum_address(user_address)),
         }
 
         # Estimate gas
         try:
-            estimated_gas = contract_function.estimate_gas(transaction_params)
+            estimated_gas = contract_function.estimate_gas(cast(TxParams, transaction_params))
             gas_limit = int(estimated_gas * 1.5)  # L2 gas multiplier
         except Exception as e:
             logger.warning(f"Gas estimation failed: {e}, using default")
@@ -1542,7 +1547,7 @@ def _build_and_send_swap_transaction(
         transaction_params["gas"] = gas_limit
 
         # Build transaction
-        transaction = contract_function.build_transaction(transaction_params)
+        transaction = contract_function.build_transaction(cast(TxParams, transaction_params))
 
         # Sign and send transaction
         account = Account.from_key(private_key)
@@ -1554,7 +1559,7 @@ def _build_and_send_swap_transaction(
         # Wait for transaction receipt
         receipt = w3_l2.eth.wait_for_transaction_receipt(tx_hash)
 
-        if receipt.status == 1:
+        if receipt.get('status') == 1:
             logger.info(f"Swap transaction successful: {tx_hash_hex}")
             return True, tx_hash_hex
         else:
@@ -1568,7 +1573,7 @@ def _build_and_send_swap_transaction(
 
 def _build_and_send_lending_transaction(
     w3_l2: Web3,
-    contract_function,
+    contract_function: ContractFunction,
     transaction_params: Dict[str, Any],
     user_address: str,
     private_key: str,
@@ -1589,7 +1594,7 @@ def _build_and_send_lending_transaction(
     try:
         # Estimate gas
         try:
-            estimated_gas = contract_function.estimate_gas(transaction_params)
+            estimated_gas = contract_function.estimate_gas(cast(TxParams, transaction_params))
             gas_limit = int(estimated_gas * 1.5)  # L2 gas multiplier
         except Exception as e:
             logger.warning(f"Gas estimation failed: {e}, using default")
@@ -1598,7 +1603,7 @@ def _build_and_send_lending_transaction(
         transaction_params["gas"] = gas_limit
 
         # Build transaction
-        transaction = contract_function.build_transaction(transaction_params)
+        transaction = contract_function.build_transaction(cast(TxParams, transaction_params))
 
         # Sign and send transaction
         account = Account.from_key(private_key)
@@ -1610,7 +1615,7 @@ def _build_and_send_lending_transaction(
         # Wait for transaction receipt
         receipt = w3_l2.eth.wait_for_transaction_receipt(tx_hash)
 
-        if receipt.status == 1:
+        if receipt.get('status') == 1:
             logger.info(f"Lending transaction successful: {tx_hash_hex}")
             return True, tx_hash_hex
         else:
@@ -1807,7 +1812,7 @@ def _get_initial_onchain_state(
         w3_l2 = _get_web3_instance(l2_rpc_url, "zkSync Era L2")
 
         # Initialize state tracking
-        state = {"l2_balances": {}, "eralend_positions": {}}
+        state: Dict[str, Any] = {"l2_balances": {}, "eralend_positions": {}}
 
         # Get tokens to track from config
         tokens_to_track = (
@@ -1821,7 +1826,7 @@ def _get_initial_onchain_state(
             try:
                 if token_symbol == "ETH":
                     # Get native ETH balance
-                    balance_wei = w3_l2.eth.get_balance(user_address)
+                    balance_wei = w3_l2.eth.get_balance(Web3.to_checksum_address(user_address))
                     balance_ether = Decimal(str(balance_wei)) / Decimal(10**18)
                 else:
                     # Get ERC20 token balance
@@ -1832,7 +1837,7 @@ def _get_initial_onchain_state(
 
                         erc20_abi = _get_erc20_abi()
                         token_contract = w3_l2.eth.contract(
-                            address=token_address, abi=erc20_abi
+                            address=Web3.to_checksum_address(token_address), abi=erc20_abi
                         )
                         balance_wei = token_contract.functions.balanceOf(
                             user_address
@@ -2169,10 +2174,10 @@ def _check_action_feasibility(
 
             if params["to_l2"]:
                 # L1->L2: would need L1 balance check (simplified)
-                return amount_eth > 0
+                return bool(amount_eth > 0)
             else:
                 # L2->L1: check L2 balance
-                return eth_balance >= amount_eth
+                return bool(eth_balance >= amount_eth)
 
         elif action_type == "swap_tokens":
             # Check if we have enough input token

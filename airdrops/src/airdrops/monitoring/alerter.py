@@ -14,7 +14,7 @@ import yaml
 from dataclasses import dataclass
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable
 from enum import Enum
 
 import requests
@@ -48,7 +48,7 @@ class AlertRule:
     severity: AlertSeverity
     description: str
     for_duration: int = 300  # seconds
-    labels: Dict[str, str] = None
+    labels: Optional[Dict[str, str]] = None
 
     def __post_init__(self) -> None:
         """Initialize default values."""
@@ -118,7 +118,7 @@ class Alerter:
         )
 
         # Condition evaluation functions
-        self._condition_functions = {
+        self._condition_functions: Dict[str, Callable[[float, float], bool]] = {
             "gt": lambda x, y: x > y,
             "lt": lambda x, y: x < y,
             "eq": lambda x, y: x == y,
@@ -240,6 +240,7 @@ class Alerter:
                         alert = self.active_alerts[alert_key]
                         # Check if alert should fire (duration threshold met)
                         if (alert.status == AlertStatus.PENDING and
+                                alert.firing_since is not None and
                                 current_time - alert.firing_since >= rule.for_duration):
                             alert.status = AlertStatus.FIRING
                             triggered_alerts.append(alert)
@@ -255,7 +256,7 @@ class Alerter:
                             status=AlertStatus.PENDING,
                             description=rule.description,
                             timestamp=current_time,
-                            labels=rule.labels.copy(),
+                            labels=rule.labels.copy() if rule.labels else {},
                             firing_since=current_time
                         )
                         self.active_alerts[alert_key] = alert
@@ -352,7 +353,7 @@ class Alerter:
         if condition_func is None:
             logger.error(f"Unknown condition: {condition}")
             return False
-        return condition_func(value, threshold)
+        return bool(condition_func(value, threshold))
 
     def _send_email_notification(
         self, alert: Alert, channel: NotificationChannel

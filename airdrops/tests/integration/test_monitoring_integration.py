@@ -1,0 +1,563 @@
+"""
+Integration tests for monitoring system with protocols and scheduler.
+
+This module tests the monitoring system's ability to collect metrics,
+aggregate data, trigger alerts, and integrate with other components.
+"""
+
+import pytest
+from unittest.mock import Mock, patch, MagicMock, call
+from decimal import Decimal
+from typing import Dict, Any, List
+import time
+import pendulum
+from web3 import Web3
+
+from airdrops.monitoring.collector import MetricsCollector
+from airdrops.monitoring.aggregator import MetricsAggregator
+from airdrops.monitoring.alerter import Alerter, AlertSeverity
+from airdrops.monitoring.health_checker import HealthChecker
+from airdrops.scheduler.bot import CentralScheduler
+
+
+class TestMonitoringIntegration:
+    """Test suite for monitoring system integration."""
+
+    @pytest.fixture
+    def mock_config(self) -> Dict[str, Any]:
+        """Create mock configuration for testing.
+        
+        Returns:
+            Dictionary containing test configuration
+        """
+        return {
+            "monitoring": {
+                "metrics_interval": 60,
+                "aggregation_interval": 300,
+                "health_check_interval": 180,
+                "retention_days": 30,
+                "alert_cooldown_minutes": 15,
+            },
+            "alerting": {
+                "channels": ["discord", "telegram", "email"],
+                "thresholds": {
+                    "error_rate": 0.1,
+                    "gas_price_high": 100,
+                    "gas_price_critical": 200,
+                    "success_rate_low": 0.8,
+                    "balance_low_eth": 0.05,
+                },
+                "notification_settings": {
+                    "discord": {"webhook_url": "https://discord.webhook.test"},
+                    "telegram": {"bot_token": "test_token", "chat_id": "123"},
+                    "email": {"smtp_server": "smtp.test.com", "recipients": ["alerts@test.com"]},
+                },
+            },
+            "protocols": {
+                "scroll": {"enabled": True},
+                "zksync": {"enabled": True},
+                "eigenlayer": {"enabled": True},
+            },
+            "performance_tracking": {
+                "metrics": [
+                    "transaction_count",
+                    "success_rate",
+                    "gas_used",
+                    "value_transferred",
+                    "protocol_roi",
+                ],
+                "aggregations": ["sum", "avg", "max", "min", "p95"],
+            },
+        }
+
+    @pytest.fixture
+    def sample_transactions(self) -> List[Dict[str, Any]]:
+        """Create sample transaction data for testing.
+        
+        Returns:
+            List of transaction records
+        """
+        return [
+            {
+                "protocol": "scroll",
+                "action": "swap",
+                "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
+                "success": True,
+                "gas_used": 150000,
+                "gas_price": 30000000000,  # 30 gwei
+                "value_usd": 500.0,
+                "timestamp": pendulum.now().subtract(minutes=5),
+                "tx_hash": "0x" + "a" * 64,
+            },
+            {
+                "protocol": "zksync",
+                "action": "bridge",
+                "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
+                "success": True,
+                "gas_used": 200000,
+                "gas_price": 25000000000,  # 25 gwei
+                "value_usd": 1000.0,
+                "timestamp": pendulum.now().subtract(minutes=10),
+                "tx_hash": "0x" + "b" * 64,
+            },
+            {
+                "protocol": "scroll",
+                "action": "liquidity",
+                "wallet": "0x853d35Cc6634C0532925a3b844Bc9e7195Ed5E47283776",
+                "success": False,
+                "gas_used": 180000,
+                "gas_price": 35000000000,  # 35 gwei
+                "value_usd": 0.0,
+                "timestamp": pendulum.now().subtract(minutes=15),
+                "tx_hash": "0x" + "c" * 64,
+                "error": "Insufficient liquidity",
+            },
+        ]
+
+    @patch("airdrops.monitoring.collector.time")
+    def test_metrics_collector_records_transactions(
+        self, mock_time, mock_config, sample_transactions
+    ):
+        """Test metrics collector properly records transaction data.
+        
+        Args:
+            mock_time: Mock time module
+            mock_config: Test configuration
+            sample_transactions: Sample transaction data
+        """
+        mock_time.time.return_value = 1700000000
+        
+        collector = MetricsCollector()
+        
+        # Record all transactions
+        for tx in sample_transactions:
+            collector.record_transaction(
+                protocol=tx["protocol"],
+                action=tx["action"],
+                wallet=tx["wallet"],
+                success=tx["success"],
+                gas_used=tx["gas_used"],
+                value_usd=tx.get("value_usd", 0),
+                tx_hash=tx["tx_hash"],
+                error=tx.get("error"),
+            )
+        
+        # Verify protocol metrics
+        scroll_metrics = collector.get_protocol_metrics("scroll")
+        assert scroll_metrics["total_transactions"] == 2
+        assert scroll_metrics["successful_transactions"] == 1
+        assert scroll_metrics["failed_transactions"] == 1
+        assert scroll_metrics["success_rate"] == 0.5
+        
+        zksync_metrics = collector.get_protocol_metrics("zksync")
+        assert zksync_metrics["total_transactions"] == 1
+        assert zksync_metrics["successful_transactions"] == 1
+        assert zksync_metrics["success_rate"] == 1.0
+
+    def test_metrics_aggregator_computes_statistics(
+        self, mock_config, sample_transactions
+    ):
+        """Test metrics aggregator computes correct statistics.
+        
+        Args:
+            mock_config: Test configuration
+            sample_transactions: Sample transaction data
+        """
+        collector = MetricsCollector()
+        aggregator = MetricsAggregator(collector)
+        
+        # Record transactions
+        for tx in sample_transactions:
+            collector.record_transaction(
+                protocol=tx["protocol"],
+                action=tx["action"],
+                wallet=tx["wallet"],
+                success=tx["success"],
+                gas_used=tx["gas_used"],
+                value_usd=tx.get("value_usd", 0),
+                tx_hash=tx["tx_hash"],
+            )
+        
+        # Aggregate metrics for time window
+        window_start = pendulum.now().subtract(hours=1)
+        window_end = pendulum.now()
+        
+        aggregated = aggregator.aggregate_metrics(
+            window_start,
+            window_end,
+            group_by=["protocol", "action"]
+        )
+        
+        # Verify aggregations
+        assert len(aggregated) > 0
+        
+        # Check scroll swap metrics
+        scroll_swap = next(
+            (m for m in aggregated 
+             if m["protocol"] == "scroll" and m["action"] == "swap"),
+            None
+        )
+        assert scroll_swap is not None
+        assert scroll_swap["count"] == 1
+        assert scroll_swap["success_count"] == 1
+        assert scroll_swap["avg_gas_used"] == 150000
+
+    @patch("airdrops.monitoring.alerter.send_notification")
+    def test_alerter_triggers_on_high_error_rate(
+        self, mock_send_notification, mock_config
+    ):
+        """Test alerter triggers when error rate exceeds threshold.
+        
+        Args:
+            mock_send_notification: Mock notification sender
+            mock_config: Test configuration
+        """
+        collector = MetricsCollector()
+        alerter = Alerter(mock_config)
+        
+        # Record many failed transactions
+        for i in range(10):
+            collector.record_transaction(
+                protocol="scroll",
+                action="swap",
+                wallet="0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
+                success=i < 3,  # Only 30% success
+                gas_used=150000,
+                value_usd=0 if i >= 3 else 100,
+                tx_hash=f"0x{'d' * 63}{i}",
+            )
+        
+        # Check alerts
+        metrics = collector.get_protocol_metrics("scroll")
+        alerter.check_error_rate(metrics, "scroll")
+        
+        # Should trigger alert for low success rate
+        mock_send_notification.assert_called()
+        call_args = mock_send_notification.call_args[0]
+        assert "error rate" in call_args[1].lower()
+        assert "scroll" in call_args[1].lower()
+
+    @patch("airdrops.monitoring.alerter.send_notification")
+    @patch("airdrops.monitoring.health_checker.Web3")
+    def test_health_checker_monitors_system_health(
+        self, mock_web3_class, mock_send_notification, mock_config
+    ):
+        """Test health checker monitors overall system health.
+        
+        Args:
+            mock_web3_class: Mock Web3 class
+            mock_send_notification: Mock notification sender
+            mock_config: Test configuration
+        """
+        # Setup mock Web3
+        mock_web3 = Mock()
+        mock_web3.eth.get_balance.return_value = Web3.to_wei(0.03, "ether")  # Low balance
+        mock_web3.eth.gas_price = Web3.to_wei(150, "gwei")  # High gas
+        mock_web3.is_connected.return_value = True
+        mock_web3_class.return_value = mock_web3
+        
+        health_checker = HealthChecker(mock_config)
+        alerter = Alerter(mock_config)
+        
+        # Run health check
+        health_status = health_checker.check_system_health()
+        
+        # Check individual components
+        assert health_status["rpc_connections"]["ethereum"] is True
+        assert health_status["wallet_balances"]["0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775"]["eth"] < 0.05
+        assert health_status["gas_prices"]["ethereum"] > 100
+        
+        # Trigger alerts for issues
+        alerter.check_health_issues(health_status)
+        
+        # Should alert on low balance and high gas
+        assert mock_send_notification.call_count >= 2
+        alert_messages = [call[0][1] for call in mock_send_notification.call_args_list]
+        assert any("balance" in msg.lower() for msg in alert_messages)
+        assert any("gas" in msg.lower() for msg in alert_messages)
+
+    @patch("airdrops.scheduler.bot.Web3")
+    def test_monitoring_tracks_scheduler_performance(
+        self, mock_web3_class, mock_config
+    ):
+        """Test monitoring system tracks scheduler task performance.
+        
+        Args:
+            mock_web3_class: Mock Web3 class
+            mock_config: Test configuration
+        """
+        # Setup mock
+        mock_web3 = Mock()
+        mock_web3.is_connected.return_value = True
+        mock_web3_class.return_value = mock_web3
+        
+        collector = MetricsCollector()
+        scheduler = CentralScheduler(mock_config)
+        scheduler.metrics_collector = collector
+        
+        # Execute several tasks
+        tasks = [
+            {
+                "id": "task_1",
+                "protocol": "scroll",
+                "action": "swap",
+                "start_time": pendulum.now().subtract(seconds=10),
+                "end_time": pendulum.now().subtract(seconds=5),
+                "status": "completed",
+                "gas_used": 150000,
+            },
+            {
+                "id": "task_2",
+                "protocol": "zksync",
+                "action": "bridge",
+                "start_time": pendulum.now().subtract(seconds=20),
+                "end_time": pendulum.now().subtract(seconds=15),
+                "status": "completed",
+                "gas_used": 200000,
+            },
+            {
+                "id": "task_3",
+                "protocol": "scroll",
+                "action": "liquidity",
+                "start_time": pendulum.now().subtract(seconds=30),
+                "end_time": pendulum.now().subtract(seconds=28),
+                "status": "failed",
+                "error": "Slippage too high",
+            },
+        ]
+        
+        # Record task metrics
+        for task in tasks:
+            collector.record_task_execution(
+                task_id=task["id"],
+                protocol=task["protocol"],
+                action=task["action"],
+                duration=(task["end_time"] - task["start_time"]).total_seconds(),
+                status=task["status"],
+                gas_used=task.get("gas_used", 0),
+                error=task.get("error"),
+            )
+        
+        # Get scheduler performance metrics
+        scheduler_metrics = collector.get_scheduler_metrics()
+        
+        assert scheduler_metrics["total_tasks"] == 3
+        assert scheduler_metrics["completed_tasks"] == 2
+        assert scheduler_metrics["failed_tasks"] == 1
+        assert scheduler_metrics["avg_task_duration"] > 0
+        assert scheduler_metrics["total_gas_used"] == 350000
+
+    def test_monitoring_dashboard_data_generation(self, mock_config):
+        """Test generation of data for monitoring dashboards.
+        
+        Args:
+            mock_config: Test configuration
+        """
+        collector = MetricsCollector()
+        aggregator = MetricsAggregator(collector)
+        
+        # Simulate activity over time
+        base_time = pendulum.now().subtract(hours=24)
+        
+        for hour in range(24):
+            timestamp = base_time.add(hours=hour)
+            
+            # Variable activity by hour
+            num_transactions = 10 if 9 <= hour <= 17 else 3  # More during business hours
+            
+            for i in range(num_transactions):
+                protocol = ["scroll", "zksync", "eigenlayer"][i % 3]
+                success = i % 5 != 0  # 80% success rate
+                
+                collector.record_transaction(
+                    protocol=protocol,
+                    action=["swap", "bridge", "liquidity"][i % 3],
+                    wallet=f"0x{'7' * 38}{hour:02d}{i:02d}",
+                    success=success,
+                    gas_used=150000 + (i * 10000),
+                    value_usd=100 * (i + 1) if success else 0,
+                    tx_hash=f"0x{'e' * 60}{hour:02d}{i:02d}",
+                    timestamp=timestamp,
+                )
+        
+        # Generate dashboard data
+        dashboard_data = aggregator.generate_dashboard_data(
+            lookback_hours=24,
+            granularity="hourly"
+        )
+        
+        # Verify dashboard data structure
+        assert "time_series" in dashboard_data
+        assert "protocol_breakdown" in dashboard_data
+        assert "action_breakdown" in dashboard_data
+        assert "success_rate_trend" in dashboard_data
+        assert "gas_usage_trend" in dashboard_data
+        
+        # Verify time series has 24 data points
+        assert len(dashboard_data["time_series"]) == 24
+        
+        # Verify protocol breakdown
+        assert len(dashboard_data["protocol_breakdown"]) == 3
+        assert all(p in dashboard_data["protocol_breakdown"] for p in ["scroll", "zksync", "eigenlayer"])
+        
+        # Verify trends show expected patterns
+        business_hours = dashboard_data["time_series"][9:18]
+        off_hours = dashboard_data["time_series"][:9] + dashboard_data["time_series"][18:]
+        
+        avg_business_activity = sum(h["transaction_count"] for h in business_hours) / len(business_hours)
+        avg_off_hours_activity = sum(h["transaction_count"] for h in off_hours) / len(off_hours)
+        
+        assert avg_business_activity > avg_off_hours_activity
+
+    @patch("airdrops.monitoring.collector.redis")
+    def test_metrics_persistence_and_recovery(
+        self, mock_redis, mock_config
+    ):
+        """Test metrics are persisted and can be recovered.
+        
+        Args:
+            mock_redis: Mock Redis client
+            mock_config: Test configuration
+        """
+        # Setup mock Redis
+        mock_redis_instance = Mock()
+        mock_redis.Redis.return_value = mock_redis_instance
+        
+        collector = MetricsCollector()
+        collector.redis_client = mock_redis_instance
+        
+        # Record metrics
+        test_metrics = {
+            "protocol": "scroll",
+            "timestamp": pendulum.now().timestamp(),
+            "transactions": 100,
+            "success_rate": 0.95,
+            "gas_used": 15000000,
+        }
+        
+        collector.persist_metrics("scroll_metrics", test_metrics)
+        
+        # Verify persistence
+        mock_redis_instance.setex.assert_called()
+        call_args = mock_redis_instance.setex.call_args[0]
+        assert "scroll_metrics" in call_args[0]
+        assert call_args[1] == 86400 * 30  # 30 days retention
+        
+        # Test recovery
+        mock_redis_instance.get.return_value = '{"transactions": 100, "success_rate": 0.95}'
+        recovered = collector.recover_metrics("scroll_metrics")
+        
+        assert recovered["transactions"] == 100
+        assert recovered["success_rate"] == 0.95
+
+    def test_alert_deduplication_and_cooldown(self, mock_config):
+        """Test alert deduplication and cooldown periods.
+        
+        Args:
+            mock_config: Test configuration
+        """
+        alerter = Alerter(mock_config)
+        
+        # Create identical alerts
+        alert1 = {
+            "type": "high_error_rate",
+            "protocol": "scroll",
+            "severity": AlertSeverity.WARNING,
+            "message": "High error rate detected on Scroll",
+        }
+        
+        alert2 = {
+            "type": "high_error_rate",
+            "protocol": "scroll",
+            "severity": AlertSeverity.WARNING,
+            "message": "High error rate detected on Scroll",
+        }
+        
+        # Send first alert
+        alert_sent1 = alerter.send_alert(alert1)
+        assert alert_sent1 is True
+        
+        # Try to send duplicate immediately
+        alert_sent2 = alerter.send_alert(alert2)
+        assert alert_sent2 is False  # Should be deduplicated
+        
+        # Simulate cooldown period passing
+        alerter.last_alert_times[("high_error_rate", "scroll")] = (
+            pendulum.now().subtract(minutes=20)
+        )
+        
+        # Now alert should send again
+        alert_sent3 = alerter.send_alert(alert2)
+        assert alert_sent3 is True
+
+    def test_cross_protocol_performance_comparison(
+        self, mock_config, sample_transactions
+    ):
+        """Test monitoring system compares performance across protocols.
+        
+        Args:
+            mock_config: Test configuration
+            sample_transactions: Sample transaction data
+        """
+        collector = MetricsCollector()
+        aggregator = MetricsAggregator(collector)
+        
+        # Add more diverse transaction data
+        extended_transactions = sample_transactions + [
+            {
+                "protocol": "eigenlayer",
+                "action": "restake",
+                "wallet": "0x963d35Cc6634C0532925a3b844Bc9e7195Ed5E47283777",
+                "success": True,
+                "gas_used": 250000,
+                "gas_price": 40000000000,
+                "value_usd": 5000.0,
+                "timestamp": pendulum.now().subtract(minutes=20),
+                "tx_hash": "0x" + "f" * 64,
+            },
+            {
+                "protocol": "eigenlayer",
+                "action": "restake",
+                "wallet": "0x963d35Cc6634C0532925a3b844Bc9e7195Ed5E47283777",
+                "success": True,
+                "gas_used": 240000,
+                "gas_price": 38000000000,
+                "value_usd": 4500.0,
+                "timestamp": pendulum.now().subtract(minutes=25),
+                "tx_hash": "0x" + "g" * 64,
+            },
+        ]
+        
+        # Record all transactions
+        for tx in extended_transactions:
+            collector.record_transaction(
+                protocol=tx["protocol"],
+                action=tx["action"],
+                wallet=tx["wallet"],
+                success=tx["success"],
+                gas_used=tx["gas_used"],
+                value_usd=tx.get("value_usd", 0),
+                tx_hash=tx["tx_hash"],
+            )
+        
+        # Compare protocol performance
+        comparison = aggregator.compare_protocol_performance()
+        
+        # Verify comparison metrics
+        assert len(comparison) == 3  # scroll, zksync, eigenlayer
+        
+        # Find best performing protocol by success rate
+        best_protocol = max(comparison, key=lambda x: x["success_rate"])
+        assert best_protocol["protocol"] in ["zksync", "eigenlayer"]  # Both have 100% success
+        
+        # Find most gas efficient protocol
+        most_efficient = min(comparison, key=lambda x: x["avg_gas_used"])
+        assert most_efficient["protocol"] == "scroll"  # Has lowest average gas
+        
+        # Find highest value protocol
+        highest_value = max(comparison, key=lambda x: x["avg_value_usd"])
+        assert highest_value["protocol"] == "eigenlayer"  # Highest average transaction value
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

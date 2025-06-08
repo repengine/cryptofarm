@@ -1,0 +1,1 @@
+"""Integration tests for airdrops protocols."""

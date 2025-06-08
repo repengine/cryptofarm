@@ -340,7 +340,7 @@ class MetricsCollector:
 
             # Task execution status counts
             if hasattr(scheduler, '_task_executions'):
-                status_counts = {}
+                status_counts: Dict[str, int] = {}
                 for execution in scheduler._task_executions.values():
                     status = execution.status.value
                     status_counts[status] = status_counts.get(status, 0) + 1

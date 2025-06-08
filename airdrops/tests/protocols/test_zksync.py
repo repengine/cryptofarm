@@ -190,12 +190,15 @@ class TestZkSyncModule(unittest.TestCase):
         mock_w3.eth.gas_price = 20000000000
         mock_w3.eth.get_transaction_count.return_value = 42
         mock_w3.eth.send_raw_transaction.return_value = Mock(hex=lambda: "0x123abc")
-        mock_w3.eth.wait_for_transaction_receipt.return_value = Mock(status=1)
+        mock_receipt = {"status": 1}
+        mock_w3.eth.wait_for_transaction_receipt.return_value = mock_receipt
         mock_get_web3.return_value = mock_w3
 
         # Mock contract
         mock_contract = Mock()
-        mock_contract.functions.requestL2Transaction.return_value.build_transaction.return_value = {  # noqa: E501
+        mock_request_fn = Mock()
+        mock_request_fn.estimate_gas.return_value = 150000
+        mock_request_fn.build_transaction.return_value = {
             "to": "0x32400084C286CF3E17e7B677ea9583e60a000324",
             "data": "0x123",
             "value": 100000000000000000,
@@ -203,6 +206,7 @@ class TestZkSyncModule(unittest.TestCase):
             "gasPrice": 20000000000,
             "nonce": 42,
         }
+        mock_contract.functions.requestL2Transaction.return_value = mock_request_fn
         mock_contract.functions.l2TransactionBaseCost.return_value.call.return_value = (
             1000000000000000
         )
@@ -251,7 +255,8 @@ class TestZkSyncModule(unittest.TestCase):
         mock_w3.eth.gas_price = 1000000000
         mock_w3.eth.get_transaction_count.return_value = 24
         mock_w3.eth.send_raw_transaction.return_value = Mock(hex=lambda: "0x456def")
-        mock_w3.eth.wait_for_transaction_receipt.return_value = Mock(status=1)
+        mock_receipt = {"status": 1}
+        mock_w3.eth.wait_for_transaction_receipt.return_value = mock_receipt
         mock_get_web3.return_value = mock_w3
 
         # Mock contract
@@ -295,7 +300,8 @@ class TestZkSyncModule(unittest.TestCase):
         mock_w3.eth.gas_price = 1000000000
         mock_w3.eth.get_transaction_count.return_value = 24
         mock_w3.eth.send_raw_transaction.return_value = Mock(hex=lambda: "0x456def")
-        mock_w3.eth.wait_for_transaction_receipt.return_value = Mock(status=0)  # Failed
+        mock_receipt = {"status": 0}  # Failed
+        mock_w3.eth.wait_for_transaction_receipt.return_value = mock_receipt
         mock_get_web3.return_value = mock_w3
 
         # Mock contract
@@ -679,7 +685,8 @@ class TestZkSyncModule(unittest.TestCase):
         mock_w3.eth.gas_price = 1000000000
         mock_w3.eth.get_transaction_count.return_value = 42
         mock_w3.eth.send_raw_transaction.return_value = Mock(hex=lambda: "0x123")
-        mock_w3.eth.wait_for_transaction_receipt.return_value = Mock(status=1)
+        mock_receipt = {"status": 1}
+        mock_w3.eth.wait_for_transaction_receipt.return_value = mock_receipt
 
         # Mock token contract with insufficient allowance
         mock_contract = Mock()
@@ -723,7 +730,8 @@ class TestZkSyncModule(unittest.TestCase):
         mock_w3.eth.gas_price = 1000000000
         mock_w3.eth.get_transaction_count.return_value = 42
         mock_w3.eth.send_raw_transaction.return_value = Mock(hex=lambda: "0x123")
-        mock_w3.eth.wait_for_transaction_receipt.return_value = Mock(status=0)  # Failed
+        mock_receipt = {"status": 0}  # Failed
+        mock_w3.eth.wait_for_transaction_receipt.return_value = mock_receipt
 
         # Mock token contract with insufficient allowance
         mock_contract = Mock()

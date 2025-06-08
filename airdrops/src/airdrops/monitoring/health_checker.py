@@ -313,7 +313,7 @@ class HealthChecker:
         """Check RiskManager component health."""
         try:
             current_time = time.time()
-            metrics = {}
+            metrics: Dict[str, Any] = {}
             status = HealthStatus.OK
             message = "Risk Manager is healthy"
 
@@ -358,7 +358,7 @@ class HealthChecker:
         """Check CapitalAllocator component health."""
         try:
             current_time = time.time()
-            metrics = {}
+            metrics: Dict[str, Any] = {}
             status = HealthStatus.OK
             message = "Capital Allocator is healthy"
 
@@ -400,7 +400,7 @@ class HealthChecker:
         """Check CentralScheduler component health."""
         try:
             current_time = time.time()
-            metrics = {}
+            metrics: Dict[str, Any] = {}
             status = HealthStatus.OK
             message = "Scheduler is healthy"
 
@@ -445,7 +445,7 @@ class HealthChecker:
         """Check MetricsCollector component health."""
         try:
             current_time = time.time()
-            metrics = {}
+            metrics: Dict[str, Any] = {}
             status = HealthStatus.OK
             message = "Metrics Collector is healthy"
 
@@ -482,7 +482,7 @@ class HealthChecker:
         """Check Alerter component health."""
         try:
             current_time = time.time()
-            metrics = {}
+            metrics: Dict[str, Any] = {}
             status = HealthStatus.OK
             message = "Alerter is healthy"
 
@@ -533,7 +533,7 @@ class HealthChecker:
             import psutil
 
             current_time = time.time()
-            metrics = {}
+            metrics: Dict[str, Any] = {}
             status = HealthStatus.OK
             message = "System resources are healthy"
 
@@ -589,7 +589,7 @@ class HealthChecker:
         """Check external dependencies health (blockchain nodes, APIs)."""
         try:
             current_time = time.time()
-            metrics = {}
+            metrics: Dict[str, Any] = {}
             status = HealthStatus.OK
             message = "External dependencies are healthy"
 

@@ -4,9 +4,9 @@ import json
 import os
 from typing import Dict, Optional, Tuple, List, Any # Ensure Any is imported
 from web3 import Web3
-from web3.exceptions import TransactionNotFound # Removed ContractLogicError as it was unused
+# from web3.exceptions import TransactionNotFound # Unused import
 
-from airdrops.protocols.eigenlayer.eigenlayer_config import ( # type: ignore[import-not-found]
+from airdrops.protocols.eigenlayer.eigenlayer_config import (
     EIGENLAYER_CONTRACTS,
     LST_TOKENS,
 )

@@ -17,6 +17,7 @@ Welcome to the Airdrops Automation API documentation. This system provides autom
    operational_runbooks
    troubleshooting_guide
    security_best_practices
+   testing_strategy
 
 .. toctree::
    :maxdepth: 2

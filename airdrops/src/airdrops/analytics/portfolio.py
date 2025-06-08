@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from pydantic import BaseModel, Field
 
@@ -285,7 +285,7 @@ class PortfolioPerformanceAnalyzer:
             logger.error(f"Failed to compare to benchmark: {e}")
             raise RuntimeError(f"Benchmark comparison failed: {e}") from e
 
-    def _calculate_total_portfolio_value(self, events) -> Decimal:
+    def _calculate_total_portfolio_value(self, events: List[Any]) -> Decimal:
         """Calculate total current portfolio value from events."""
         total_value = Decimal('0')
         for event in events:
@@ -295,13 +295,13 @@ class PortfolioPerformanceAnalyzer:
                 total_value += event.estimated_value_usd
         return total_value
 
-    def _calculate_total_costs(self, events) -> Decimal:
+    def _calculate_total_costs(self, events: List[Any]) -> Decimal:
         """Calculate total costs using ROI optimizer or default estimates."""
         if self.roi_optimizer:
             try:
                 # Use ROI optimizer for accurate cost calculation
                 portfolio_roi = self.roi_optimizer.calculate_portfolio_roi()
-                return sum(roi.total_cost_usd for roi in portfolio_roi)
+                return Decimal(str(sum(roi.total_cost_usd for roi in portfolio_roi)))
             except Exception as e:
                 logger.warning(f"ROI optimizer cost calculation failed: {e}")
 
@@ -309,7 +309,7 @@ class PortfolioPerformanceAnalyzer:
         default_gas_cost = Decimal('5.0')  # $5 per transaction estimate
         return Decimal(str(len(events))) * default_gas_cost
 
-    def _calculate_protocol_allocations(self, events) -> Dict[str, Decimal]:
+    def _calculate_protocol_allocations(self, events: List[Any]) -> Dict[str, Decimal]:
         """Calculate value allocation by protocol."""
         allocations: Dict[str, Decimal] = {}
         for event in events:
@@ -318,7 +318,7 @@ class PortfolioPerformanceAnalyzer:
             allocations[protocol] = allocations.get(protocol, Decimal('0')) + value
         return allocations
 
-    def _calculate_token_allocations(self, events) -> Dict[str, Decimal]:
+    def _calculate_token_allocations(self, events: List[Any]) -> Dict[str, Decimal]:
         """Calculate value allocation by token."""
         allocations: Dict[str, Decimal] = {}
         for event in events:
