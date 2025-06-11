@@ -14,7 +14,7 @@ import yaml
 from dataclasses import dataclass
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional, Callable, Tuple
 from enum import Enum
 
 import requests
@@ -58,7 +58,7 @@ class AlertRule:
 
 @dataclass
 class Alert:
-    """Data class for active alert."""
+    """Data class for an active alert."""
     rule_name: str
     metric_name: str
     current_value: float
@@ -70,6 +70,11 @@ class Alert:
     labels: Dict[str, str]
     firing_since: Optional[float] = None
     resolved_at: Optional[float] = None
+
+    def __post_init__(self) -> None:
+        """Initialize default values."""
+        if self.labels is None:
+            self.labels = {}
 
 
 @dataclass
@@ -108,6 +113,7 @@ class Alerter:
         self.notification_channels: List[NotificationChannel] = []
         self.active_alerts: Dict[str, Alert] = {}
         self.alert_history: List[Alert] = []
+        self.last_alert_times: Dict[Tuple[str, Optional[str]], float] = {}
 
         # Configuration from environment
         self.evaluation_interval = int(
@@ -330,11 +336,10 @@ class Alerter:
                 parts = metric_name.split('.')
                 value = metrics
                 for part in parts:
-                    if isinstance(value, dict) and part in value:
-                        value = value[part]
-                    else:
+                    value = value.get(part)
+                    if value is None:
                         return None
-                return float(value) if isinstance(value, (int, float)) else None
+                return float(value)
             else:
                 # Direct metric name
                 if metric_name in metrics:
@@ -512,6 +517,30 @@ Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(alert.timestamp))}
             alert for alert in self.alert_history
             if alert.timestamp >= cutoff_time
         ]
+
+    def create_alert(
+        self,
+        rule_name: str,
+        metric_name: str,
+        current_value: float,
+        threshold: float,
+        severity: str,
+        description: str,
+    ) -> Alert:
+        """
+        Create an alert object.
+        """
+        return Alert(
+            rule_name=rule_name,
+            metric_name=metric_name,
+            current_value=current_value,
+            threshold=threshold,
+            severity=AlertSeverity(severity),
+            status=AlertStatus.FIRING,
+            description=description,
+            timestamp=time.time(),
+            labels={},
+        )
 
 
 __all__ = [

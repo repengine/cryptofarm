@@ -94,6 +94,8 @@ class PortfolioPerformanceAnalyzer:
 
     def calculate_portfolio_metrics(
         self,
+        capital_allocation: Dict[str, Decimal],
+        current_prices: Dict[str, Decimal],
         as_of_date: Optional[datetime] = None
     ) -> PortfolioMetrics:
         """
@@ -114,18 +116,18 @@ class PortfolioPerformanceAnalyzer:
             if as_of_date is None:
                 as_of_date = datetime.now()
 
-            # Get all airdrop events up to the specified date
-            start_date = datetime(2020, 1, 1)  # Far back start date
-            events = self.tracker.get_airdrops_by_date_range(start_date, as_of_date)
+            # Calculate total portfolio value based on current allocation and prices
+            total_value = Decimal('0')
+            protocol_allocations: Dict[str, Decimal] = {}
+            for protocol, allocated_capital in capital_allocation.items():
+                price = current_prices.get(
+                    protocol, Decimal('1')
+                )  # Assume 1 if price not found
+                current_value = allocated_capital * price
+                total_value += current_value
+                protocol_allocations[protocol] = current_value
 
-            if not events:
-                logger.warning("No airdrop events found for portfolio analysis")
-                return self._create_empty_metrics(as_of_date)
-
-            # Calculate total portfolio value
-            total_value = self._calculate_total_portfolio_value(events)
-
-            # Calculate costs using ROI optimizer if available
+            events = self.tracker.get_all_events()
             total_cost = self._calculate_total_costs(events)
 
             # Calculate profit/loss and ROI
@@ -134,9 +136,11 @@ class PortfolioPerformanceAnalyzer:
                 (profit_loss / total_cost * 100) if total_cost > 0 else Decimal('0')
             )
 
-            # Calculate diversification metrics
-            protocol_allocations = self._calculate_protocol_allocations(events)
-            token_allocations = self._calculate_token_allocations(events)
+            # Token allocations are not directly derivable from capital_allocation
+            # and current_prices without more detailed mock data, so we'll create
+            # a dummy for now. For an empty portfolio, this should be empty.
+            token_allocations: Dict[str, Decimal] = \
+                self._calculate_token_allocations(events)
 
             diversification_index = self._calculate_diversification_index(
                 protocol_allocations

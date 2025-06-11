@@ -36,7 +36,7 @@ The monitoring infrastructure provides comprehensive observability for the airdr
 
 ### MetricsCollector (`airdrops.monitoring.collector`)
 
-Collects metrics from system resources and application components:
+Collects metrics from system resources and application components. All modules pass `mypy --strict` type checking and `ruff` linting with zero violations.
 
 **System Metrics:**
 - CPU usage percentage

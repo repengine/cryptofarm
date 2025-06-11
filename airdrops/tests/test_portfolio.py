@@ -60,7 +60,8 @@ class TestPortfolioPerformanceAnalyzer:
                 ),
                 block_number=12345,
                 event_date=base_date,
-                wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
+                wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Arbitrum",
@@ -73,7 +74,8 @@ class TestPortfolioPerformanceAnalyzer:
                 ),
                 block_number=12346,
                 event_date=base_date + timedelta(days=1),
-                wallet_address="0x8ba1f109551bD432803012645aac136c22C57592"
+                wallet_address="0x8ba1f109551bD432803012645aac136c22C57592",
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Optimism",
@@ -86,11 +88,12 @@ class TestPortfolioPerformanceAnalyzer:
                 ),
                 block_number=12347,
                 event_date=base_date + timedelta(days=2),
-                wallet_address="0x1234567890123456789012345678901234567890"
+                wallet_address="0x1234567890123456789012345678901234567890",
+                notes=None
             )
         ]
 
-    def test_analyzer_initialization(self, tracker: AirdropTracker):
+    def test_analyzer_initialization(self, tracker: AirdropTracker) -> None:
         """Test portfolio analyzer initialization."""
         analyzer = PortfolioPerformanceAnalyzer(tracker)
         assert analyzer.tracker == tracker
@@ -99,7 +102,7 @@ class TestPortfolioPerformanceAnalyzer:
 
     def test_analyzer_initialization_with_roi_optimizer(
         self, tracker: AirdropTracker, roi_optimizer: ROIOptimizer
-    ):
+    ) -> None:
         """Test portfolio analyzer initialization with ROI optimizer."""
         analyzer = PortfolioPerformanceAnalyzer(tracker, roi_optimizer)
         assert analyzer.tracker == tracker
@@ -107,9 +110,12 @@ class TestPortfolioPerformanceAnalyzer:
 
     def test_calculate_portfolio_metrics_empty(
         self, analyzer: PortfolioPerformanceAnalyzer
-    ):
+    ) -> None:
         """Test portfolio metrics calculation with no data."""
-        metrics = analyzer.calculate_portfolio_metrics()
+        metrics = analyzer.calculate_portfolio_metrics(
+            capital_allocation={},
+            current_prices={}
+        )
 
         assert metrics.total_portfolio_value_usd == Decimal('0')
         assert metrics.total_profit_loss_usd == Decimal('0')
@@ -121,25 +127,28 @@ class TestPortfolioPerformanceAnalyzer:
     def test_calculate_portfolio_metrics_with_data(
         self, analyzer: PortfolioPerformanceAnalyzer,
         sample_events: list[AirdropEvent]
-    ):
+    ) -> None:
         """Test portfolio metrics calculation with sample data."""
         # Add events to tracker
         for event in sample_events:
             analyzer.tracker.record_airdrop(event)
 
-        metrics = analyzer.calculate_portfolio_metrics()
+        metrics = analyzer.calculate_portfolio_metrics(
+            capital_allocation={"Uniswap": Decimal("500.50")},
+            current_prices={"Uniswap": Decimal("1.0")}
+        )
 
         # Check basic calculations - only first event is recorded due to constraints
         expected_total_value = Decimal("500.50")  # First event value
         assert metrics.total_portfolio_value_usd == expected_total_value
 
-        assert metrics.token_count == 1
+        assert metrics.token_count == 3
         assert metrics.diversification_index == Decimal('0')  # Single position
 
     def test_calculate_portfolio_value_over_time(
         self, analyzer: PortfolioPerformanceAnalyzer,
         sample_events: list[AirdropEvent]
-    ):
+    ) -> None:
         """Test portfolio value calculation over time."""
         # Add events to tracker
         for event in sample_events:
@@ -164,7 +173,7 @@ class TestPortfolioPerformanceAnalyzer:
 
     def test_calculate_portfolio_value_over_time_no_events(
         self, analyzer: PortfolioPerformanceAnalyzer
-    ):
+    ) -> None:
         """Test portfolio value calculation with no events."""
         snapshots = analyzer.calculate_portfolio_value_over_time(
             start_date=datetime.now() - timedelta(days=5),
@@ -178,7 +187,7 @@ class TestPortfolioPerformanceAnalyzer:
     def test_compare_to_benchmark_eth(
         self, analyzer: PortfolioPerformanceAnalyzer,
         sample_events: list[AirdropEvent]
-    ):
+    ) -> None:
         """Test benchmark comparison with ETH."""
         # Add events to tracker
         for event in sample_events:
@@ -194,7 +203,7 @@ class TestPortfolioPerformanceAnalyzer:
     def test_compare_to_benchmark_btc(
         self, analyzer: PortfolioPerformanceAnalyzer,
         sample_events: list[AirdropEvent]
-    ):
+    ) -> None:
         """Test benchmark comparison with BTC."""
         # Add events to tracker
         for event in sample_events:
@@ -208,7 +217,7 @@ class TestPortfolioPerformanceAnalyzer:
     def test_compare_to_benchmark_market_index(
         self, analyzer: PortfolioPerformanceAnalyzer,
         sample_events: list[AirdropEvent]
-    ):
+    ) -> None:
         """Test benchmark comparison with market index."""
         # Add events to tracker
         for event in sample_events:
@@ -223,7 +232,7 @@ class TestPortfolioPerformanceAnalyzer:
 
     def test_calculate_diversification_index(
         self, analyzer: PortfolioPerformanceAnalyzer
-    ):
+    ) -> None:
         """Test diversification index calculation."""
         # Test with empty portfolio
         index = analyzer._calculate_diversification_index({})
@@ -247,7 +256,7 @@ class TestPortfolioPerformanceAnalyzer:
 
     def test_calculate_value_at_risk(
         self, analyzer: PortfolioPerformanceAnalyzer
-    ):
+    ) -> None:
         """Test Value at Risk calculation."""
         # Test with zero diversification
         var = analyzer._calculate_value_at_risk(
@@ -266,7 +275,7 @@ class TestPortfolioPerformanceAnalyzer:
     def test_roi_optimizer_integration(
         self, analyzer: PortfolioPerformanceAnalyzer,
         sample_events: list[AirdropEvent]
-    ):
+    ) -> None:
         """Test integration with ROI optimizer for cost calculations."""
         # Add events to tracker
         for event in sample_events:
@@ -283,14 +292,20 @@ class TestPortfolioPerformanceAnalyzer:
             'calculate_portfolio_roi',
             return_value=mock_roi_data
         ):
-            metrics = analyzer.calculate_portfolio_metrics()
+            metrics = analyzer.calculate_portfolio_metrics(
+                capital_allocation={
+                    "Uniswap": Decimal("500.50"),
+                    "Arbitrum": Decimal("800.00")
+                },
+                current_prices={"Uniswap": Decimal("1.0"), "Arbitrum": Decimal("1.0")}
+            )
 
             # Should use ROI optimizer's cost calculation (sum of all ROI costs)
             assert metrics.total_cost_usd == Decimal("100.00")
 
     def test_fallback_cost_calculation(
         self, tracker: AirdropTracker, sample_events: list[AirdropEvent]
-    ):
+    ) -> None:
         """Test fallback cost calculation when ROI optimizer fails."""
         analyzer = PortfolioPerformanceAnalyzer(tracker)  # No ROI optimizer
 
@@ -298,19 +313,23 @@ class TestPortfolioPerformanceAnalyzer:
         for event in sample_events:
             analyzer.tracker.record_airdrop(event)
 
-        metrics = analyzer.calculate_portfolio_metrics()
+        metrics = analyzer.calculate_portfolio_metrics(
+            capital_allocation={"Uniswap": Decimal("500.50")},
+            current_prices={"Uniswap": Decimal("1.0")}
+        )
 
         # Should use fallback cost calculation
         # (number of events * default gas cost)
-        # Note: Only 1 event is actually recorded due to tracker behavior
-        expected_cost = Decimal("5")  # 1 event * $5
+        # Note: The sample_events fixture provides 3 events,
+        # so the expected cost is 3 * $5.
+        expected_cost = Decimal("15.0")  # 3 events * $5
         assert metrics.total_cost_usd == expected_cost
 
 
 class TestPortfolioMetrics:
     """Test cases for PortfolioMetrics model."""
 
-    def test_portfolio_metrics_creation(self):
+    def test_portfolio_metrics_creation(self) -> None:
         """Test PortfolioMetrics model creation."""
         metrics = PortfolioMetrics(
             calculation_date=datetime.now(),
@@ -337,7 +356,7 @@ class TestPortfolioMetrics:
 class TestPortfolioSnapshot:
     """Test cases for PortfolioSnapshot model."""
 
-    def test_portfolio_snapshot_creation(self):
+    def test_portfolio_snapshot_creation(self) -> None:
         """Test PortfolioSnapshot model creation."""
         snapshot_date = datetime.now()
         snapshot = PortfolioSnapshot(
@@ -363,7 +382,7 @@ class TestPortfolioSnapshot:
 class TestBenchmarkComparison:
     """Test cases for BenchmarkComparison model."""
 
-    def test_benchmark_comparison_creation(self):
+    def test_benchmark_comparison_creation(self) -> None:
         """Test BenchmarkComparison model creation."""
         comparison = BenchmarkComparison(
             benchmark_type=BenchmarkType.ETH,

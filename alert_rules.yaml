@@ -1,0 +1,18 @@
+
+rules:
+  - name: "high_cpu_usage"
+    metric_name: "system.cpu_usage_percent"
+    condition: "gt"
+    threshold: 90.0
+    severity: "high"
+    for_duration: 300
+    description: "CPU usage is high."
+  - name: "critical_cpu_usage"
+    metric_name: "system.cpu_usage_percent"
+    condition: "gt"
+    threshold: 95.0
+    severity: "critical"
+    for_duration: 60
+    description: "CPU usage is critical."
+    labels:
+      component: "system"

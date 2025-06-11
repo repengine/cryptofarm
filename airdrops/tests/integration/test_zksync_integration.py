@@ -7,14 +7,17 @@ together correctly.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from decimal import Decimal
 from typing import Dict, Any
-import pendulum
 from web3 import Web3
 
-from airdrops.protocols.zksync import zksync
-from airdrops.scheduler.bot import CentralScheduler
+from airdrops.scheduler.bot import (
+    CentralScheduler,
+    TaskDefinition,
+    TaskExecution,
+    TaskStatus,
+)
 from airdrops.capital_allocation.engine import CapitalAllocator
 from airdrops.monitoring.collector import MetricsCollector
 from airdrops.monitoring.alerter import Alerter
@@ -54,8 +57,8 @@ class TestZkSyncIntegration:
                     "dex_router_address": "0x2da10A1e27bF85cEdD8FFb1AbBe97e53391C0295",
                     "lending_protocols": {
                         "eralend": {
-                            "lending_pool_manager": "0x1234567890123456789012345678901234567890",
-                            "weth_gateway": "0x2345678901234567890123456789012345678901",
+                            "lending_pool_manager": "0x1234567890123456789012345678901234567890",  # noqa: E501
+                            "weth_gateway": "0x2345678901234567890123456789012345678901",   # noqa: E501
                             "referral_code": 0,
                         },
                     },
@@ -114,22 +117,19 @@ class TestZkSyncIntegration:
         w3.is_connected.return_value = True
         return w3
 
-    @patch("airdrops.scheduler.bot.Web3")
     @patch("airdrops.protocols.zksync.zksync._get_web3_instance")
     def test_scheduler_executes_zksync_bridge_task(
-        self, mock_get_web3, mock_web3_class, mock_config, mock_web3
+        self, mock_get_web3, mock_config, mock_web3
     ):
         """Test that scheduler correctly executes zkSync bridge tasks.
         
         Args:
             mock_get_web3: Mock for getting Web3 instance
-            mock_web3_class: Mock Web3 class
             mock_config: Test configuration
             mock_web3: Mock Web3 instance
         """
         # Setup mocks
         mock_get_web3.return_value = mock_web3
-        mock_web3_class.return_value = mock_web3
         
         # Mock successful bridge
         with patch("airdrops.protocols.zksync.zksync.bridge_eth") as mock_bridge:
@@ -140,6 +140,7 @@ class TestZkSyncIntegration:
             
             # Create a bridge task
             task = {
+                "id": "zksync_bridge_task",  # Added ID
                 "protocol": "zksync",
                 "action": "bridge_eth",
                 "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
@@ -157,22 +158,19 @@ class TestZkSyncIntegration:
             assert result["tx_hash"] == "0x" + "f" * 64
             mock_bridge.assert_called_once()
 
-    @patch("airdrops.scheduler.bot.Web3")
     @patch("airdrops.protocols.zksync.zksync._get_web3_instance")
     def test_scheduler_executes_zksync_swap_task(
-        self, mock_get_web3, mock_web3_class, mock_config, mock_web3
+        self, mock_get_web3, mock_config, mock_web3
     ):
         """Test that scheduler correctly executes zkSync swap tasks.
         
         Args:
             mock_get_web3: Mock for getting Web3 instance
-            mock_web3_class: Mock Web3 class
             mock_config: Test configuration
             mock_web3: Mock Web3 instance
         """
         # Setup mocks
         mock_get_web3.return_value = mock_web3
-        mock_web3_class.return_value = mock_web3
         
         # Mock successful swap
         with patch("airdrops.protocols.zksync.zksync.swap_tokens") as mock_swap:
@@ -183,6 +181,7 @@ class TestZkSyncIntegration:
             
             # Create a swap task
             task = {
+                "id": "zksync_swap_task",  # Added ID
                 "protocol": "zksync",
                 "action": "swap_tokens",
                 "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
@@ -203,28 +202,15 @@ class TestZkSyncIntegration:
             assert result["tx_hash"] == "0x" + "a" * 64
             mock_swap.assert_called_once()
 
-    @patch("airdrops.capital_allocation.engine.Web3")
-    def test_capital_allocation_includes_zksync(self, mock_web3_class, mock_config):
+    def test_capital_allocation_includes_zksync(self, mock_config):
         """Test capital allocation engine includes zkSync protocol.
         
         Args:
-            mock_web3_class: Mock Web3 class
             mock_config: Test configuration
         """
-        # Setup mock
-        mock_web3 = Mock()
-        mock_web3.eth.get_balance.return_value = Web3.to_wei(3, "ether")
-        mock_web3_class.return_value = mock_web3
         
         # Create capital allocator
         allocator = CapitalAllocator(mock_config)
-        
-        # Test allocation including zkSync
-        wallets = [
-            "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
-            "0x853d35Cc6634C0532925a3b844Bc9e7195Ed5E47283776",
-            "0x963d35Cc6634C0532925a3b844Bc9e7195Ed5E47283777",
-        ]
         
         # Test portfolio optimization
         protocols = ["zksync"]
@@ -283,26 +269,20 @@ class TestZkSyncIntegration:
         metrics = collector.get_protocol_metrics("zksync")
         
         # Verify metrics
-        assert metrics["total_transactions"] == 4
-        assert metrics["successful_transactions"] == 3
-        assert metrics["failed_transactions"] == 1
-        assert metrics["total_gas_used"] == 420000  # Sum of all gas
+        assert metrics["total_transactions"] == 4.0
+        assert metrics["successful_transactions"] == 3.0
+        assert metrics["failed_transactions"] == 1.0
+        assert metrics["total_gas_used"] == 420000.0  # Sum of all gas
         assert metrics["total_value_usd"] == 1100.0  # Sum of successful values
 
-    @patch("airdrops.risk_management.core.Web3")
     def test_risk_manager_validates_zksync_operations(
-        self, mock_web3_class, mock_config
+        self, mock_config
     ):
         """Test risk manager properly validates zkSync operations.
         
         Args:
-            mock_web3_class: Mock Web3 class
             mock_config: Test configuration
         """
-        # Setup mock
-        mock_web3 = Mock()
-        mock_web3.eth.gas_price = Web3.to_wei(40, "gwei")
-        mock_web3_class.return_value = mock_web3
         
         # Create risk manager
         risk_manager = RiskManager(mock_config)
@@ -352,6 +332,7 @@ class TestZkSyncIntegration:
         
         # Create random activity task
         task = {
+            "id": "zksync_random_activity_task",  # Added ID
             "protocol": "zksync",
             "action": "random_activity",
             "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
@@ -363,13 +344,13 @@ class TestZkSyncIntegration:
         
         # Verify execution
         assert result["success"] is True
-        assert "3 actions successfully" in result["message"]
+        assert "Executed 3 actions successfully: bridge_eth, swap_tokens, lend_borrow" in result["message"]   # noqa: E501
         mock_random_activity.assert_called_once()
 
     @patch("airdrops.protocols.zksync.zksync.lend_borrow")
-    @patch("airdrops.monitoring.alerter.send_notification")
+    @patch("airdrops.monitoring.alerter.Alerter.send_notifications")
     def test_alerting_on_zksync_lending_failure(
-        self, mock_send_notification, mock_lend_borrow, mock_config
+        self, mock_send_notifications, mock_lend_borrow, mock_config
     ):
         """Test alerts are triggered when zkSync lending operations fail.
         
@@ -379,8 +360,7 @@ class TestZkSyncIntegration:
             mock_config: Test configuration
         """
         # Setup lending to fail
-        mock_lend_borrow.return_value = (
-            False,
+        mock_lend_borrow.side_effect = Exception(
             "Insufficient collateral for borrow operation"
         )
         
@@ -391,25 +371,37 @@ class TestZkSyncIntegration:
         scheduler = CentralScheduler(mock_config)
         scheduler.alerter = alerter
         
-        # Try to execute failing lending task
-        task = {
-            "protocol": "zksync",
-            "action": "lend_borrow",
-            "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
-            "params": {
+        # Define task
+        task_id = "test_failing_lending_task"
+        task_def = TaskDefinition(
+            task_id=task_id,
+            func=mock_lend_borrow,
+            protocol="zksync",
+            action="lend_borrow",
+            max_retries=0,  # Ensure alert is sent immediately
+            kwargs={
                 "action": "borrow",
                 "token_address": "0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4",
                 "amount": 1000000,  # 1 USDC
                 "lending_protocol_name": "eralend",
             },
-        }
+        )
+        execution = TaskExecution(
+            task_id=task_id,
+            wallet="0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
+            status=TaskStatus.PENDING,
+        )
         
-        with patch.object(scheduler, "_handle_task_failure") as mock_handle_failure:
-            result = scheduler._execute_task(task)
+        scheduler._task_definitions[task_id] = task_def
+        scheduler._task_executions[task_id] = execution
+        
+        # Execute task wrapper
+        result = scheduler._execute_task_wrapper(task_id)
             
-            # Verify failure was handled
-            assert result["success"] is False
-            assert "Insufficient collateral" in result.get("error", "")
+        # Verify failure was handled
+        assert result["success"] is False
+        assert "Insufficient collateral" in result.get("error", "")
+        mock_send_notifications.assert_called_once()  # Verify alert was sent
 
     def test_cross_protocol_workflow_scroll_to_zksync(self, mock_config):
         """Test workflow involving both Scroll and zkSync protocols.
@@ -420,61 +412,61 @@ class TestZkSyncIntegration:
         # Enable both protocols
         mock_config["protocols"]["scroll"] = {"enabled": True}
         
-        with patch("airdrops.scheduler.bot.Web3") as mock_web3_class:
-            # Setup mocks
-            mock_web3 = Mock()
-            mock_web3.eth.get_balance.return_value = Web3.to_wei(2, "ether")
-            mock_web3_class.return_value = mock_web3
+        # No direct Web3 patch needed for scheduler.bot as it doesn't import Web3 directly.  # noqa: E501
+        # If CentralScheduler needs a Web3 instance, it should be passed in its constructor or a method.  # noqa: E501
+        # For now, we assume it's mocked at a lower level or not directly used in this test's scope.  # noqa: E501
+        
+        # Create system components
+        scheduler = CentralScheduler(mock_config)
+        allocator = CapitalAllocator(mock_config)
+        _ = MetricsCollector()  # collector is assigned to but never used
+        
+        # Get allocations for both protocols
+        wallets = ["0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775"]
+        allocations = allocator.allocate_capital(wallets)
+        
+        # Verify both protocols get allocations for the first wallet
+        assert "scroll" in allocations[wallets[0]]
+        assert "zksync" in allocations[wallets[0]]
+        
+        # Simulate operations on both
+        with patch("airdrops.protocols.scroll.scroll.swap_tokens") as mock_scroll_swap, \
+             patch("airdrops.protocols.zksync.zksync.swap_tokens") as mock_zksync_swap:   # noqa: E501
             
-            # Create system components
-            scheduler = CentralScheduler(mock_config)
-            allocator = CapitalAllocator(mock_config)
-            collector = MetricsCollector()
+            mock_scroll_swap.return_value = "0x" + "1" * 64
+            mock_zksync_swap.return_value = (True, "0x" + "2" * 64)
             
-            # Get allocations for both protocols
-            wallets = ["0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775"]
-            allocations = allocator.allocate_capital(wallets)
+            # Execute Scroll task
+            scroll_task = {
+                "id": "cross_protocol_scroll_swap",  # Added ID
+                "protocol": "scroll",
+                "action": "swap_tokens",
+                "wallet": wallets[0],
+                "params": {"token_in": "USDC", "token_out": "WETH", "amount_in": "100"},
+            }
             
-            # Verify both protocols get allocations
-            assert "scroll" in allocations
-            assert "zksync" in allocations
+            # Execute zkSync task
+            zksync_task = {
+                "id": "cross_protocol_zksync_swap",  # Added ID
+                "protocol": "zksync",
+                "action": "swap_tokens",
+                "wallet": wallets[0],
+                "params": {
+                    "token_in_address": "0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4",
+                    "token_out_address": "0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91",
+                    "amount_in": 100000000,
+                    "dex_name": "syncswap",
+                    "slippage_bps": 50,
+                },
+            }
             
-            # Simulate operations on both
-            with patch("airdrops.protocols.scroll.scroll.swap_tokens") as mock_scroll_swap, \
-                 patch("airdrops.protocols.zksync.zksync.swap_tokens") as mock_zksync_swap:
-                
-                mock_scroll_swap.return_value = "0x" + "1" * 64
-                mock_zksync_swap.return_value = (True, "0x" + "2" * 64)
-                
-                # Execute Scroll task
-                scroll_task = {
-                    "protocol": "scroll",
-                    "action": "swap",
-                    "wallet": wallets[0],
-                    "params": {"token_in": "USDC", "token_out": "WETH", "amount_in": "100"},
-                }
-                
-                # Execute zkSync task
-                zksync_task = {
-                    "protocol": "zksync",
-                    "action": "swap_tokens",
-                    "wallet": wallets[0],
-                    "params": {
-                        "token_in_address": "0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4",
-                        "token_out_address": "0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91",
-                        "amount_in": 100000000,
-                        "dex_name": "syncswap",
-                        "slippage_bps": 50,
-                    },
-                }
-                
-                # Execute both
-                scroll_result = scheduler._execute_task(scroll_task)
-                zksync_result = scheduler._execute_task(zksync_task)
-                
-                # Verify both succeeded
-                assert scroll_result["success"] is True
-                assert zksync_result["success"] is True
+            # Execute both
+            scroll_result = scheduler._execute_task(scroll_task)
+            zksync_result = scheduler._execute_task(zksync_task)
+            
+            # Verify both succeeded
+            assert scroll_result["success"] is True
+            assert zksync_result["success"] is True
 
     def test_performance_based_reallocation(self, mock_config):
         """Test capital reallocation based on zkSync performance.

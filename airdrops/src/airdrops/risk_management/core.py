@@ -34,7 +34,6 @@ class VolatilityState(Enum):
     EXTREME = "extreme"
 
 
-
 @dataclass
 class RiskMetrics:
     """Data class for storing risk assessment metrics."""
@@ -44,8 +43,8 @@ class RiskMetrics:
     volatility_state: VolatilityState
     protocol_exposures: Dict[str, Decimal]
     risk_level: RiskLevel
+    recommended_action: Optional[str]
     circuit_breaker_triggered: bool
-
 
 
 @dataclass
@@ -58,7 +57,6 @@ class RiskLimits:
     max_gas_price_gwei: Decimal
     volatility_threshold_high: Decimal
     volatility_threshold_extreme: Decimal
-
 
 
 class RiskManager:
@@ -76,14 +74,20 @@ class RiskManager:
         ...     risk_manager.trigger_circuit_breaker()
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        alerter: Optional[Any] = None
+    ) -> None:
         """
         Initialize the Risk Management System.
 
         Args:
             config: Optional configuration dictionary for risk parameters.
+            alerter: Optional Alerter instance for sending notifications.
         """
         self.config = config or {}
+        self.alerter = alerter
         self.risk_limits = self._load_risk_limits()
         self.web3_providers: Dict[str, Web3] = {}
         self.circuit_breaker_active = False
@@ -163,7 +167,9 @@ class RiskManager:
                 # Monitor ETH balances across networks
                 for network, web3 in self.web3_providers.items():
                     if web3.is_connected():
-                        balance_wei = web3.eth.get_balance(Web3.to_checksum_address(address))
+                        balance_wei = web3.eth.get_balance(
+                            Web3.to_checksum_address(address)
+                        )
                         balance_eth = Decimal(str(web3.from_wei(balance_wei, 'ether')))
 
                         # Convert to USD (placeholder - would use price oracle)
@@ -345,7 +351,10 @@ class RiskManager:
                 volatility_state=volatility_state,
                 protocol_exposures=protocol_exposures,
                 risk_level=risk_level,
-                circuit_breaker_triggered=circuit_breaker_triggered
+                recommended_action="reduce_exposure"
+                if risk_level == RiskLevel.HIGH
+                else None,
+                circuit_breaker_triggered=circuit_breaker_triggered,
             )
 
         except Exception as e:
@@ -421,6 +430,9 @@ class RiskManager:
             volatility_multiplier = self._get_volatility_multiplier(volatility_state)
 
             return {
+                "protocol": protocol,
+                "protocol": protocol,
+                "asset": asset,
                 "max_position_size": max_protocol_exposure * volatility_multiplier,
                 "max_transaction_size": max_transaction_size * volatility_multiplier,
                 "max_asset_concentration": max_asset_concentration,
@@ -458,9 +470,13 @@ class RiskManager:
 
             # Check for excessive daily losses
             daily_loss_pct = abs(metrics.portfolio_pnl / metrics.portfolio_value * 100)
-            if (metrics.portfolio_pnl < 0 and
-                daily_loss_pct > self.risk_limits.max_daily_loss_pct):
-                emergency_conditions.append(f"Daily loss {daily_loss_pct}% exceeds limit")
+            if (
+                metrics.portfolio_pnl < 0 and
+                daily_loss_pct > self.risk_limits.max_daily_loss_pct
+            ):
+                emergency_conditions.append(
+                    f"Daily loss {daily_loss_pct}% exceeds limit"
+                )
 
             # Check for extreme gas prices
             if metrics.gas_price_gwei > self.risk_limits.max_gas_price_gwei * 2:
@@ -476,7 +492,9 @@ class RiskManager:
                     max(metrics.protocol_exposures.values()) /
                     metrics.portfolio_value * 100
                 )
-                if max_exposure_pct > self.risk_limits.max_protocol_exposure_pct * Decimal("1.5"):
+                if max_exposure_pct > (
+                    self.risk_limits.max_protocol_exposure_pct * Decimal("1.5")
+                ):
                     emergency_conditions.append("Excessive protocol concentration")
 
             if emergency_conditions:
@@ -563,10 +581,100 @@ class RiskManager:
         }
         return multipliers.get(volatility_state, Decimal("0.5"))
 
+    def validate_operation(self, operation: Dict[str, Any]) -> bool:
+        """
+        Validate a proposed operation against current risk limits.
+        This is a placeholder for a more detailed validation logic.
+        """
+        logger.info(f"Validating operation: {operation}")
+        
+        # Example: Check if estimated gas exceeds a threshold
+        estimated_gas = operation.get("estimated_gas", 0)
+        if estimated_gas > 1000000:  # Arbitrary high gas limit for example
+            logger.warning(
+                f"Operation {operation.get('action')} has very high estimated gas: "
+                f"{estimated_gas}"
+            )
+            return False
+
+        # Example: Check if value_usd exceeds a transaction size limit
+        value_usd = operation.get("value_usd", 0.0)
+        if value_usd > 5000.0:  # Arbitrary high value limit for example
+            logger.warning(
+                f"Operation {operation.get('action')} has very high value: "
+                f"{value_usd} USD"
+            )
+            return False
+
+        # In a real system, this would involve more complex checks against
+        # self.risk_limits
+        return True
+
+    def record_risk_event(
+        self, event_type: str, details: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Record a significant risk event.
+        This is a placeholder for a more robust event logging/storage.
+        """
+        logger.warning(f"RISK EVENT RECORDED: Type='{event_type}', Details={details}")
+        # In a real system, this would persist the event to a database or log stream.
+        
+        action_map = {
+            "gas_spike": "pause_operations",
+            "protocol_failure": "disable_protocol",
+            "suspicious_activity": "freeze_wallet",
+            "network_congestion": "reduce_frequency",
+            "emergency_shutdown": "emergency_shutdown"
+        }
+        
+        response = {"action": action_map.get(event_type)}
+
+        if event_type == "protocol_failure":
+            response["protocol"] = details.get("protocol")
+        elif event_type == "suspicious_activity":
+            response["wallet"] = details.get("wallet")
+        elif event_type == "emergency_shutdown":
+            response["shutdown_complete"] = True
+        
+        if self.alerter:
+            alert = self.alerter.create_alert(
+                rule_name=f"risk-event-{event_type}",
+                metric_name=event_type,
+                current_value=1,
+                threshold=0,
+                severity="high",
+                description=(
+                    f"Risk event of type {event_type} occurred with "
+                    f"details: {details}"
+                )
+            )
+            self.alerter.send_notifications([alert])
+            
+        return response
+
+    def calculate_safe_positions(
+        self,
+        current_positions: Dict[str, Decimal],
+        risk_assessment: RiskMetrics,
+    ) -> Dict[str, Decimal]:
+        """
+        Calculate safe positions based on risk assessment.
+        """
+        if risk_assessment.risk_level == RiskLevel.HIGH:
+            # Reduce exposure to high-risk protocols
+            safe_positions = current_positions.copy()
+            for protocol in safe_positions:
+                if protocol in ["scroll", "zksync"]:
+                    safe_positions[protocol] *= Decimal("0.5")
+            return safe_positions
+        return current_positions
+
+
 __all__ = [
     "RiskManager",
     "RiskLevel",
     "VolatilityState",
     "RiskMetrics",
-    "RiskLimits"
+    "RiskLimits",
 ]

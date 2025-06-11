@@ -196,7 +196,9 @@ class AirdropTracker:
                 return [self._db_event_to_pydantic(event) for event in db_events]
 
         except Exception as e:
-            logger.error(f"Failed to retrieve airdrops for protocol {protocol_name}: {e}")
+            logger.error(
+                f"Failed to retrieve airdrops for protocol {protocol_name}: {e}"
+            )
             raise RuntimeError(f"Database query failed: {e}") from e
 
     def get_airdrops_by_wallet(self, wallet_address: str) -> List[AirdropEvent]:
@@ -218,7 +220,9 @@ class AirdropTracker:
                 return [self._db_event_to_pydantic(event) for event in db_events]
 
         except Exception as e:
-            logger.error(f"Failed to retrieve airdrops for wallet {wallet_address}: {e}")
+            logger.error(
+                f"Failed to retrieve airdrops for wallet {wallet_address}: {e}"
+            )
             raise RuntimeError(f"Database query failed: {e}") from e
 
     def get_airdrops_by_date_range(
@@ -247,6 +251,23 @@ class AirdropTracker:
 
         except Exception as e:
             logger.error(f"Failed to retrieve airdrops for date range: {e}")
+            raise RuntimeError(f"Database query failed: {e}") from e
+
+    def get_all_events(self) -> List[AirdropEvent]:
+        """
+        Retrieve all airdrop events from the database.
+
+        Returns:
+            List of all AirdropEvent instances
+        """
+        try:
+            with self.SessionLocal() as session:
+                db_events = session.query(AirdropEventModel).order_by(
+                    AirdropEventModel.event_date.desc()
+                ).all()
+                return [self._db_event_to_pydantic(event) for event in db_events]
+        except Exception as e:
+            logger.error(f"Failed to retrieve all airdrop events: {e}")
             raise RuntimeError(f"Database query failed: {e}") from e
 
     def _db_event_to_pydantic(self, db_event: AirdropEventModel) -> AirdropEvent:

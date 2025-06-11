@@ -9,7 +9,7 @@ import logging
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from pydantic import BaseModel, Field
 
@@ -285,15 +285,15 @@ class ROIOptimizer:
                 suggestions.extend(
                     self._generate_roi_maximization_suggestions(
                         portfolio_roi, min_roi_threshold
-                    )
+                    ) or []
                 )
             elif strategy == OptimizationStrategy.RISK_ADJUSTED:
                 suggestions.extend(
-                    self._generate_risk_adjusted_suggestions(portfolio_roi)
+                    self._generate_risk_adjusted_suggestions(portfolio_roi) or []
                 )
             elif strategy == OptimizationStrategy.DIVERSIFIED:
                 suggestions.extend(
-                    self._generate_diversification_suggestions(portfolio_roi)
+                    self._generate_diversification_suggestions(portfolio_roi) or []
                 )
 
             # Sort by priority and potential impact
@@ -424,22 +424,85 @@ class ROIOptimizer:
         # Check for over-concentration
         if portfolio_roi:
             total_transactions = sum(roi.transaction_count for roi in portfolio_roi)
-            for roi in portfolio_roi:
-                concentration = (roi.transaction_count / total_transactions) * 100
-                if concentration > 50:  # More than 50% concentration
-                    suggestions.append(
-                        OptimizationSuggestion(
-                            protocol_name=roi.protocol_name,
-                            suggestion_type="reduce_concentration",
-                            priority="medium",
-                            description=(
-                                f"Reduce concentration in "
-                                f"{roi.protocol_name} "
-                                f"({concentration:.1f}% of transactions)"
-                            ),
-                            expected_impact="Better risk distribution across protocols",
-                            current_roi=roi.roi_percentage,
+            if total_transactions > 0:
+                for roi in portfolio_roi:
+                    concentration = (roi.transaction_count / total_transactions) * 100
+                    if concentration > 50:  # More than 50% concentration
+                        suggestions.append(
+                            OptimizationSuggestion(
+                                protocol_name=roi.protocol_name,
+                                suggestion_type="reduce_concentration",
+                                priority="medium",
+                                description=(
+                                    f"Reduce concentration in "
+                                    f"{roi.protocol_name} "
+                                    f"({concentration:.1f}% of transactions)"
+                                ),
+                                expected_impact="Better risk distribution",
+                                current_roi=roi.roi_percentage,
+                            )
                         )
-                    )
 
         return suggestions
+
+    def optimize_protocol_strategy(
+        self, protocol_name: str, metrics: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Optimize the strategy for a specific protocol based on its performance metrics.
+        This is a placeholder for a more sophisticated optimization algorithm.
+        """
+        logger.info(f"Optimizing strategy for protocol: {protocol_name}")
+        
+        # Dummy optimization logic
+        if metrics.get("success_rate", 0) < 0.8:
+            return {
+                "recommended_actions": ["review_gas_settings", "check_slippage"],
+                "expected_improvement": Decimal("0.10"),
+                "reason": "Low success rate",
+            }
+        elif metrics.get("average_gas_used", 0) > 200000:
+            return {
+                "recommended_actions": [
+                    "optimize_gas_limits", "explore_alternative_routes"
+                ],
+                "expected_improvement": Decimal("0.05"),
+                "reason": "High gas usage",
+            }
+        else:
+            return {
+                "recommended_actions": ["continue_monitoring"],
+                "expected_improvement": Decimal("0.00"),
+                "reason": "Performance is satisfactory",
+            }
+
+    def optimize_gas_usage(self, metrics_collector: Any) -> Dict[str, Any]:
+        """
+        Optimize gas usage based on historical transaction data.
+        This is a placeholder for a more advanced gas optimization logic.
+        """
+        logger.info("Optimizing gas usage...")
+        
+        # Dummy gas optimization
+        return {
+            "optimal_gas_price": 30,  # gwei
+            "best_times": ["02:00 UTC", "14:00 UTC"],
+            "estimated_savings": Decimal("50.0"),  # USD per day
+        }
+
+    def optimize_swap_routes(self, swap_params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Optimize swap routes for better execution prices or lower slippage.
+        This is a placeholder for a more complex routing algorithm.
+        """
+        logger.info(
+            f"Optimizing swap routes for {swap_params.get('token_in')} to "
+            f"{swap_params.get('token_out')}"
+        )
+        
+        # Dummy route optimization
+        return {
+            "best_route": ["protocol_A", "protocol_B"],
+            "expected_output": Decimal("0.99"),  # e.g., 0.99 WETH for 1 USDC
+            "price_impact": Decimal("0.001"),  # 0.1% price impact
+        }

@@ -25,9 +25,11 @@ class TestCentralScheduler:
     def setup_method(self):
         """Set up test fixtures."""
         self.config = {
-            "max_concurrent_jobs": 3,
-            "default_retry_delay": 30.0,
-            "default_max_retries": 2,
+            "scheduler": {
+                "max_concurrent_tasks": 3,
+                "retry_delay": 30.0,
+                "max_retries": 2,
+            },
             "max_gas_price": 80
         }
         self.scheduler = CentralScheduler(self.config)
@@ -38,16 +40,16 @@ class TestCentralScheduler:
 
         assert scheduler.config == {}
         assert scheduler._max_concurrent_jobs == 5
-        assert scheduler._default_retry_delay == 60.0
-        assert scheduler._default_max_retries == 3
+        assert scheduler.retry_delay == 60.0
+        assert scheduler.max_retries == 3
         assert not scheduler._running
 
     def test_init_custom_config(self):
         """Test scheduler initialization with custom configuration."""
         assert self.scheduler.config == self.config
-        assert self.scheduler._max_concurrent_jobs == 3
-        assert self.scheduler._default_retry_delay == 30.0
-        assert self.scheduler._default_max_retries == 2
+        assert self.scheduler._max_concurrent_jobs == self.config["scheduler"]["max_concurrent_tasks"]
+        assert self.scheduler.retry_delay == self.config["scheduler"]["retry_delay"]
+        assert self.scheduler.max_retries == self.config["scheduler"]["max_retries"]
 
     @patch('airdrops.scheduler.bot.BlockingScheduler')
     def test_start_scheduler(self, mock_scheduler_class):
@@ -273,6 +275,7 @@ class TestCentralScheduler:
         )
 
         self.scheduler._task_definitions["test_task"] = task_def
+        self.scheduler.alerter = Mock() # Mock the alerter
 
         error = Exception("Test error")
 
@@ -281,6 +284,7 @@ class TestCentralScheduler:
         assert result is False
         assert execution.status == TaskStatus.FAILED
         assert execution.retry_count == 3
+        self.scheduler.alerter.send_notifications.assert_called_once()
 
     def test_handle_task_failure_no_task_def(self):
         """Test task failure handling with missing task definition."""
@@ -362,9 +366,11 @@ class TestCentralScheduler:
         self.scheduler._task_executions["test_task"] = execution
 
         with patch.object(self.scheduler, '_check_dependencies', return_value=True):
-            with patch.object(self.scheduler, 'handle_task_failure') as mock_handle:
-                with pytest.raises(ValueError, match="Test error"):
-                    self.scheduler._execute_task_wrapper("test_task")
+            with patch.object(self.scheduler, 'handle_task_failure') as mock_handle: # noqa: F841
+                result = self.scheduler._execute_task_wrapper("test_task")
+                assert result["success"] is False
+                assert "Test error" in result["message"]
+                mock_handle.assert_called_once()
 
         assert execution.status == TaskStatus.RUNNING
         mock_handle.assert_called_once()
@@ -991,22 +997,24 @@ class TestEdgeCases:
         scheduler = CentralScheduler()
         
         assert scheduler._max_concurrent_jobs == 5
-        assert scheduler._default_retry_delay == 60.0
-        assert scheduler._default_max_retries == 3
+        assert scheduler.retry_delay == 60.0
+        assert scheduler.max_retries == 3
 
     def test_scheduler_config_override(self):
         """Test scheduler configuration override."""
         config = {
-            "max_concurrent_jobs": 10,
-            "default_retry_delay": 30.0,
-            "default_max_retries": 5,
+            "scheduler": {
+                "max_concurrent_tasks": 10,
+                "retry_delay": 30.0,
+                "max_retries": 5,
+            },
             "max_gas_price": 200
         }
         scheduler = CentralScheduler(config)
         
-        assert scheduler._max_concurrent_jobs == 10
-        assert scheduler._default_retry_delay == 30.0
-        assert scheduler._default_max_retries == 5
+        assert scheduler._max_concurrent_jobs == config["scheduler"]["max_concurrent_tasks"]
+        assert scheduler.retry_delay == config["scheduler"]["retry_delay"]
+        assert scheduler.max_retries == config["scheduler"]["max_retries"]
         assert scheduler.config["max_gas_price"] == 200
 
     def test_task_execution_duration_calculation(self):

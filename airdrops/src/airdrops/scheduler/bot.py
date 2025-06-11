@@ -9,11 +9,14 @@ and robust error handling with retry logic.
 import logging
 import time
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, Callable, Set, Tuple
+from typing import Dict, Any, Optional, Callable, Set, Tuple, List
 from dataclasses import dataclass
 from enum import Enum
 import argparse
+import importlib
 import sys
+
+from airdrops.monitoring.alerter import Alert, AlertSeverity, AlertStatus
 
 # APScheduler imports - will be added to dependencies
 try:
@@ -57,6 +60,8 @@ class TaskDefinition:
     """Data class for task definitions."""
     task_id: str
     func: Callable[..., Any]
+    protocol: Optional[str] = None
+    action: Optional[str] = None
     args: Tuple[Any, ...] = ()
     kwargs: Optional[Dict[str, Any]] = None
     priority: TaskPriority = TaskPriority.NORMAL
@@ -81,6 +86,7 @@ class TaskExecution:
     """Data class for task execution tracking."""
     task_id: str
     status: TaskStatus
+    wallet: Optional[str] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     retry_count: int = 0
@@ -125,9 +131,14 @@ class CentralScheduler:
         self._running = False
 
         # Configuration with defaults
-        self._max_concurrent_jobs = self.config.get("max_concurrent_jobs", 5)
-        self._default_retry_delay = self.config.get("default_retry_delay", 60.0)
-        self._default_max_retries = self.config.get("default_max_retries", 3)
+        self.max_retries = self.config.get("scheduler", {}).get("max_retries", 3)
+        self.retry_delay = self.config.get("scheduler", {}).get(
+            "retry_delay", 60.0
+        )
+        self._max_concurrent_jobs = self.config.get("scheduler", {}).get(
+            "max_concurrent_tasks", 5
+        )
+        self._last_wallet_index = -1
 
         logger.info("CentralScheduler initialized with config: %s", self.config)
 
@@ -182,7 +193,7 @@ class CentralScheduler:
             kwargs=kwargs or {},
             priority=priority,
             dependencies=dependencies or set(),
-            max_retries=max_retries or self._default_max_retries
+            max_retries=max_retries or self.max_retries
         )
 
         # Validate dependencies
@@ -194,13 +205,13 @@ class CentralScheduler:
         # Add job to APScheduler
         if self._scheduler is not None:
             self._scheduler.add_job(
-            func=self._execute_task_wrapper,
-            trigger=trigger_obj,
-            args=(task_id,),
-            id=task_id,
-            max_instances=1,
-            replace_existing=True
-        )
+                func=self._execute_task_wrapper,
+                trigger=trigger_obj,
+                args=(task_id,),
+                id=task_id,
+                max_instances=1,
+                replace_existing=True
+            )
 
         # Store task definition
         self._task_definitions[task_id] = task_def
@@ -329,12 +340,52 @@ class CentralScheduler:
         execution.retry_count += 1
         execution.last_error = str(error)
         execution.status = TaskStatus.FAILED
+        execution.result = {
+            "success": False,
+            "message": f"Task failed: {error}",
+            "error": str(error),
+            "tx_hash": None,
+            "protocol": task_def.protocol,
+            "action": task_def.action,
+            "wallet": execution.wallet,
+            "id": task_id,
+        }
 
         if execution.retry_count >= task_def.max_retries:
             logger.error(
                 "Task %s failed permanently after %d retries: %s",
                 task_id, execution.retry_count, error
             )
+            if self.alerter:
+                logger.debug(
+                    "Alerter instance in handle_task_failure: %s", self.alerter
+                )
+                alert_message = (
+                    f"Task {task_id} ({task_def.protocol}/"
+                    f"{task_def.action}) failed permanently: {error}"
+                )
+                alert_labels = {
+                    "task_id": task_id,
+                    "protocol": task_def.protocol,
+                    "action": task_def.action,
+                    "wallet": execution.wallet,
+                }
+                alert = Alert(
+                    rule_name=f"task_failure_{task_id}",
+                    metric_name="task_failure",
+                    current_value=1.0,  # Represents a single failure event
+                    threshold=0.0,  # Always trigger on failure
+                    severity=AlertSeverity.CRITICAL,
+                    status=AlertStatus.FIRING,
+                    description=alert_message,
+                    timestamp=time.time(),
+                    labels=alert_labels,
+                    firing_since=time.time(),
+                    resolved_at=None,
+                )
+                self.alerter.send_notifications([alert])
+            else:
+                logger.debug("Alerter is None in handle_task_failure.")
             return False
 
         # Calculate exponential backoff delay
@@ -359,12 +410,12 @@ class CentralScheduler:
 
         if self._scheduler is not None:
             self._scheduler.add_job(
-            func=self._execute_task_wrapper,
-            trigger=DateTrigger(run_date=retry_time),
-            args=(task_id,),
-            id=f"{task_id}_retry_{execution.retry_count}",
-            replace_existing=True
-        )
+                func=self._execute_task_wrapper,
+                trigger=DateTrigger(run_date=retry_time),
+                args=(task_id,),
+                id=f"{task_id}_retry_{execution.retry_count}",
+                replace_existing=True
+            )
 
         return True
 
@@ -439,7 +490,20 @@ class CentralScheduler:
         except Exception as error:
             logger.error("Task %s failed: %s", task_id, error)
             self.handle_task_failure(task_id, error, execution)
-            raise
+            return {
+                "success": False,
+                "message": str(error),
+                "tx_hash": None,
+                "error": str(error),
+                "protocol": task_def.protocol,
+                "action": task_def.action,
+                "wallet": execution.wallet,
+                "id": task_id,
+            }
+            logger.debug(
+                "Execution result after handling failure: %s", execution.result
+            )
+            return execution.result
 
     def _validate_dependencies(self, task_def: TaskDefinition) -> None:
         """Validate task dependencies to prevent cycles."""
@@ -509,11 +573,215 @@ class CentralScheduler:
         # Implementation for reducing task frequency
         logger.info("Task frequency reduced due to high volatility")
 
+    def _resolve_dependencies(self, task_graph: Dict[str, Dict[str, Any]]) -> List[str]:
+        """
+        Resolve task dependencies using a topological sort.
+        Returns a list of task IDs in a valid execution order.
+        """
+        in_degree: Dict[str, int] = {task_id: 0 for task_id in task_graph}
+        adj_list: Dict[str, List[str]] = {task_id: [] for task_id in task_graph}
+
+        for task_id, task_info in task_graph.items():
+            for dep_id in task_info.get("dependencies", []):
+                adj_list[dep_id].append(task_id)
+                in_degree[task_id] += 1
+
+        queue: List[str] = [
+            task_id for task_id, degree in in_degree.items() if degree == 0
+        ]
+        topological_order: List[str] = []
+
+        while queue:
+            current_task_id = queue.pop(0)
+            topological_order.append(current_task_id)
+
+            for neighbor_task_id in adj_list[current_task_id]:
+                in_degree[neighbor_task_id] -= 1
+                if in_degree[neighbor_task_id] == 0:
+                    queue.append(neighbor_task_id)
+
+        if len(topological_order) != len(task_graph):
+            raise ValueError("Circular dependency detected in task graph.")
+
+        logger.debug(f"Resolved dependencies: {topological_order}")
+        return topological_order
+
+    def _execute_protocol_task(
+        self, protocol_name: str, task_type: str, **kwargs: Any
+    ) -> Any:
+        """Placeholder for executing a protocol-specific task."""
+        logger.info(
+            f"Executing protocol task: {protocol_name} - {task_type} with {kwargs}"
+        )
+        # This would dynamically load and execute the relevant protocol logic
+        return f"Executed {protocol_name} {task_type}"
+
+    def _schedule_daily_activities(self) -> None:
+        """Placeholder for scheduling daily activities."""
+        logger.info("Scheduling daily activities...")
+        pass
+
+    def _load_balance_wallets(self) -> None:
+        """Placeholder for load balancing wallets."""
+        logger.info("Load balancing wallets...")
+        pass
+
+    def _enforce_gas_limits(self) -> bool:
+        """Placeholder for enforcing gas limits."""
+        logger.info("Enforcing gas limits...")
+        # For now, always return True to allow execution, or implement actual logic
+        # based on self.config.get("risk_management", {}).get(
+        # "max_gas_price_gwei"
+        # )
+        return True
+
+    def _generate_random_delay(
+        self, min_delay: float = 1.0, max_delay: float = 5.0
+    ) -> float:
+        """
+        Generate a random delay within a specified range.
+
+        Args:
+            min_delay: Minimum delay in seconds.
+            max_delay: Maximum delay in seconds.
+
+        Returns:
+            A random float representing the delay.
+        """
+        import random
+        return random.uniform(min_delay, max_delay)
+
+    def _execute_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute a single task by dynamically dispatching to the correct protocol module.
+        """
+        protocol_name = task["protocol"]
+        action_name = task["action"]
+        task_id = task.get("id", "unknown_task")
+        logger.info(
+            f"Executing task: {task_id} ({protocol_name}/{action_name})"
+        )
+
+        try:
+            # Dynamically import the protocol module
+            protocol_module = importlib.import_module(
+                f"airdrops.protocols.{protocol_name}.{protocol_name}"
+            )
+
+            # Get the function to execute
+            if action_name == "random_activity":
+                action_func = getattr(protocol_module, "perform_random_activity")
+            else:
+                action_func = getattr(protocol_module, action_name)
+
+            # Execute the task
+            result = action_func(**task.get("params", {}))
+
+            # Process result
+            success = True
+            message: str = "Task completed successfully"
+            tx_hash: Optional[str] = None
+            tx_hashes: Optional[List[str]] = None
+
+            if isinstance(result, tuple):
+                success = result[0]
+                if len(result) > 1:
+                    if isinstance(result[1], str):
+                        message = result[1]
+                        tx_hash = result[1]  # Assign tx_hash when result[1] is a string
+                    elif isinstance(result[1], list):
+                        tx_hashes = result[1]
+                        if tx_hashes:
+                            tx_hash = tx_hashes[0]
+                            # Use the first hash for single tx_hash field
+            elif isinstance(result, str):
+                message = result
+                tx_hash = result
+
+            return {
+                "success": success,
+                "message": message,
+                "tx_hash": tx_hash,
+                "tx_hashes": tx_hashes,  # Add tx_hashes field
+                "error": (
+                    None if success else message
+                ),  # Set error to message if not successful # noqa: E501
+                "protocol": protocol_name,
+                "action": action_name,
+                "wallet": task.get("wallet"),
+                "id": task_id,
+            }
+
+        except (ModuleNotFoundError, AttributeError) as e:
+            error_message = (
+                f"Could not find action '{action_name}' in protocol"
+                f" '{protocol_name}': {e}"
+            )
+            logger.error(error_message)
+            return {
+                "success": False,
+                "message": error_message,
+                "tx_hash": None,
+                "error": str(e),
+                "protocol": protocol_name,
+                "action": action_name,
+                "wallet": task.get("wallet"),
+                "id": task_id,
+            }
+        except Exception as e:
+            error_message = (
+                f"An unexpected error occurred during task execution: {e}"
+            )
+            logger.error(error_message, exc_info=True)
+            return {
+                "success": False,
+                "message": error_message,
+                "tx_hash": None,
+                "error": str(e),
+                "protocol": protocol_name,
+                "action": action_name,
+                "wallet": task.get("wallet"),
+                "id": task_id,
+            }
+
+    def _assign_wallet_for_task(self, task: Dict[str, Any], wallets: List[str]) -> str:
+        """
+        Assign a wallet to a task using round-robin.
+        """
+        if not wallets:
+            raise ValueError("No wallets available for assignment.")
+
+        self._last_wallet_index = (self._last_wallet_index + 1) % len(wallets)
+        return wallets[self._last_wallet_index]
+
+    def _generate_daily_schedule(self) -> List[Dict[str, Any]]:
+        """
+        Generate a list of daily tasks based on protocol configurations.
+        This is a simplified placeholder.
+        """
+        daily_tasks = []
+        for protocol_name, protocol_config in self.config.get("protocols", {}).items():
+            if protocol_config.get("enabled"):
+                num_activities = protocol_config.get(
+                    "daily_activity_range", [1, 1]
+                )[0]  # Use min for simplicity
+                for i in range(num_activities):
+                    daily_tasks.append({
+                        "id": f"{protocol_name}_daily_task_{i}",
+                        "protocol": protocol_name,
+                        "action": "random_activity",  # Simplified to random activity
+                        "wallet": None,  # Will be assigned later
+                        "priority": TaskPriority.NORMAL,
+                    })
+        return daily_tasks
+
 
 def main() -> None:
     """Main entry point for the scheduler bot."""
     parser = argparse.ArgumentParser(description="Central Scheduler Bot")
-    parser.add_argument("--once", action="store_true", help="Run once and exit")
+    parser.add_argument(
+        "--once", action="store_true", help="Run once and exit"
+    )
     parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
     parser.add_argument("--config", help="Configuration file path")
 

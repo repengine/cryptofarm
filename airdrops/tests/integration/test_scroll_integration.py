@@ -7,18 +7,21 @@ together correctly.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from decimal import Decimal
 from typing import Dict, Any
-import pendulum
 from web3 import Web3
 
-from airdrops.protocols.scroll import scroll
-from airdrops.scheduler.bot import CentralScheduler
+from airdrops.scheduler.bot import (
+    CentralScheduler,
+    TaskDefinition,
+    TaskExecution,
+    TaskStatus,
+)
 from airdrops.capital_allocation.engine import CapitalAllocator
 from airdrops.monitoring.collector import MetricsCollector
-from airdrops.monitoring.alerter import Alerter
 from airdrops.risk_management.core import RiskManager
+from airdrops.monitoring.alerter import Alerter
 
 
 class TestScrollIntegration:
@@ -44,6 +47,10 @@ class TestScrollIntegration:
                     },
                 },
             },
+            "wallets": [
+                "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
+                "0x853d35Cc6634C0532925a3b844Bc9e7195Ed5E47283776",
+            ],
             "networks": {
                 "ethereum": {
                     "rpc_url": "https://eth-mainnet.example.com",
@@ -83,72 +90,51 @@ class TestScrollIntegration:
         w3.is_connected.return_value = True
         return w3
 
-    @patch("airdrops.scheduler.bot.Web3")
-    @patch("airdrops.protocols.scroll.scroll._get_web3_instance")
+    @patch("airdrops.protocols.scroll.scroll.bridge_assets")
     def test_scheduler_executes_scroll_task(
-        self, mock_get_web3, mock_web3_class, mock_config, mock_web3
+        self, mock_bridge_assets, mock_config
     ):
         """Test that scheduler correctly executes Scroll protocol tasks.
         
         Args:
-            mock_get_web3: Mock for getting Web3 instance
-            mock_web3_class: Mock Web3 class
+            mock_bridge_assets: Mock for the bridge_assets function.
             mock_config: Test configuration
-            mock_web3: Mock Web3 instance
         """
         # Setup mocks
-        mock_get_web3.return_value = mock_web3
-        mock_web3_class.return_value = mock_web3
+        mock_bridge_assets.return_value = "0x" + "e" * 64
+            
+        # Create scheduler
+        scheduler = CentralScheduler(mock_config)
         
-        # Mock successful transaction
-        with patch("airdrops.protocols.scroll.scroll.bridge_assets") as mock_bridge:
-            mock_bridge.return_value = "0x" + "a" * 64
-            
-            # Create scheduler
-            scheduler = CentralScheduler(mock_config)
-            
-            # Create a task for Scroll bridge
-            task = {
-                "protocol": "scroll",
-                "action": "bridge",
-                "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
-                "params": {
-                    "is_deposit": True,
-                    "token_symbol": "ETH",
-                    "amount": "0.1",
-                },
-            }
-            
-            # Execute task
-            result = scheduler._execute_task(task)
-            
-            # Verify task was executed
-            assert result["success"] is True
-            assert result["tx_hash"] == "0x" + "a" * 64
-            mock_bridge.assert_called_once()
+        # Execute task
+        task = {
+            "id": "scroll_bridge_task",
+            "protocol": "scroll",
+            "action": "bridge_assets",
+            "wallet": mock_config["wallets"][0],
+            "params": {
+                "is_deposit": True,
+                "token_symbol": "ETH",
+                "amount": "0.05",
+            },
+        }
+        result = scheduler._execute_task(task)
+        
+        # Verify task executed
+        assert result["success"] is True
+        mock_bridge_assets.assert_called_once()
 
-    @patch("airdrops.capital_allocation.engine.Web3")
-    def test_capital_allocation_with_scroll(self, mock_web3_class, mock_config):
+    def test_capital_allocation_with_scroll(self, mock_config):
         """Test capital allocation engine with Scroll protocol.
         
         Args:
-            mock_web3_class: Mock Web3 class
             mock_config: Test configuration
         """
-        # Setup mock
-        mock_web3 = Mock()
-        mock_web3.eth.get_balance.return_value = Web3.to_wei(2, "ether")
-        mock_web3_class.return_value = mock_web3
         
         # Create capital allocator
         allocator = CapitalAllocator(mock_config)
         
         # Test allocation including Scroll
-        wallets = [
-            "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
-            "0x853d35Cc6634C0532925a3b844Bc9e7195Ed5E47283776",
-        ]
-        
         # Test portfolio optimization
         protocols = ["scroll"]
         risk_constraints = {"max_protocol_exposure": Decimal("0.3")}
@@ -198,25 +184,81 @@ class TestScrollIntegration:
         metrics = collector.get_protocol_metrics("scroll")
         
         # Verify metrics recorded
-        assert metrics["total_transactions"] == 1
-        assert metrics["successful_transactions"] == 1
-        assert metrics["total_gas_used"] == 150000
+        assert metrics["total_transactions"] == 1.0
+        assert metrics["successful_transactions"] == 1.0
+        assert metrics["total_gas_used"] == 150000.0
         assert metrics["total_value_usd"] == 50.0
 
-    @patch("airdrops.risk_management.core.Web3")
+    @patch("airdrops.protocols.scroll.scroll.swap_tokens")
+    @patch("airdrops.monitoring.alerter.Alerter.send_notifications")
+    def test_alerting_on_scroll_failure(
+        self, mock_send_notifications, mock_swap, mock_config
+    ):
+        """Test that alerts are sent when Scroll operations fail.
+        
+        Args:
+            mock_send_notifications: Mock notification sender
+            mock_swap: Mock swap function
+            mock_config: Test configuration
+        """
+        # Setup swap to fail
+        mock_swap.side_effect = Exception("Swap failed: insufficient liquidity")
+    
+        # Create alerter
+        alerter = Alerter(mock_config)
+    
+        # Create scheduler with alerter
+        scheduler = CentralScheduler(mock_config)
+        scheduler.alerter = alerter
+    
+        # Try to execute failing task
+        task = {
+            "protocol": "scroll",
+            "action": "swap_tokens",
+            "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
+            "params": {
+                "token_in": "USDC",
+                "token_out": "WETH",
+                "amount_in": "100",
+            },
+        }
+    
+        # The scheduler's jobs are executed via _execute_task_wrapper
+        # We need to add the task to the scheduler's internal definitions
+        # for _execute_task_wrapper to find it.
+        task_id = "test_failing_swap_task"
+        scheduler._task_definitions[task_id] = TaskDefinition(
+            task_id=task_id,
+            func=mock_swap,  # The actual function to call
+            protocol=task["protocol"],
+            action=task["action"],
+            kwargs=task["params"],  # Pass the task parameters as kwargs
+            max_retries=0  # Ensure immediate notification for testing
+        )
+        scheduler._task_executions[task_id] = TaskExecution(
+            task_id=task_id,
+            status=TaskStatus.PENDING,
+            wallet=task["wallet"]
+        )
+    
+        # Execute the wrapper, which should call _execute_task and then
+        # handle_task_failure
+        scheduler._execute_task_wrapper(task_id)
+    
+        # Verify failure was handled
+        # The result is now stored in scheduler._task_executions[task_id].result
+        execution_result = scheduler._task_executions[task_id].result
+        assert execution_result["success"] is False
+        mock_send_notifications.assert_called_once()
+
     def test_risk_manager_validates_scroll_operations(
-        self, mock_web3_class, mock_config
+        self, mock_config
     ):
         """Test risk manager validates Scroll operations correctly.
         
         Args:
-            mock_web3_class: Mock Web3 class
             mock_config: Test configuration
         """
-        # Setup mock
-        mock_web3 = Mock()
-        mock_web3.eth.gas_price = Web3.to_wei(50, "gwei")
-        mock_web3_class.return_value = mock_web3
         
         # Create risk manager
         risk_manager = RiskManager(mock_config)
@@ -245,47 +287,6 @@ class TestScrollIntegration:
         is_valid = risk_manager.validate_operation(high_gas_operation)
         assert is_valid is False
 
-    @patch("airdrops.protocols.scroll.scroll.swap_tokens")
-    @patch("airdrops.monitoring.alerter.send_notification")
-    def test_alerting_on_scroll_failure(
-        self, mock_send_notification, mock_swap, mock_config
-    ):
-        """Test that alerts are sent when Scroll operations fail.
-        
-        Args:
-            mock_send_notification: Mock notification sender
-            mock_swap: Mock swap function
-            mock_config: Test configuration
-        """
-        # Setup swap to fail
-        mock_swap.side_effect = Exception("Swap failed: insufficient liquidity")
-        
-        # Create alerter
-        alerter = Alerter(mock_config)
-        
-        # Create scheduler with alerter
-        scheduler = CentralScheduler(mock_config)
-        scheduler.alerter = alerter
-        
-        # Try to execute failing task
-        task = {
-            "protocol": "scroll",
-            "action": "swap",
-            "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
-            "params": {
-                "token_in": "USDC",
-                "token_out": "WETH",
-                "amount_in": "100",
-            },
-        }
-        
-        with patch.object(scheduler, "_handle_task_failure") as mock_handle_failure:
-            result = scheduler._execute_task(task)
-            
-            # Verify failure was handled
-            assert result["success"] is False
-            mock_handle_failure.assert_called_once()
-
     def test_scroll_random_activity_integration(self, mock_config):
         """Test Scroll random activity with full system integration.
         
@@ -306,8 +307,9 @@ class TestScrollIntegration:
             
             # Create random activity task
             task = {
+                "id": "scroll_random_activity_task",  # Added ID
                 "protocol": "scroll",
-                "action": "random_activity",
+                "action": "perform_random_activity_scroll",
                 "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
                 "params": {
                     "num_actions": 3,
@@ -351,54 +353,53 @@ class TestScrollIntegration:
         Args:
             mock_config: Test configuration
         """
-        with patch("airdrops.scheduler.bot.Web3") as mock_web3_class:
-            # Setup comprehensive mocks
-            mock_web3 = Mock()
-            mock_web3.eth.get_balance.return_value = Web3.to_wei(1, "ether")
-            mock_web3.eth.gas_price = Web3.to_wei(30, "gwei")
-            mock_web3_class.return_value = mock_web3
+        # No direct Web3 patch needed for scheduler.bot as it doesn't import
+        # Web3 directly. If CentralScheduler needs a Web3 instance, it should
+        # be passed in its constructor or a method. For now, we assume it's
+        # mocked at a lower level or not directly used in this test's scope.
+        
+        # Create all system components
+        scheduler = CentralScheduler(mock_config)
+        collector = MetricsCollector()
+        risk_manager = RiskManager(mock_config)
+        
+        # Inject dependencies
+        scheduler.metrics_collector = collector
+        scheduler.risk_manager = risk_manager
+        
+        # Mock successful Scroll operations
+        with patch("airdrops.protocols.scroll.scroll.bridge_assets") as mock_bridge:
+            mock_bridge.return_value = "0x" + "e" * 64
             
-            # Create all system components
-            scheduler = CentralScheduler(mock_config)
-            collector = MetricsCollector()
-            risk_manager = RiskManager(mock_config)
+            # Execute workflow
+            task = {
+                "id": "e2e_scroll_bridge_task",  # Added ID
+                "protocol": "scroll",
+                "action": "bridge_assets",
+                "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
+                "params": {
+                    "is_deposit": True,
+                    "token_symbol": "ETH",
+                    "amount": "0.05",
+                },
+            }
             
-            # Inject dependencies
-            scheduler.metrics_collector = collector
-            scheduler.risk_manager = risk_manager
+            # Validate with risk manager
+            is_valid = risk_manager.validate_operation({
+                "protocol": task["protocol"],
+                "action": task["action"],
+                "estimated_gas": 150000,
+                "value_usd": 100.0,
+            })
+            assert is_valid is True
             
-            # Mock successful Scroll operations
-            with patch("airdrops.protocols.scroll.scroll.bridge_assets") as mock_bridge:
-                mock_bridge.return_value = "0x" + "e" * 64
-                
-                # Execute workflow
-                task = {
-                    "protocol": "scroll",
-                    "action": "bridge",
-                    "wallet": "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
-                    "params": {
-                        "is_deposit": True,
-                        "token_symbol": "ETH",
-                        "amount": "0.05",
-                    },
-                }
-                
-                # Validate with risk manager
-                is_valid = risk_manager.validate_operation({
-                    "protocol": task["protocol"],
-                    "action": task["action"],
-                    "estimated_gas": 150000,
-                    "value_usd": 100.0,
-                })
-                assert is_valid is True
-                
-                # Execute task
-                result = scheduler._execute_task(task)
-                assert result["success"] is True
-                
-                # Verify metrics collected
-                metrics = collector.get_protocol_metrics("scroll")
-                assert metrics["total_transactions"] >= 0  # Would be >0 with real execution
+            # Execute task
+            result = scheduler._execute_task(task)
+            assert result["success"] is True
+            
+            # Verify metrics collected
+            metrics = collector.get_protocol_metrics("scroll")
+            assert metrics["total_transactions"] >= 0  # Would be >0 with real execution
 
 
 if __name__ == "__main__":

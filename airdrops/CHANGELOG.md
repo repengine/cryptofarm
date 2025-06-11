@@ -63,4 +63,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test coverage at 80% instead of target 85%
 - Some protocol implementations need additional unit test coverage
 
+## [0.2.1] - 2025-06-10
+
+### Fixed
+- fix(test): Resolved property-based test failures and `flake8` issues
+  - Fixed `test_risk_parity_allocation_properties` `FailedHealthCheck` by correctly placing `@settings` decorator.
+  - Corrected `test_rebalancing_threshold_logic` by ensuring `drift_factor` reliably triggers rebalancing.
+  - Addressed `TypeError` in `test_metrics_aggregation_consistency` by converting `Decimal` to `float` for `prometheus_client.Histogram.observe`.
+  - Ensured `mypy --strict` compliance for `airdrops/tests/test_property_based.py` and `airdrops/src/airdrops/monitoring/collector.py` by adding explicit type annotations and `Decimal` conversions.
+  - Resolved all `flake8` errors (trailing whitespace, blank lines, missing newline at EOF) in `airdrops/tests/test_property_based.py` and `airdrops/src/airdrops/monitoring/collector.py` using `ruff`.
+
 ## [Unreleased]

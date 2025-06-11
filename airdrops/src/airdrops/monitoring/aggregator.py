@@ -10,6 +10,9 @@ import os
 import time
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+from decimal import Decimal
+
+from airdrops.monitoring.collector import MetricsCollector
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -48,13 +51,19 @@ class MetricsAggregator:
         >>> aggregated = aggregator.process_metrics(raw_metrics)
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        collector: "MetricsCollector",
+        config: Optional[Dict[str, Any]] = None
+    ) -> None:
         """
         Initialize the Metrics Aggregator.
 
         Args:
+            collector: The MetricsCollector instance to use.
             config: Optional configuration dictionary for aggregation settings.
         """
+        self.collector = collector
         self.config = config or {}
         self.aggregation_config = self._load_aggregation_config()
         self.metrics_buffer: List[Dict[str, Any]] = []
@@ -376,4 +385,125 @@ class MetricsAggregator:
             logger.error(f"Failed to cleanup old metrics: {e}")
 
 
-__all__ = ["MetricsAggregator", "AggregatedMetric", "AggregationConfig"]
+    def generate_dashboard_data(
+        self, lookback_hours: int, granularity: str
+    ) -> Dict[str, Any]:
+        """
+        Generate data suitable for monitoring dashboards.
+        This is a placeholder for a more complex data generation logic.
+        """
+        logger.info(
+            f"Generating dashboard data for last {lookback_hours} hours "
+            f"with {granularity} granularity"
+        )
+
+        # Dummy data for demonstration
+        time_series_data = []
+        for i in range(lookback_hours):
+            time_series_data.append(
+                {
+                    "timestamp": time.time() - (lookback_hours - i) * 3600,
+                    "transaction_count": (
+                        15 + (i % 5) if 9 <= i <= 17 else 5 + (i % 2)
+                    ),  # More distinct activity for business hours
+                    "success_rate": 0.9 + (i % 10) / 100,
+                    "avg_gas_used": 100000 + (i * 1000),
+                }
+            )
+
+        return {
+            "time_series": time_series_data,
+            "protocol_breakdown": {
+                "scroll": {"total_transactions": 100, "success_rate": 0.95},
+                "zksync": {"total_transactions": 80, "success_rate": 0.98},
+                "eigenlayer": {"total_transactions": 50, "success_rate": 0.90},
+            },
+            "action_breakdown": {
+                "swap": {"count": 150, "avg_value_usd": 500},
+                "bridge": {"count": 80, "avg_value_usd": 1000},
+            },
+            "success_rate_trend": [0.9, 0.91, 0.92, 0.93, 0.94],
+            "gas_usage_trend": [150000, 155000, 160000, 165000, 170000],
+        }
+
+    def compare_protocol_performance(self) -> List[Dict[str, Any]]:
+        """
+        Compare performance metrics across different protocols.
+        This is a placeholder for a more complex comparison logic.
+        """
+        logger.info("Comparing protocol performance")
+        
+        # Dummy data for demonstration
+        return [
+            {
+                "protocol": "scroll",
+                "total_transactions": 100,
+                "success_rate": 0.90,
+                "avg_gas_used": 150000,
+                "avg_value_usd": 500,
+            },
+            {
+                "protocol": "zksync",
+                "total_transactions": 80,
+                "success_rate": 0.98,
+                "avg_gas_used": 120000,
+                "avg_value_usd": 700,
+            },
+            {
+                "protocol": "eigenlayer",
+                "total_transactions": 50,
+                "success_rate": 0.95,
+                "avg_gas_used": 180000,
+                "avg_value_usd": 1000,
+            },
+        ]
+
+
+def calculate_percentiles(
+    values: List[float], percentiles: List[float]
+) -> Dict[str, Decimal]:
+    """
+    Calculate percentiles for a list of numerical values.
+
+    Args:
+        values: A list of numerical values.
+        percentiles: A list of percentiles to calculate (e.g., [5, 50, 95]).
+
+    Returns:
+        A dictionary mapping percentile (e.g., "p50") to its calculated value.
+    """
+    if not values:
+        return {f"p{p}": Decimal("0.0") for p in percentiles}
+
+    sorted_values = sorted(values)
+    results = {}
+    for p in percentiles:
+        if not (0 <= p <= 100):
+            raise ValueError("Percentile must be between 0 and 100")
+        
+        index = (len(sorted_values) - 1) * (p / 100.0)
+        
+        if index.is_integer():
+            results[f"p{p}"] = Decimal(str(sorted_values[int(index)]))
+        else:
+            lower_idx = int(index)
+            upper_idx = lower_idx + 1
+            
+            lower_val = Decimal(str(sorted_values[lower_idx]))
+            upper_val = Decimal(str(sorted_values[upper_idx]))
+            
+            # Linear interpolation
+            interpolated_value = (
+                lower_val + (upper_val - lower_val) * Decimal(str(index - lower_idx))
+            )
+            results[f"p{p}"] = interpolated_value
+
+    return results
+
+
+__all__ = [
+    "MetricsAggregator",
+    "AggregatedMetric",
+    "AggregationConfig",
+    "calculate_percentiles",
+]
