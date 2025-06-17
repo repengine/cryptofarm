@@ -31,7 +31,7 @@ class TestFailureRecovery:
         """Create mock configuration for testing.
 
         Returns:
-            Configuration dictionary with recovery settings
+                Configuration dictionary with recovery settings
         """
         return {
             "recovery": {
@@ -762,7 +762,6 @@ class MockComponents:
                 },
             }
 
-
 # Mock the shared modules if they don't exist
 if "airdrops.shared.recovery_manager" not in sys.modules:
     sys.modules["airdrops.shared.recovery_manager"] = MagicMock()
@@ -797,7 +796,6 @@ if "airdrops.shared.system_coordinator" not in sys.modules:
     sys.modules["airdrops.shared.system_coordinator"].SystemCoordinator = (
         MockComponents.SystemCoordinator
     )
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])

@@ -3,7 +3,7 @@ Portfolio Performance Analytics Module.
 
 This module provides comprehensive portfolio performance analysis for airdrop
 activities, including value tracking, diversification metrics, and
-    benchmark comparisons.
+benchmark comparisons.
 """
 
 import logging
@@ -69,10 +69,10 @@ class PortfolioPerformanceAnalyzer:
     value tracking, diversification metrics, and benchmark comparisons.
 
     Example:
-        >>> tracker = AirdropTracker()
-        >>> analyzer = PortfolioPerformanceAnalyzer(tracker)
-        >>> metrics = analyzer.calculate_portfolio_metrics()
-        >>> print(f"Portfolio ROI: {metrics.portfolio_roi_percentage}%")
+    >>> tracker = AirdropTracker()
+    >>> analyzer = PortfolioPerformanceAnalyzer(tracker)
+    >>> metrics = analyzer.calculate_portfolio_metrics()
+    >>> print(f"Portfolio ROI: {metrics.portfolio_roi_percentage}%")
     """
 
     def __init__(
@@ -84,8 +84,8 @@ class PortfolioPerformanceAnalyzer:
         Initialize the portfolio performance analyzer.
 
         Args:
-            tracker: AirdropTracker instance for data access
-            roi_optimizer: Optional ROIOptimizer for cost calculations
+                tracker: AirdropTracker instance for data access
+                roi_optimizer: Optional ROIOptimizer for cost calculations
         """
         self.tracker = tracker
         self.roi_optimizer = roi_optimizer
@@ -102,15 +102,15 @@ class PortfolioPerformanceAnalyzer:
         Calculate comprehensive portfolio performance metrics.
 
         Args:
-            as_of_date: Date for calculation (defaults to now)
+                as_of_date: Date for calculation (defaults to now)
 
         Returns:
-            PortfolioMetrics with complete performance analysis
+                PortfolioMetrics with complete performance analysis
 
         Example:
-            >>> analyzer = PortfolioPerformanceAnalyzer(tracker)
-            >>> metrics = analyzer.calculate_portfolio_metrics()
-            >>> print(f"Total value: ${metrics.total_portfolio_value_usd}")
+                >>> analyzer = PortfolioPerformanceAnalyzer(tracker)
+                >>> metrics = analyzer.calculate_portfolio_metrics()
+                >>> print(f"Total value: ${metrics.total_portfolio_value_usd}")
         """
         try:
             if as_of_date is None:
@@ -185,17 +185,17 @@ class PortfolioPerformanceAnalyzer:
         Calculate portfolio value progression over time.
 
         Args:
-            start_date: Start date for analysis
-            end_date: End date for analysis
-            interval_days: Days between snapshots
+                start_date: Start date for analysis
+                end_date: End date for analysis
+                interval_days: Days between snapshots
 
         Returns:
-            List of PortfolioSnapshot instances showing value over time
+                List of PortfolioSnapshot instances showing value over time
 
         Example:
-            >>> start = datetime(2024, 1, 1)
-            >>> end = datetime(2024, 12, 31)
-            >>> snapshots = analyzer.calculate_portfolio_value_over_time(start, end)
+                >>> start = datetime(2024, 1, 1)
+                >>> end = datetime(2024, 12, 31)
+                >>> snapshots = analyzer.calculate_portfolio_value_over_time(start, end)
         """
         try:
             snapshots = []
@@ -244,15 +244,15 @@ class PortfolioPerformanceAnalyzer:
         Compare portfolio performance to a benchmark.
 
         Args:
-            benchmark_type: Type of benchmark for comparison
-            comparison_period_days: Period for comparison in days
+                benchmark_type: Type of benchmark for comparison
+                comparison_period_days: Period for comparison in days
 
         Returns:
-            BenchmarkComparison with performance analysis
+                BenchmarkComparison with performance analysis
 
         Example:
-            >>> comparison = analyzer.compare_to_benchmark(BenchmarkType.ETH, 365)
-            >>> print(f"Alpha: {comparison.alpha_percentage}%")
+                >>> comparison = analyzer.compare_to_benchmark(BenchmarkType.ETH, 365)
+                >>> print(f"Alpha: {comparison.alpha_percentage}%")
         """
         try:
             end_date = datetime.now()
@@ -304,8 +304,10 @@ class PortfolioPerformanceAnalyzer:
         if self.roi_optimizer:
             try:
                 # Use ROI optimizer for accurate cost calculation
-                portfolio_roi = self.roi_optimizer.calculate_portfolio_roi()
-                return Decimal(str(sum(roi.total_cost_usd for roi in portfolio_roi)))
+                # Assuming calculate_portfolio_roi returns a list of ROIMetrics
+                # and each ROIMetrics has a total_cost_usd attribute
+                portfolio_roi_metrics = self.roi_optimizer.analyze_historical_data(events)
+                return portfolio_roi_metrics.total_capital_deployed
             except Exception as e:
                 logger.warning(f"ROI optimizer cost calculation failed: {e}")
 

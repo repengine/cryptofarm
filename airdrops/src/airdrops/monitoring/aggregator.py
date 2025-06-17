@@ -45,10 +45,10 @@ class MetricsAggregator:
     time-series databases or analytics platforms.
 
     Example:
-        >>> aggregator = MetricsAggregator()
-        >>> aggregator.initialize()
-        >>> raw_metrics = collector.collect_all_metrics()
-        >>> aggregated = aggregator.process_metrics(raw_metrics)
+    >>> aggregator = MetricsAggregator()
+    >>> aggregator.initialize()
+    >>> raw_metrics = collector.collect_all_metrics()
+    >>> aggregated = aggregator.process_metrics(raw_metrics)
     """
 
     def __init__(
@@ -82,11 +82,11 @@ class MetricsAggregator:
                 os.getenv("METRICS_AGGREGATION_WINDOW_SECONDS", "300")  # 5 minutes
             ),
             aggregation_functions=os.getenv(
-                "METRICS_AGGREGATION_FUNCTIONS", "avg,max,min"
-            ).split(","),
+                "METRICS_AGGREGATION_FUNCTIONS", "avg, max, min"
+            ).split(", "),
             retention_period_hours=int(
                 os.getenv("METRICS_RETENTION_PERIOD_HOURS", "168")  # 7 days
-            )
+            ),
         )
 
     def add_metrics_to_buffer(self, metrics: Dict[str, Any]) -> None:
@@ -384,7 +384,6 @@ class MetricsAggregator:
         except Exception as e:
             logger.error(f"Failed to cleanup old metrics: {e}")
 
-
     def generate_dashboard_data(
         self, lookback_hours: int, granularity: str
     ) -> Dict[str, Any]:
@@ -432,7 +431,7 @@ class MetricsAggregator:
         This is a placeholder for a more complex comparison logic.
         """
         logger.info("Comparing protocol performance")
-        
+
         # Dummy data for demonstration
         return [
             {
@@ -466,11 +465,11 @@ def calculate_percentiles(
     Calculate percentiles for a list of numerical values.
 
     Args:
-        values: A list of numerical values.
-        percentiles: A list of percentiles to calculate (e.g., [5, 50, 95]).
+    values: A list of numerical values.
+    percentiles: A list of percentiles to calculate (e.g., [5, 50, 95]).
 
     Returns:
-        A dictionary mapping percentile (e.g., "p50") to its calculated value.
+    A dictionary mapping percentile (e.g., "p50") to its calculated value.
     """
     if not values:
         return {f"p{p}": Decimal("0.0") for p in percentiles}
@@ -480,18 +479,18 @@ def calculate_percentiles(
     for p in percentiles:
         if not (0 <= p <= 100):
             raise ValueError("Percentile must be between 0 and 100")
-        
+
         index = (len(sorted_values) - 1) * (p / 100.0)
-        
+
         if index.is_integer():
             results[f"p{p}"] = Decimal(str(sorted_values[int(index)]))
         else:
             lower_idx = int(index)
             upper_idx = lower_idx + 1
-            
+
             lower_val = Decimal(str(sorted_values[lower_idx]))
             upper_val = Decimal(str(sorted_values[upper_idx]))
-            
+
             # Linear interpolation
             interpolated_value = (
                 lower_val + (upper_val - lower_val) * Decimal(str(index - lower_idx))

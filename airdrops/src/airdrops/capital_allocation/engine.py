@@ -8,25 +8,16 @@ airdrop farming activities.
 
 import logging
 import os
-from decimal import Decimal
+from decimal import Decimal, getcontext
 import pendulum
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
 
-
 # Configure logging
 logger = logging.getLogger(__name__)
-
-
-class AllocationStrategy(Enum):
-    """Allocation strategy enumeration."""
-    EQUAL_WEIGHT = "equal_weight"
-    RISK_PARITY = "risk_parity"
-    MEAN_VARIANCE = "mean_variance"
-    KELLY_CRITERION = "kelly_criterion"
 
 
 @dataclass
@@ -59,6 +50,15 @@ class RebalanceOrder:
     priority: int
 
 
+class AllocationStrategy(Enum):
+    """
+    Defines the available capital allocation strategies.
+    """
+    EQUAL_WEIGHT = "equal_weight"
+    RISK_PARITY = "risk_parity"
+    MEAN_VARIANCE = "mean_variance"
+
+
 class CapitalAllocator:
     """
     Capital Allocation Engine for automated airdrop farming.
@@ -68,10 +68,10 @@ class CapitalAllocator:
     to ensure safe and efficient capital deployment.
 
     Example:
-        >>> allocator = CapitalAllocator()
-        >>> allocator.initialize()
-        >>> portfolio = allocator.optimize_portfolio(protocols, risk_constraints)
-        >>> metrics = allocator.calculate_efficiency_metrics()
+    >>> allocator = CapitalAllocator()
+    >>> allocator.initialize()
+    >>> portfolio = allocator.optimize_portfolio(protocols, risk_constraints)
+    >>> metrics = allocator.calculate_efficiency_metrics()
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
@@ -79,14 +79,13 @@ class CapitalAllocator:
         Initialize the Capital Allocation Engine.
 
         Args:
-            config: Optional configuration dictionary for allocation parameters.
+                config: Optional configuration dictionary for allocation parameters.
         """
-        from decimal import getcontext
         getcontext().prec = 28
 
         self.config = config or {}
         capital_config = self.config.get("capital_allocation", {})
-        
+
         self.allocation_strategy = AllocationStrategy(
             capital_config.get("strategy", "equal_weight")
         )
@@ -94,6 +93,7 @@ class CapitalAllocator:
             "CapitalAllocator initialized with strategy: %s",
             self.allocation_strategy.value,
         )
+
         self.risk_free_rate = Decimal(
             str(capital_config.get("risk_free_rate",
                                    os.getenv("CAPITAL_RISK_FREE_RATE", "0.02")))
@@ -129,7 +129,7 @@ class CapitalAllocator:
         This is a simplified placeholder.
         """
         logger.info(f"Allocating capital for wallets: {wallets}")
-        
+
         # Dummy allocation for demonstration
         allocations = {}
         for wallet in wallets:
@@ -153,19 +153,19 @@ class CapitalAllocator:
         optimal capital allocation based on risk constraints and expected returns.
 
         Args:
-            protocols: List of available protocol names.
-            risk_constraints: Dictionary of risk limits per protocol.
-            expected_returns: Optional expected returns per protocol.
-            risk_scores: Optional risk scores per protocol.
+                protocols: List of available protocol names.
+                risk_constraints: Dictionary of risk limits per protocol.
+                expected_returns: Optional expected returns per protocol.
+                risk_scores: Optional risk scores per protocol.
 
         Returns:
-            Dictionary mapping protocol names to allocation percentages.
+                Dictionary mapping protocol names to allocation percentages.
 
         Example:
-            >>> protocols = ["scroll", "zksync", "eigenlayer"]
-            >>> constraints = {"max_protocol_exposure": Decimal("0.20")}
-            >>> allocation = allocator.optimize_portfolio(protocols, constraints)
-            >>> print(f"Scroll allocation: {allocation['scroll']}%")
+                >>> protocols = ["scroll", "zksync", "eigenlayer"]
+                >>> constraints = {"max_protocol_exposure": Decimal("0.20")}
+                >>> allocation = allocator.optimize_portfolio(protocols, constraints)
+                >>> print(f"Scroll allocation: {allocation['scroll']}%")
         """
         try:
             if not protocols:
@@ -221,26 +221,25 @@ class CapitalAllocator:
         based on real-time risk assessments to ensure compliance with risk limits.
 
         Args:
-            total_capital: Total available capital for allocation.
-            portfolio_allocation: Target allocation percentages per protocol.
-            risk_metrics: Current risk metrics from Risk Management System.
+                total_capital: Total available capital for allocation.
+                portfolio_allocation: Target allocation percentages per protocol.
+                risk_metrics: Current risk metrics from Risk Management System.
 
         Returns:
-            Dictionary mapping protocol names to allocated capital amounts.
+                Dictionary mapping protocol names to allocated capital amounts.
 
         Example:
-            >>> capital = Decimal("100000")  # $100k
-            >>> allocation = {"scroll": Decimal("0.30"), "zksync": Decimal("0.70")}
-            >>> risk_data = {"volatility_state": "medium", "gas_price": 50}
-            >>> amounts = allocator.allocate_risk_adjusted_capital(
-            ...     capital, allocation, risk_data
-            ... )
+                >>> capital = Decimal("100000")  # $100k
+                >>> allocation = {"scroll": Decimal("0.30"), "zksync": Decimal("0.70")}
+                >>> risk_data = {"volatility_state": "medium", "gas_price": 50}
+                >>> amounts = allocator.allocate_risk_adjusted_capital(
+                ...     capital, allocation, risk_data
+                ...
         """
         if total_capital <= 0:
             raise ValueError("Total capital must be positive")
 
         try:
-
             # Get risk adjustment factors
             volatility_state = risk_metrics.get("volatility_state", "medium")
             gas_price = risk_metrics.get("gas_price_gwei", Decimal("50"))
@@ -261,12 +260,12 @@ class CapitalAllocator:
 
                 logger.debug(
                     f"Protocol {protocol}: {percentage:.2%} = "
-                    f"${allocated_amount:,.2f}"
+                    f"${allocated_amount:, .2f}"
                 )
 
             logger.info(
                 f"Risk-adjusted capital allocation completed. "
-                f"Total allocated: ${sum(capital_allocations.values()):,.2f} "
+                f"Total allocated: ${sum(capital_allocations.values()):, .2f} "
                 f"(Risk multiplier: {risk_multiplier:.2f})"
             )
 
@@ -290,33 +289,33 @@ class CapitalAllocator:
         minimum rebalancing thresholds.
 
         Args:
-            current_allocations: Current allocation percentages per protocol.
-            target_allocations: Target allocation percentages per protocol.
-            total_portfolio_value: Current total portfolio value.
+                current_allocations: Current allocation percentages per protocol.
+                target_allocations: Target allocation percentages per protocol.
+                total_portfolio_value: Current total portfolio value.
 
         Returns:
-            List of RebalanceOrder objects prioritized by importance.
+                List of RebalanceOrder objects prioritized by importance.
 
         Example:
-            >>> current = {"scroll": Decimal("0.40"), "zksync": Decimal("0.60")}
-            >>> target = {"scroll": Decimal("0.30"), "zksync": Decimal("0.70")}
-            >>> orders = allocator.rebalance_portfolio(current, target, 100000)
-            >>> for order in orders:
-            ...     print(f"{order.action} {order.protocol} by ${order.amount}")
+                >>> current = {"scroll": Decimal("0.40"), "zksync": Decimal("0.60")}
+                >>> target = {"scroll": Decimal("0.30"), "zksync": Decimal("0.70")}
+                >>> orders = allocator.rebalance_portfolio(current, target, 100000)
+                >>> for order in orders:
+                ...     print(f"{order.action} {order.protocol} by ${order.amount}")
         """
         try:
             rebalance_orders = []
- 
+
             # Calculate deviations and determine rebalancing needs
             all_protocols = (
                 set(current_allocations.keys()) | set(target_allocations.keys())
             )
- 
+
             for protocol in all_protocols:
                 current_pct = current_allocations.get(protocol, Decimal("0"))
                 target_pct = target_allocations.get(protocol, Decimal("0"))
                 deviation = target_pct - current_pct
- 
+
                 # Check if rebalancing is needed
                 if abs(deviation) >= self.rebalance_threshold:
                     action = "increase" if deviation > 0 else "decrease"
@@ -324,7 +323,7 @@ class CapitalAllocator:
                     priority = int(
                         abs(deviation) * 100
                     )  # Higher deviation = higher priority
- 
+
                     order = RebalanceOrder(
                         protocol=protocol,
                         action=action,
@@ -332,22 +331,22 @@ class CapitalAllocator:
                         priority=priority
                     )
                     rebalance_orders.append(order)
- 
+
                     logger.debug(
                         f"Rebalance needed for {protocol}: {action} by "
-                        f"{deviation:.2%} (${amount:,.2f})"
+                        f"{deviation:.2%} (${amount:, .2f})"
                     )
- 
+
             # Sort by priority (highest first)
             rebalance_orders.sort(key=lambda x: x.priority, reverse=True)
- 
+
             logger.info(f"Generated {len(rebalance_orders)} rebalancing orders")
             return rebalance_orders
- 
+
         except Exception as e:
             logger.error(f"Portfolio rebalancing failed: {e}")
             raise RuntimeError(f"Failed to generate rebalancing orders: {e}")
- 
+
     def check_rebalance_needed(
         self,
         target_allocation: Dict[str, Decimal],
@@ -357,31 +356,31 @@ class CapitalAllocator:
         Check if rebalancing is needed based on current and target allocations.
 
         Args:
-            target_allocation: Target allocation percentages per protocol.
-            current_allocation: Current allocation percentages per protocol.
+                target_allocation: Target allocation percentages per protocol.
+                current_allocation: Current allocation percentages per protocol.
 
         Returns:
-            True if rebalancing is needed, False otherwise.
+                True if rebalancing is needed, False otherwise.
         """
         # Get all protocols from both allocations
         all_protocols = set(current_allocation.keys()) | set(target_allocation.keys())
-        
+
         # Calculate the sum of absolute deviations
         total_deviation = Decimal("0")
-        
+
         for protocol in all_protocols:
             current_pct = current_allocation.get(protocol, Decimal("0"))
             target_pct = target_allocation.get(protocol, Decimal("0"))
             deviation = abs(current_pct - target_pct)
             total_deviation += deviation
-        
+
         # The sum of absolute deviations represents twice the actual drift
         # because if one asset increases by X%, others must decrease by X% in total
         actual_drift = total_deviation / 2
-        
+
         # Check if drift exceeds threshold
         return actual_drift > self.rebalance_threshold
- 
+
     def distribute_capital_to_wallets(
         self,
         total_capital: Decimal,
@@ -390,31 +389,31 @@ class CapitalAllocator:
     ) -> Dict[str, Dict[str, Decimal]]:
         """
         Distribute total capital across multiple wallets based on portfolio allocation.
- 
+
         Args:
-            total_capital: Total capital to distribute.
-            portfolio_allocation: Target allocation percentages per protocol.
-            wallets: List of wallet addresses.
- 
+                total_capital: Total capital to distribute.
+                portfolio_allocation: Target allocation percentages per protocol.
+                wallets: List of wallet addresses.
+
         Returns:
-            A dictionary where keys are wallet addresses and values are dictionaries
-            of protocol allocations for that wallet.
+                A dictionary where keys are wallet addresses and values are dictionaries
+                of protocol allocations for that wallet.
         """
         if not wallets:
             raise ValueError("No wallets provided for distribution.")
- 
+
         capital_per_wallet = total_capital / Decimal(str(len(wallets)))
         distribution = {}
- 
+
         for wallet in wallets:
             wallet_allocations = {}
             for protocol, percentage in portfolio_allocation.items():
                 wallet_allocations[protocol] = capital_per_wallet * percentage
             distribution[wallet] = wallet_allocations
- 
-        logger.info(f"Distributed ${total_capital:,.2f} across {len(wallets)} wallets.")
+
+        logger.info(f"Distributed ${total_capital:, .2f} across {len(wallets)} wallets.")
         return distribution
- 
+
     def track_allocation_metrics(
         self,
         allocation: Dict[str, Decimal],
@@ -422,18 +421,18 @@ class CapitalAllocator:
     ) -> None:
         """
         Track and record allocation-related metrics.
- 
+
         This is a placeholder for integration with a metrics collection system.
- 
+
         Args:
-            allocation: The actual allocated capital amounts.
-            portfolio: The target portfolio allocation percentages.
+                allocation: The actual allocated capital amounts.
+                portfolio: The target portfolio allocation percentages.
         """
         # In a real system, this would send data to MetricsCollector
         # For now, just log the action
         total_allocated = sum(allocation.values())
         logger.info(
-            f"Tracking allocation metrics. Total allocated: ${total_allocated:,.2f}"
+            f"Tracking allocation metrics. Total allocated: ${total_allocated:, .2f}"
         )
         # Example of what might be recorded:
         # self.metrics_collector.record_allocation(
@@ -442,7 +441,7 @@ class CapitalAllocator:
         #     allocations=allocation,
         #     target_portfolio=portfolio
         # )
- 
+
     def handle_emergency_withdrawal(
         self,
         current_allocation: Dict[str, Decimal],
@@ -450,39 +449,39 @@ class CapitalAllocator:
     ) -> Dict[str, Decimal]:
         """
         Handle emergency capital withdrawal from affected protocols during a risk event.
- 
+
         Args:
-            current_allocation: Current capital allocation across protocols.
-            risk_event: (
-                "Details of the risk event (e.g., type, affected protocol, severity)."
-            )
- 
+                current_allocation: Current capital allocation across protocols.
+                risk_event: (
+                    "Details of the risk event (e.g., type, affected protocol, severity)."
+                )
+
         Returns:
-            Adjusted capital allocation after emergency withdrawal.
+                Adjusted capital allocation after emergency withdrawal.
         """
         affected_protocol = risk_event.get("affected_protocol")
         severity = risk_event.get("severity", "medium")
- 
+
         if not affected_protocol or affected_protocol not in current_allocation:
             logger.warning(
                 "Emergency withdrawal requested for unknown or unaffected protocol: "
                 f"{affected_protocol}"
             )
             return current_allocation
- 
+
         adjusted_allocation = current_allocation.copy()
         withdrawal_factor = Decimal("0.0")
- 
+
         if severity == "critical":
             withdrawal_factor = Decimal("0.9")  # Withdraw 90%
         elif severity == "high":
             withdrawal_factor = Decimal("0.7")  # Withdraw 70%
         elif severity == "medium":
             withdrawal_factor = Decimal("0.5")  # Withdraw 50%
- 
+
         amount_to_withdraw = adjusted_allocation[affected_protocol] * withdrawal_factor
         adjusted_allocation[affected_protocol] -= amount_to_withdraw
- 
+
         # Redistribute withdrawn capital to other protocols
         # (e.g., equally or to safer ones)
         remaining_protocols = [
@@ -494,32 +493,32 @@ class CapitalAllocator:
             )
             for p in remaining_protocols:
                 adjusted_allocation[p] += redistribution_amount_per_protocol
- 
+
         logger.warning(
-            f"Emergency withdrawal: {amount_to_withdraw:,.2f} from {affected_protocol} "
+            f"Emergency withdrawal: {amount_to_withdraw:, .2f} from {affected_protocol} "
             f"due to {risk_event.get('type', 'unknown')} event (Severity: {severity})"
         )
         return adjusted_allocation
- 
+
     def optimize_with_correlations(
         self,
         protocols: List[str],
-        correlation_matrix: Dict[tuple, Decimal],
+        correlation_matrix: Dict[Tuple[str, str], Decimal],
         max_portfolio_correlation: Decimal
     ) -> Dict[str, Decimal]:
         """
         Optimize portfolio allocation considering protocol correlations.
- 
+
         This is a simplified placeholder. A real implementation would involve
         complex quadratic programming or similar optimization techniques.
- 
+
         Args:
-            protocols: List of protocols to consider.
-            correlation_matrix: Dictionary of (protocol1, protocol2) -> correlation.
-            max_portfolio_correlation: Maximum allowed average portfolio correlation.
- 
+                protocols: List of protocols to consider.
+                correlation_matrix: Dictionary of (protocol1, protocol2) -> correlation.
+                max_portfolio_correlation: Maximum allowed average portfolio correlation.
+
         Returns:
-            Optimized allocation percentages per protocol.
+                Optimized allocation percentages per protocol.
         """
         # For simplicity, this mock implementation will try to penalize
         # highly correlated assets and favor less correlated ones,
@@ -532,10 +531,10 @@ class CapitalAllocator:
         initial_allocation = {
             p: Decimal("1") / Decimal(str(len(protocols))) for p in protocols
         }
-        
+
         # Adjust based on correlations
         adjusted_allocation = initial_allocation.copy()
-        
+
         for (p1, p2), correlation in correlation_matrix.items():
             if correlation > max_portfolio_correlation:
                 # Reduce allocation for highly correlated pairs
@@ -552,39 +551,39 @@ class CapitalAllocator:
                     adjusted_allocation[p2] -= (
                         adjusted_allocation[p2] * reduction_factor
                     )
-        
+
         # Re-normalize to ensure sum is 1 (or close to it)
         total_adjusted = sum(adjusted_allocation.values())
         if total_adjusted > 0:
             adjusted_allocation = {
                 p: alloc / total_adjusted for p, alloc in adjusted_allocation.items()
             }
- 
+
         logger.info(
             f"Portfolio optimized with correlation constraints: {adjusted_allocation}"
         )
         return adjusted_allocation
- 
+
     def _get_time_based_multiplier(self) -> Decimal:
         """
         Calculate a time-based multiplier for capital allocation.
- 
+
         This is a placeholder for dynamic adjustments based on time of day/week.
         For example, lower allocation during weekends or off-peak hours.
- 
+
         Returns:
-            A Decimal multiplier (e.g., 1.0 for normal, 0.8 for off-peak).
+                A Decimal multiplier (e.g., 1.0 for normal, 0.8 for off-peak).
         """
         now = pendulum.now()
-        
+
         # Example logic: lower multiplier on weekends
         if now.day_of_week in [pendulum.SATURDAY, pendulum.SUNDAY]:
             return Decimal("0.7")
-        
+
         # Example logic: lower multiplier during late night/early morning
         if now.hour < 8 or now.hour > 22:
             return Decimal("0.9")
-            
+
         return Decimal("1.0")
 
     def calculate_efficiency_metrics(
@@ -599,17 +598,17 @@ class CapitalAllocator:
         Sharpe ratio, maximum drawdown, and capital utilization rates.
 
         Args:
-            portfolio_returns: List of portfolio returns over time.
-            benchmark_returns: Optional benchmark returns for comparison.
+                portfolio_returns: List of portfolio returns over time.
+                benchmark_returns: Optional benchmark returns for comparison.
 
         Returns:
-            PortfolioMetrics object with calculated performance metrics.
+                PortfolioMetrics object with calculated performance metrics.
 
         Example:
-            >>> returns = [Decimal("0.02"), Decimal("0.01"), Decimal("-0.005")]
-            >>> metrics = allocator.calculate_efficiency_metrics(returns)
-            >>> print(f"Sharpe ratio: {metrics.sharpe_ratio:.3f}")
-            >>> print(f"Max drawdown: {metrics.max_drawdown:.2%}")
+                >>> returns = [Decimal("0.02"), Decimal("0.01"), Decimal("-0.005")]
+                >>> metrics = allocator.calculate_efficiency_metrics(returns)
+                >>> print(f"Sharpe ratio: {metrics.sharpe_ratio:.3f}")
+                >>> print(f"Max drawdown: {metrics.max_drawdown:.2%}")
         """
         try:
             if not portfolio_returns:
@@ -783,19 +782,19 @@ class CapitalAllocator:
             eligible = [p for p in protocols if p not in constrained_max]
             if eligible:
                 # Distribute proportionally to current allocations
-                current_total = sum(final_allocations.get(p, 0) for p in eligible)
+                current_total = sum(final_allocations.get(p, Decimal("0")) for p in eligible)
                 if current_total > 0:
                     for p in eligible:
-                        share = final_allocations.get(p, 0) / current_total
+                        share = final_allocations.get(p, Decimal("0")) / current_total
                         additional = remaining * share
-                        new_alloc = final_allocations.get(p, 0) + additional
+                        new_alloc = final_allocations.get(p, Decimal("0")) + additional
                         if new_alloc <= max_exposure:
                             final_allocations[p] = new_alloc
                         else:
                             final_allocations[p] = max_exposure
                 else:
                     # Equal distribution
-                    per_protocol = remaining / len(eligible)
+                    per_protocol = remaining / Decimal(str(len(eligible)))
                     for p in eligible:
                         final_allocations[p] = min(
                             final_allocations.get(p, Decimal("0")) + per_protocol,
@@ -822,7 +821,6 @@ class CapitalAllocator:
         )
 
         # Set a higher precision for Decimal operations within this method
-        from decimal import getcontext
         getcontext().prec = 28
 
         # Calculate risk-adjusted returns
@@ -831,7 +829,7 @@ class CapitalAllocator:
             # Ensure values are Decimal before division
             exp_ret = Decimal(str(expected_returns[protocol]))
             r_score = Decimal(str(risk_scores[protocol]))
-            
+
             if r_score == Decimal("0"):  # Avoid division by zero
                 risk_adjusted_return = Decimal("0")
                 logger.warning(
@@ -840,12 +838,12 @@ class CapitalAllocator:
                 )
             else:
                 risk_adjusted_return = exp_ret / r_score
-            
+
             risk_adjusted_returns[protocol] = risk_adjusted_return
 
         # Normalize to get allocations
         total_risk_adjusted = sum(risk_adjusted_returns.values())
-        
+
         if total_risk_adjusted == Decimal("0"):  # Avoid division by zero
             logger.warning(
                 "Total risk-adjusted returns sum to zero, distributing equally."

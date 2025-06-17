@@ -55,10 +55,10 @@ class HealthChecker:
     monitoring infrastructure, exposing health status via HTTP endpoint.
 
     Example:
-        >>> health_checker = HealthChecker()
-        >>> health_checker.initialize()
-        >>> health_status = health_checker.check_system_health()
-        >>> print(f"System status: {health_status.overall_status}")
+    >>> health_checker = HealthChecker()
+    >>> health_checker.initialize()
+    >>> health_status = health_checker.check_system_health()
+    >>> print(f"System status: {health_status.overall_status}")
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
@@ -257,8 +257,12 @@ class HealthChecker:
             summary = {
                 "total_components": len(components),
                 "ok_count": len([c for c in components if c.status == HealthStatus.OK]),
-                "warning_count": len([c for c in components if c.status == HealthStatus.WARNING]),
-                "critical_count": len([c for c in components if c.status == HealthStatus.CRITICAL])
+                "warning_count": len(
+                    [c for c in components if c.status == HealthStatus.WARNING]
+                ),
+                "critical_count": len(
+                    [c for c in components if c.status == HealthStatus.CRITICAL]
+                ),
             }
 
             logger.info(f"System health check completed: {overall_status.value}")
@@ -290,7 +294,7 @@ class HealthChecker:
             ...     print(f"Status: {component_health.status}")
         """
         try:
-            
+
             if component_name == "system_resources":
                 return self._check_system_resources()
             elif component_name == "external_dependencies":
@@ -354,7 +358,8 @@ class HealthChecker:
             )
 
     def _check_capital_allocator_health(
-        self, capital_allocator: Any) -> ComponentHealth:
+        self, capital_allocator: Any
+    ) -> ComponentHealth:
         """Check CapitalAllocator component health."""
         try:
             current_time = time.time()
@@ -441,7 +446,8 @@ class HealthChecker:
             )
 
     def _check_metrics_collector_health(
-        self, metrics_collector: Any) -> ComponentHealth:
+        self, metrics_collector: Any
+    ) -> ComponentHealth:
         """Check MetricsCollector component health."""
         try:
             current_time = time.time()
@@ -636,7 +642,8 @@ class HealthChecker:
             )
 
     def _determine_overall_status(
-        self, components: List[ComponentHealth]) -> HealthStatus:
+        self, components: List[ComponentHealth]
+    ) -> HealthStatus:
         """Determine overall system status from component statuses."""
         if not components:
             return HealthStatus.CRITICAL

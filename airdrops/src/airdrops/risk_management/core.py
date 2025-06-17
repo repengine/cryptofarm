@@ -24,6 +24,7 @@ class RiskLevel(Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+    EXTREME = "extreme"
 
 
 class VolatilityState(Enum):
@@ -48,6 +49,25 @@ class RiskMetrics:
 
 
 @dataclass
+class RiskEvent:
+    """Data class for a recorded risk event."""
+    timestamp: float
+    event_type: str
+    severity: str
+    details: str
+    affected_protocol: Optional[str] = None
+
+
+@dataclass
+class RiskAssessment:
+    """Data class for overall risk assessment results."""
+    overall_risk_level: RiskLevel
+    circuit_breaker_active: bool
+    unhealthy_protocols: Dict[str, int]
+    timestamp: float
+
+
+@dataclass
 class RiskLimits:
     """Data class for storing configurable risk limits."""
     max_protocol_exposure_pct: Decimal
@@ -67,11 +87,11 @@ class RiskManager:
     including position monitoring, gas cost tracking, and volatility assessment.
 
     Example:
-        >>> risk_manager = RiskManager()
-        >>> risk_manager.initialize()
-        >>> metrics = risk_manager.assess_current_risk()
-        >>> if metrics.risk_level == RiskLevel.HIGH:
-        ...     risk_manager.trigger_circuit_breaker()
+    >>> risk_manager = RiskManager()
+    >>> risk_manager.initialize()
+    >>> metrics = risk_manager.assess_current_risk()
+    >>> if metrics.risk_level == RiskLevel.HIGH:
+    ...     risk_manager.trigger_circuit_breaker()
     """
 
     def __init__(
@@ -83,14 +103,16 @@ class RiskManager:
         Initialize the Risk Management System.
 
         Args:
-            config: Optional configuration dictionary for risk parameters.
-            alerter: Optional Alerter instance for sending notifications.
+                config: Optional configuration dictionary for risk parameters.
+                alerter: Optional Alerter instance for sending notifications.
         """
         self.config = config or {}
         self.alerter = alerter
         self.risk_limits = self._load_risk_limits()
         self.web3_providers: Dict[str, Web3] = {}
         self.circuit_breaker_active = False
+        self.current_risk_level = RiskLevel.LOW
+        self.protocol_failure_counts: Dict[str, int] = {}
         self._initialize_providers()
 
     def _load_risk_limits(self) -> RiskLimits:
@@ -98,7 +120,7 @@ class RiskManager:
         Load risk limits from configuration or environment variables.
 
         Returns:
-            RiskLimits object with configured or default values.
+                RiskLimits object with configured or default values.
         """
         return RiskLimits(
             max_protocol_exposure_pct=Decimal(
@@ -143,6 +165,269 @@ class RiskManager:
             logger.error(f"Failed to initialize Web3 providers: {e}")
             raise RuntimeError(f"Web3 provider initialization failed: {e}")
 
+    def assess_volatility(self, metrics: Dict[str, Any]) -> RiskLevel:
+        """
+        Assess volatility risk level based on price volatility metrics.
+
+        Args:
+            metrics: Dictionary containing price volatility data.
+
+        Returns:
+            Risk level based on volatility assessment.
+
+        Example:
+            >>> risk_manager = RiskManager()
+            >>> metrics = {"price_volatility": Decimal("0.05")}
+            >>> level = risk_manager.assess_volatility(metrics)
+            >>> print(level)
+        """
+        try:
+            volatility = metrics.get("price_volatility", Decimal("0"))
+            extreme_threshold = self.risk_limits.volatility_threshold_extreme
+            high_threshold = self.risk_limits.volatility_threshold_high
+            medium_threshold = Decimal("0.02")  # Consistent with monitor_market_volatility
+
+            if volatility >= extreme_threshold:
+                self.current_risk_level = RiskLevel.EXTREME
+                return RiskLevel.EXTREME
+            elif volatility >= high_threshold:
+                self.current_risk_level = RiskLevel.HIGH
+                return RiskLevel.HIGH
+            elif volatility >= medium_threshold:
+                self.current_risk_level = RiskLevel.MEDIUM
+                return RiskLevel.MEDIUM
+            else:
+                self.current_risk_level = RiskLevel.LOW
+                return RiskLevel.LOW
+
+        except Exception as e:
+            logger.error(f"Volatility assessment failed: {e}")
+            raise RuntimeError(f"Failed to assess volatility: {e}")
+
+    def assess_gas_price(self, metrics: Dict[str, Any]) -> Optional[RiskEvent]:
+        """
+        Assess gas price risk and return risk event if threshold exceeded.
+
+        Args:
+            metrics: Dictionary containing gas price data.
+
+        Returns:
+            RiskEvent if gas price exceeds threshold, None otherwise.
+
+        Example:
+            >>> risk_manager = RiskManager()
+            >>> metrics = {"gas_price_gwei": Decimal("120")}
+            >>> event = risk_manager.assess_gas_price(metrics)
+            >>> if event:
+            ...     print(f"High gas price: {event.details}")
+        """
+        try:
+            gas_price = metrics.get("gas_price_gwei", Decimal("0"))
+            config = self.config.get("risk_management", {})
+            threshold = config.get("gas_price_threshold_gwei", Decimal("100"))
+
+            if gas_price > threshold:
+                import time
+                return RiskEvent(
+                    timestamp=time.time(),
+                    event_type="high_gas_price",
+                    severity="high",
+                    details=(f"Current gas price ({gas_price:.2f} Gwei) exceeds "
+                             f"threshold ({threshold:.2f} Gwei)."),
+                    affected_protocol=None
+                )
+            return None
+
+        except Exception as e:
+            logger.error(f"Gas price assessment failed: {e}")
+            raise RuntimeError(f"Failed to assess gas price: {e}")
+
+    def record_transaction_outcome(self, protocol: str, success: bool) -> None:
+        """
+        Record the outcome of a transaction for failure tracking.
+
+        Args:
+            protocol: Protocol name where transaction occurred.
+            success: Whether the transaction was successful.
+
+        Example:
+            >>> risk_manager = RiskManager()
+            >>> risk_manager.record_transaction_outcome("scroll", False)
+            >>> print(risk_manager.protocol_failure_counts["scroll"])
+        """
+        try:
+            if success:
+                # Reset failure count on success
+                self.protocol_failure_counts[protocol] = 0
+            else:
+                # Increment failure count
+                current_count = self.protocol_failure_counts.get(protocol, 0)
+                self.protocol_failure_counts[protocol] = current_count + 1
+
+            outcome = 'success' if success else 'failure'
+            logger.debug(f"Transaction outcome recorded for {protocol}: {outcome}")
+
+        except Exception as e:
+            logger.error(f"Failed to record transaction outcome: {e}")
+            raise RuntimeError(f"Transaction outcome recording failed: {e}")
+
+    def assess_transaction_failures(self, protocol: str) -> Optional[RiskEvent]:
+        """
+        Assess transaction failure risk for a specific protocol.
+
+        Args:
+            protocol: Protocol name to assess.
+
+        Returns:
+            RiskEvent if consecutive failures exceed threshold, None otherwise.
+
+        Example:
+            >>> risk_manager = RiskManager()
+            >>> event = risk_manager.assess_transaction_failures("scroll")
+            >>> if event:
+            ...     print(f"Protocol failure: {event.details}")
+        """
+        try:
+            failure_count = self.protocol_failure_counts.get(protocol, 0)
+            config = self.config.get("risk_management", {})
+            max_failures = config.get("max_consecutive_failures", 3)
+
+            if failure_count >= max_failures:
+                import time
+                self.current_risk_level = RiskLevel.EXTREME
+                self.circuit_breaker_active = True
+                return RiskEvent(
+                    timestamp=time.time(),
+                    event_type="consecutive_failures",
+                    severity="critical",
+                    details=(f"{failure_count} consecutive failures detected for "
+                             f"protocol {protocol}"),
+                    affected_protocol=protocol
+                )
+            return None
+
+        except Exception as e:
+            logger.error(f"Transaction failure assessment failed: {e}")
+            raise RuntimeError(f"Failed to assess transaction failures: {e}")
+
+    def check_circuit_breaker(self, metrics: Dict[str, Any]) -> None:
+        """
+        Check if circuit breaker should be activated based on failure rate.
+
+        Args:
+            metrics: Dictionary containing transaction metrics.
+
+        Example:
+            >>> risk_manager = RiskManager()
+            >>> metrics = {"failure_rate": Decimal("0.9")}
+            >>> risk_manager.check_circuit_breaker(metrics)
+            >>> print(risk_manager.circuit_breaker_active)
+        """
+        try:
+            failure_rate = metrics.get("failure_rate", Decimal("0"))
+            config = self.config.get("risk_management", {})
+            threshold = config.get("circuit_breaker_threshold", Decimal("0.8"))
+
+            if failure_rate >= threshold:
+                self.circuit_breaker_active = True
+                logger.critical(f"Circuit breaker activated due to high failure rate: {failure_rate}")
+            else:
+                self.circuit_breaker_active = False
+                logger.info(f"Circuit breaker deactivated, failure rate acceptable: {failure_rate}")
+
+        except Exception as e:
+            logger.error(f"Circuit breaker check failed: {e}")
+            raise RuntimeError(f"Failed to check circuit breaker: {e}")
+
+    def get_overall_risk_assessment(self) -> RiskAssessment:
+        """
+        Get comprehensive risk assessment of current system state.
+
+        Returns:
+            RiskAssessment object containing overall risk evaluation.
+
+        Example:
+            >>> risk_manager = RiskManager()
+            >>> assessment = risk_manager.get_overall_risk_assessment()
+            >>> print(f"Risk level: {assessment.overall_risk_level}")
+        """
+        try:
+            import time
+
+            # Identify unhealthy protocols (those with failure counts > 0)
+            unhealthy_protocols = {
+                protocol: count
+                for protocol, count in self.protocol_failure_counts.items()
+                if count > 0
+            }
+
+            return RiskAssessment(
+                overall_risk_level=self.current_risk_level,
+                circuit_breaker_active=self.circuit_breaker_active,
+                unhealthy_protocols=unhealthy_protocols,
+                timestamp=time.time()
+            )
+
+        except Exception as e:
+            logger.error(f"Risk assessment generation failed: {e}")
+            raise RuntimeError(f"Failed to generate risk assessment: {e}")
+
+    def update_risk_parameters(self, new_config: Dict[str, Any]) -> None:
+        """
+        Update risk management parameters dynamically.
+
+        Args:
+            new_config: New configuration dictionary to merge.
+
+        Example:
+            >>> risk_manager = RiskManager()
+            >>> new_config = {"risk_management": {"gas_price_threshold_gwei": Decimal("150")}}
+            >>> risk_manager.update_risk_parameters(new_config)
+        """
+        try:
+            # Deep merge the new config
+            if "risk_management" in new_config:
+                if "risk_management" not in self.config:
+                    self.config["risk_management"] = {}
+
+                for key, value in new_config["risk_management"].items():
+                    self.config["risk_management"][key] = value
+
+            logger.info("Risk parameters updated successfully")
+
+        except Exception as e:
+            logger.error(f"Risk parameter update failed: {e}")
+            raise RuntimeError(f"Failed to update risk parameters: {e}")
+
+    def handle_external_risk_event(self, event: RiskEvent) -> None:
+        """
+        Handle an external risk event and adjust system state accordingly.
+
+        Args:
+            event: External risk event to process.
+
+        Example:
+            >>> risk_manager = RiskManager()
+            >>> event = RiskEvent(...)
+            >>> risk_manager.handle_external_risk_event(event)
+        """
+        try:
+            logger.warning(f"Handling external risk event: {event.event_type}")
+
+            # Escalate risk level based on event severity
+            if event.severity == "critical":
+                self.current_risk_level = RiskLevel.EXTREME
+                self.circuit_breaker_active = True
+            elif event.severity == "high":
+                if self.current_risk_level in [RiskLevel.LOW, RiskLevel.MEDIUM]:
+                    self.current_risk_level = RiskLevel.HIGH
+
+            logger.info(f"Risk level adjusted to {self.current_risk_level} due to external event")
+
+        except Exception as e:
+            logger.error(f"External risk event handling failed: {e}")
+            raise RuntimeError(f"Failed to handle external risk event: {e}")
+
     def monitor_positions(self, wallet_addresses: List[str]) -> Dict[str, Decimal]:
         """
         Monitor portfolio positions across multiple wallets and protocols.
@@ -151,14 +436,14 @@ class RiskManager:
         different protocols and assets to ensure compliance with risk limits.
 
         Args:
-            wallet_addresses: List of wallet addresses to monitor.
+                wallet_addresses: List of wallet addresses to monitor.
 
         Returns:
-            Dictionary mapping protocol names to exposure amounts in USD.
+                Dictionary mapping protocol names to exposure amounts in USD.
 
         Example:
-            >>> positions = risk_manager.monitor_positions(["0x123..."])
-            >>> print(f"Scroll exposure: ${positions['scroll']}")
+                >>> positions = risk_manager.monitor_positions(["0x123..."])
+                >>> print(f"Scroll exposure: ${positions['scroll']}")
         """
         try:
             protocol_exposures: Dict[str, Decimal] = {}
@@ -199,15 +484,15 @@ class RiskManager:
         acceptable thresholds and to optimize transaction timing.
 
         Args:
-            network: Network name to monitor gas prices for.
+                network: Network name to monitor gas prices for.
 
         Returns:
-            Current gas price in Gwei.
+                Current gas price in Gwei.
 
         Example:
-            >>> gas_price = risk_manager.monitor_gas_costs("ethereum")
-            >>> if gas_price > 50:
-            ...     print("Gas prices are high, consider delaying transactions")
+                >>> gas_price = risk_manager.monitor_gas_costs("ethereum")
+                >>> if gas_price > 50:
+                ...     print("Gas prices are high, consider delaying transactions")
         """
         try:
             web3 = self.web3_providers.get(network)
@@ -240,15 +525,15 @@ class RiskManager:
         and operational strategies accordingly.
 
         Args:
-            assets: List of asset symbols to monitor (e.g., ["ETH", "BTC"]).
+                assets: List of asset symbols to monitor (e.g., ["ETH", "BTC"]).
 
         Returns:
-            Current volatility state classification.
+                Current volatility state classification.
 
         Example:
-            >>> volatility = risk_manager.monitor_market_volatility(["ETH"])
-            >>> if volatility == VolatilityState.HIGH:
-            ...     print("High volatility detected, reducing position sizes")
+                >>> volatility = risk_manager.monitor_market_volatility(["ETH"])
+                >>> if volatility == VolatilityState.HIGH:
+                ...     print("High volatility detected, reducing position sizes")
         """
         try:
             # Placeholder implementation - would integrate with price data APIs
@@ -285,7 +570,7 @@ class RiskManager:
         Get current ETH price in USD.
 
         Returns:
-            ETH price in USD.
+                ETH price in USD.
         """
         try:
             # Placeholder implementation - would use price oracle or API
@@ -305,15 +590,15 @@ class RiskManager:
         overall risk level and trigger circuit breakers if necessary.
 
         Args:
-            wallet_addresses: List of wallet addresses to assess.
+                wallet_addresses: List of wallet addresses to assess.
 
         Returns:
-            RiskMetrics object containing current risk assessment.
+                RiskMetrics object containing current risk assessment.
 
         Example:
-            >>> metrics = risk_manager.assess_current_risk(["0x123..."])
-            >>> if metrics.risk_level == RiskLevel.HIGH:
-            ...     print("High risk detected!")
+                >>> metrics = risk_manager.assess_current_risk(["0x123..."])
+                >>> if metrics.risk_level == RiskLevel.HIGH:
+                ...     print("High risk detected!")
         """
         try:
             # Monitor positions across all protocols
@@ -369,8 +654,8 @@ class RiskManager:
         are detected, preventing further transactions until manual review.
 
         Example:
-            >>> risk_manager.trigger_circuit_breaker()
-            >>> assert risk_manager.circuit_breaker_active
+                >>> risk_manager.trigger_circuit_breaker()
+                >>> assert risk_manager.circuit_breaker_active
         """
         try:
             self.circuit_breaker_active = True
@@ -396,18 +681,18 @@ class RiskManager:
         and assets based on configured risk limits and current market conditions.
 
         Args:
-            total_capital: Total available capital for allocation.
-            protocol: Protocol name (e.g., "ethereum", "scroll").
-            asset: Asset symbol (e.g., "ETH", "USDC").
+                total_capital: Total available capital for allocation.
+                protocol: Protocol name (e.g., "ethereum", "scroll").
+                asset: Asset symbol (e.g., "ETH", "USDC").
 
         Returns:
-            Dictionary containing position size limits.
+                Dictionary containing position size limits.
 
         Example:
-            >>> limits = risk_manager.calculate_position_size_limits(
-            ...     Decimal("10000"), "ethereum", "ETH"
-            ... )
-            >>> print(f"Max position: {limits['max_position_size']}")
+                >>> limits = risk_manager.calculate_position_size_limits(
+                ...     Decimal("10000"), "ethereum", "ETH"
+                ... )
+                >>> print(f"Max position: {limits['max_position_size']}")
         """
         try:
             # Calculate protocol exposure limit
@@ -430,9 +715,6 @@ class RiskManager:
             volatility_multiplier = self._get_volatility_multiplier(volatility_state)
 
             return {
-                "protocol": protocol,
-                "protocol": protocol,
-                "asset": asset,
                 "max_position_size": max_protocol_exposure * volatility_multiplier,
                 "max_transaction_size": max_transaction_size * volatility_multiplier,
                 "max_asset_concentration": max_asset_concentration,
@@ -451,15 +733,15 @@ class RiskManager:
         determine if immediate intervention is required.
 
         Args:
-            metrics: Current risk metrics to evaluate.
+                metrics: Current risk metrics to evaluate.
 
         Returns:
-            True if emergency stop should be triggered, False otherwise.
+                True if emergency stop should be triggered, False otherwise.
 
         Example:
-            >>> metrics = risk_manager.assess_current_risk(["0x123..."])
-            >>> if risk_manager.check_emergency_stop_conditions(metrics):
-            ...     print("Emergency stop required!")
+                >>> metrics = risk_manager.assess_current_risk(["0x123..."])
+                >>> if risk_manager.check_emergency_stop_conditions(metrics):
+                ...     print("Emergency stop required!")
         """
         try:
             emergency_conditions = []
@@ -587,7 +869,7 @@ class RiskManager:
         This is a placeholder for a more detailed validation logic.
         """
         logger.info(f"Validating operation: {operation}")
-        
+
         # Example: Check if estimated gas exceeds a threshold
         estimated_gas = operation.get("estimated_gas", 0)
         if estimated_gas > 1000000:  # Arbitrary high gas limit for example
@@ -619,7 +901,7 @@ class RiskManager:
         """
         logger.warning(f"RISK EVENT RECORDED: Type='{event_type}', Details={details}")
         # In a real system, this would persist the event to a database or log stream.
-        
+
         action_map = {
             "gas_spike": "pause_operations",
             "protocol_failure": "disable_protocol",
@@ -627,8 +909,8 @@ class RiskManager:
             "network_congestion": "reduce_frequency",
             "emergency_shutdown": "emergency_shutdown"
         }
-        
-        response = {"action": action_map.get(event_type)}
+
+        response: Dict[str, Any] = {"action": action_map.get(event_type)}
 
         if event_type == "protocol_failure":
             response["protocol"] = details.get("protocol")
@@ -636,7 +918,7 @@ class RiskManager:
             response["wallet"] = details.get("wallet")
         elif event_type == "emergency_shutdown":
             response["shutdown_complete"] = True
-        
+
         if self.alerter:
             alert = self.alerter.create_alert(
                 rule_name=f"risk-event-{event_type}",
@@ -650,7 +932,7 @@ class RiskManager:
                 )
             )
             self.alerter.send_notifications([alert])
-            
+
         return response
 
     def calculate_safe_positions(
@@ -677,4 +959,6 @@ __all__ = [
     "VolatilityState",
     "RiskMetrics",
     "RiskLimits",
+    "RiskEvent",
+    "RiskAssessment",
 ]

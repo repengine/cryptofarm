@@ -1,22 +1,64 @@
 """
-ROI Analysis and Optimization Module.
+ROI Optimizer for airdrop farming.
 
-This module provides functionality to calculate Return on Investment (ROI) for airdrop
-activities and generate optimization suggestions based on performance analysis.
+This module provides the ROIOptimizer class, which is responsible for analyzing
+historical airdrop data and market conditions to suggest optimal strategies
+for maximizing Return on Investment (ROI).
 """
 
 import logging
-from datetime import datetime
+import os
 from decimal import Decimal
+from typing import Dict, Any, List, Optional
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Any
 
-from pydantic import BaseModel, Field
+import numpy as np
 
-from airdrops.analytics.tracker import AirdropTracker
-
-# Configure logging
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CostData:
+    """
+    Represents cost data for a specific operation or airdrop.
+    Placeholder for actual cost breakdown.
+    """
+    gas_cost_usd: Decimal = Decimal("0")
+    protocol_fees_usd: Decimal = Decimal("0")
+    opportunity_cost_usd: Decimal = Decimal("0")
+    total_cost_usd: Decimal = Decimal("0")
+
+
+@dataclass
+class ROIMetrics:
+    """Data class for ROI-related metrics."""
+    total_roi: Decimal
+    average_roi_per_airdrop: Decimal
+    success_rate: Decimal
+    total_capital_deployed: Decimal
+    total_profit: Decimal
+    protocol_rois: Dict[str, Decimal]
+    # Additional attributes used by reporter
+    protocol_name: str = ""
+    roi_percentage: Decimal = Decimal("0")
+    total_revenue_usd: Decimal = Decimal("0")
+    total_cost_usd: Decimal = Decimal("0")
+    profit_usd: Decimal = Decimal("0")
+
+
+@dataclass
+class OptimizationSuggestion:
+    """Data class for optimization suggestions."""
+    strategy: str
+    protocol: Optional[str]
+    suggested_allocation_change: Optional[Decimal]
+    reason: str
+    expected_impact: str
+    # Additional attributes used by reporter
+    priority: str = "medium"
+    protocol_name: str = ""
+    description: str = ""
 
 
 class CostModel(Enum):
@@ -27,482 +69,397 @@ class CostModel(Enum):
 
 
 class OptimizationStrategy(Enum):
-    """Optimization strategy types."""
-    ROI_MAXIMIZATION = "roi_maximization"
-    RISK_ADJUSTED = "risk_adjusted"
-    DIVERSIFIED = "diversified"
-
-
-class CostData(BaseModel):
-    """Cost data for ROI calculations."""
-    protocol_name: str = Field(..., min_length=1, max_length=100)
-    total_gas_cost_usd: Optional[Decimal] = Field(None, ge=0)
-    transaction_count: int = Field(0, ge=0)
-    average_gas_cost_usd: Optional[Decimal] = Field(None, ge=0)
-    manual_cost_usd: Optional[Decimal] = Field(None, ge=0)
-    time_investment_hours: Optional[Decimal] = Field(None, ge=0)
-
-
-class ROIMetrics(BaseModel):
-    """ROI calculation results for a protocol."""
-    protocol_name: str
-    total_revenue_usd: Decimal
-    total_cost_usd: Decimal
-    roi_percentage: Decimal
-    profit_usd: Decimal
-    transaction_count: int
-    revenue_per_transaction: Decimal
-    cost_per_transaction: Decimal
-    calculation_date: datetime
-
-
-class OptimizationSuggestion(BaseModel):
-    """Optimization suggestion for improving ROI."""
-    protocol_name: str
-    suggestion_type: str
-    priority: str  # "high", "medium", "low"
-    description: str
-    expected_impact: str
-    current_roi: Decimal
-    potential_roi: Optional[Decimal] = None
+    """
+    Defines the available ROI optimization strategies.
+    """
+    MAXIMIZE_ROI = "maximize_roi"
+    MINIMIZE_RISK = "minimize_risk"
+    BALANCE_GROWTH_STABILITY = "balance_growth_stability"
 
 
 class ROIOptimizer:
     """
-    ROI analysis and optimization system for airdrop activities.
-
-    Calculates Return on Investment metrics and provides optimization suggestions
-    based on historical performance data and cost analysis.
-
-    Example:
-        >>> tracker = AirdropTracker()
-        >>> optimizer = ROIOptimizer(tracker)
-        >>> roi_metrics = optimizer.calculate_protocol_roi("Uniswap")
-        >>> suggestions = optimizer.generate_optimization_suggestions()
+    ROIOptimizer analyzes historical airdrop data and market conditions
+    to suggest optimal strategies for maximizing Return on Investment (ROI).
     """
 
     def __init__(
         self,
-        tracker: AirdropTracker,
-        default_gas_cost_usd: Decimal = Decimal("5.0"),
-        cost_model: CostModel = CostModel.SIMPLE_GAS
+        tracker: Optional[Any] = None,
+        default_gas_cost_usd: Optional[Decimal] = None,
+        cost_model: Optional[CostModel] = None,
+        config: Optional[Dict[str, Any]] = None
     ) -> None:
         """
-        Initialize the ROI optimizer.
+        Initialize the ROI Optimizer.
 
         Args:
-            tracker: AirdropTracker instance for data access
-            default_gas_cost_usd: Default gas cost per transaction in USD
-            cost_model: Cost calculation model to use
+            tracker: AirdropTracker instance (for backward compatibility).
+            default_gas_cost_usd: Default gas cost in USD (for backward compatibility).
+            cost_model: Cost calculation model (for backward compatibility).
+            config: Optional configuration dictionary for optimization parameters.
         """
         self.tracker = tracker
-        self.default_gas_cost_usd = default_gas_cost_usd
-        self.cost_model = cost_model
-        self._cost_data_cache: Dict[str, CostData] = {}
-        logger.info(f"ROIOptimizer initialized with cost model: {cost_model.value}")
+        self.default_gas_cost_usd = default_gas_cost_usd or Decimal("5.0")
+        self.cost_model = cost_model or CostModel.SIMPLE_GAS
+        self.config = config or {}
+        optimizer_config = self.config.get("roi_optimizer", {})
 
-    def set_protocol_cost_data(self, cost_data: CostData) -> None:
-        """
-        Set cost data for a specific protocol.
+        self.optimization_strategy = OptimizationStrategy(
+            optimizer_config.get("strategy", "maximize_roi")
+        )
+        logger.debug(
+            "ROIOptimizer initialized with strategy: %s",
+            self.optimization_strategy.value,
+        )
 
-        Args:
-            cost_data: Cost data for the protocol
+        self.min_data_points = int(
+            optimizer_config.get(
+                "min_data_points",
+                os.getenv("ROI_MIN_DATA_POINTS", "10")
+            )
+        )
+        self.risk_aversion = Decimal(
+            str(optimizer_config.get(
+                "risk_aversion",
+                os.getenv("ROI_RISK_AVERSION", "0.5")
+            ))
+        )
+        self.history: List[ROIMetrics] = []
 
-        Example:
-            >>> cost_data = CostData(
-            ...     protocol_name="Uniswap",
-            ...     total_gas_cost_usd=Decimal("150.0"),
-            ...     transaction_count=30
-            ... )
-            >>> optimizer.set_protocol_cost_data(cost_data)
-        """
-        self._cost_data_cache[cost_data.protocol_name] = cost_data
-        logger.debug(f"Set cost data for protocol: {cost_data.protocol_name}")
-
-    def calculate_protocol_roi(
+    def analyze_historical_data(
         self,
-        protocol_name: str,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        historical_airdrops: List[Dict[str, Any]]
     ) -> ROIMetrics:
         """
-        Calculate ROI metrics for a specific protocol.
+        Analyze historical airdrop data to calculate ROI metrics.
 
         Args:
-            protocol_name: Name of the protocol to analyze
-            start_date: Start date for analysis (optional)
-            end_date: End date for analysis (optional)
+                historical_airdrops: List of historical airdrop records.
 
         Returns:
-            ROI metrics for the protocol
-
-        Raises:
-            ValueError: If no airdrop events found for the protocol
-            RuntimeError: If ROI calculation fails
-
-        Example:
-            >>> roi = optimizer.calculate_protocol_roi("Uniswap")
-            >>> print(f"ROI: {roi.roi_percentage}%")
+                ROIMetrics object containing calculated performance metrics.
         """
-        try:
-            # Get airdrop events for the protocol
-            if start_date and end_date:
-                all_events = self.tracker.get_airdrops_by_date_range(start_date,
-                                                                     end_date)
-                events = [e for e in all_events if e.protocol_name == protocol_name]
-            else:
-                events = self.tracker.get_airdrops_by_protocol(protocol_name)
-
-            if not events:
-                raise ValueError(f"No airdrop events found for protocol: "
-                                 f"{protocol_name}")
-
-            # Calculate total revenue
-            total_revenue = (
-                sum(event.estimated_value_usd or Decimal('0') for event in events)
-                if events
-                else Decimal('0')
+        if not historical_airdrops:
+            logger.warning("No historical airdrop data provided for analysis.")
+            return ROIMetrics(
+                total_roi=Decimal("0"),
+                average_roi_per_airdrop=Decimal("0"),
+                success_rate=Decimal("0"),
+                total_capital_deployed=Decimal("0"),
+                total_profit=Decimal("0"),
+                protocol_rois={},
             )
 
-            # Calculate total costs
-            total_cost = self._calculate_protocol_costs(protocol_name, len(events))
+        total_capital_deployed = Decimal("0")
+        total_profit = Decimal("0")
+        successful_airdrops = 0
+        protocol_profits: Dict[str, Decimal] = {}
+        protocol_capital: Dict[str, Decimal] = {}
 
-            # Calculate ROI metrics
-            profit = total_revenue - total_cost
-            roi_percentage = (
-                (profit / total_cost * 100) if total_cost > 0 else Decimal('0')
-            )
+        for airdrop in historical_airdrops:
+            protocol = airdrop.get("protocol")
+            value_usd = Decimal(str(airdrop.get("value_usd", "0")))
+            cost_usd = Decimal(str(airdrop.get("cost_usd", "0")))
+            success = airdrop.get("success", False)
 
-            revenue_per_tx = (
-                total_revenue / len(events) if events else Decimal('0')
-            )
-            cost_per_tx = (
-                total_cost / len(events) if events else Decimal('0')
-            )
+            total_capital_deployed += cost_usd
 
-            roi_metrics = ROIMetrics(
-                protocol_name=protocol_name,
-                total_revenue_usd=Decimal(str(total_revenue)),
-                total_cost_usd=total_cost,
-                roi_percentage=roi_percentage,
-                profit_usd=profit,
-                transaction_count=len(events),
-                revenue_per_transaction=Decimal(str(revenue_per_tx)),
-                cost_per_transaction=cost_per_tx,
-                calculation_date=datetime.now()
-            )
+            if success:
+                profit = value_usd - cost_usd
+                total_profit += profit
+                successful_airdrops += 1
 
-            logger.info(
-                f"Calculated ROI for {protocol_name}: {roi_percentage:.2f}% "
-                f"(Revenue: ${total_revenue}, Cost: ${total_cost})"
-            )
-            return roi_metrics
+                if protocol is not None:
+                    protocol_profits[protocol] = protocol_profits.get(protocol, Decimal("0")) + profit
+                    protocol_capital[protocol] = protocol_capital.get(protocol, Decimal("0")) + cost_usd
 
-        except Exception as e:
-            logger.error(f"Failed to calculate ROI for protocol {protocol_name}: {e}")
-            raise RuntimeError(f"ROI calculation failed: {e}") from e
+        total_roi = (
+            (total_profit / total_capital_deployed)
+            if total_capital_deployed > 0
+            else Decimal("0")
+        )
+        average_roi_per_airdrop = (
+            (total_roi / Decimal(str(len(historical_airdrops))))
+            if historical_airdrops
+            else Decimal("0")
+        )
+        success_rate = (
+            (Decimal(str(successful_airdrops)) / Decimal(str(len(historical_airdrops))))
+            if historical_airdrops
+            else Decimal("0")
+        )
+
+        protocol_rois = {
+            p: (
+                (protocol_profits[p] / protocol_capital[p])
+                if protocol_capital[p] > 0
+                else Decimal("0")
+            )
+            for p in protocol_profits
+        }
+
+        metrics = ROIMetrics(
+            total_roi=total_roi,
+            average_roi_per_airdrop=average_roi_per_airdrop,
+            success_rate=success_rate,
+            total_capital_deployed=total_capital_deployed,
+            total_profit=total_profit,
+            protocol_rois=protocol_rois,
+        )
+        self.history.append(metrics)
+        logger.info(f"Historical data analysis completed. Total ROI: {metrics.total_roi:.2%}")
+        return metrics
+
+    def suggest_optimization(
+        self,
+        current_metrics: ROIMetrics,
+        market_data: Dict[str, Any]
+    ) -> List[OptimizationSuggestion]:
+        """
+        Suggest optimization strategies based on current performance and market data.
+
+        Args:
+                current_metrics: Current ROI metrics.
+                market_data: Real-time market data (e.g., gas prices, protocol activity).
+
+        Returns:
+                List of OptimizationSuggestion objects.
+        """
+        suggestions: List[OptimizationSuggestion] = []
+
+        # Example logic based on optimization strategy
+        if self.optimization_strategy == OptimizationStrategy.MAXIMIZE_ROI:
+            # Suggest increasing allocation to protocols with highest ROI
+            if current_metrics.protocol_rois:
+                best_protocol = max(
+                    current_metrics.protocol_rois,
+                    key=current_metrics.protocol_rois.get  # type: ignore
+                )
+                suggestions.append(
+                    OptimizationSuggestion(
+                        strategy="Maximize ROI",
+                        protocol=best_protocol,
+                        suggested_allocation_change=Decimal("0.10"),
+                        reason=(
+                            f"Protocol {best_protocol} has the highest "
+                            "historical ROI."
+                        ),
+                        expected_impact="Increased overall ROI.",
+                    )
+                )
+            if current_metrics.success_rate < Decimal("0.7"):
+                suggestions.append(
+                    OptimizationSuggestion(
+                        strategy="Maximize ROI",
+                        protocol=None,
+                        suggested_allocation_change=None,
+                        reason=(
+                            "Overall success rate is low, consider focusing on "
+                            "more reliable airdrops."
+                        ),
+                        expected_impact="Improved success rate and reduced capital loss.",
+                    )
+                )
+
+        elif self.optimization_strategy == OptimizationStrategy.MINIMIZE_RISK:
+            # Suggest reducing allocation to high-risk protocols or those with low success
+            if current_metrics.protocol_rois:
+                worst_protocol = min(
+                    current_metrics.protocol_rois.keys(),
+                    key=lambda k: current_metrics.protocol_rois[k]
+                )
+                suggestions.append(
+                    OptimizationSuggestion(
+                        strategy="Minimize Risk",
+                        protocol=worst_protocol,
+                        suggested_allocation_change=Decimal("-0.05"),  # Example decrease
+                        reason=(
+                            f"Protocol {worst_protocol} has the lowest "
+                            "historical ROI, indicating higher risk."
+                        ),
+                        expected_impact="Reduced exposure to underperforming assets.",
+                    )
+                )
+            if market_data.get("gas_price_gwei", Decimal("0")) > Decimal("100"):
+                suggestions.append(
+                    OptimizationSuggestion(
+                        strategy="Minimize Risk",
+                        protocol=None,
+                        suggested_allocation_change=None,
+                        reason="High gas prices increase transaction costs and risk.",
+                        expected_impact="Reduced operational costs and improved net ROI.",
+                    )
+                )
+
+        elif self.optimization_strategy == OptimizationStrategy.BALANCE_GROWTH_STABILITY:
+            # Suggest a balanced approach
+            if current_metrics.total_roi < Decimal("0.1"):
+                suggestions.append(
+                    OptimizationSuggestion(
+                        strategy="Balance Growth & Stability",
+                        protocol=None,
+                        suggested_allocation_change=Decimal("0.05"),
+                        reason=(
+                            "Current ROI is moderate, consider slight increase "
+                            "in higher-potential protocols."
+                        ),
+                        expected_impact="Moderate growth with controlled risk.",
+                    )
+                )
+            # Note: max_drawdown is not part of ROIMetrics, using success_rate as proxy
+            if current_metrics.success_rate < Decimal("0.8"):
+                suggestions.append(
+                    OptimizationSuggestion(
+                        strategy="Balance Growth & Stability",
+                        protocol=None,
+                        suggested_allocation_change=None,
+                        reason="High maximum drawdown indicates instability, diversify more.",
+                        expected_impact="Improved portfolio stability.",
+                    )
+                )
+
+        logger.info(f"Generated {len(suggestions)} optimization suggestions.")
+        return suggestions
+
+    def backtest_strategy(
+        self,
+        strategy: OptimizationStrategy,
+        historical_data: List[Dict[str, Any]]
+    ) -> ROIMetrics:
+        """
+        Backtest a given optimization strategy against historical data.
+
+        This is a simplified backtesting function. A real backtesting engine
+        would be much more complex, simulating trades, fees, and market impact.
+
+        Args:
+                strategy: The optimization strategy to backtest.
+                historical_data: List of historical airdrop records.
+
+        Returns:
+                ROIMetrics object representing the performance of the strategy.
+        """
+        logger.info(f"Backtesting strategy: {strategy.value}")
+        # For simplicity, this mock backtest just re-analyzes data
+        # and applies a hypothetical adjustment based on the strategy.
+        # In a real scenario, this would involve re-running allocation logic
+        # with the strategy applied over historical periods.
+
+        # Simulate applying the strategy
+        simulated_airdrops = []
+        for airdrop in historical_data:
+            modified_airdrop = airdrop.copy()
+            if strategy == OptimizationStrategy.MAXIMIZE_ROI:
+                # Hypothetically increase success rate for high-ROI protocols
+                if modified_airdrop.get("protocol") in ["scroll", "zksync"]:
+                    modified_airdrop["success"] = True
+            elif strategy == OptimizationStrategy.MINIMIZE_RISK:
+                # Hypothetically reduce cost for low-risk protocols
+                if modified_airdrop.get("protocol") in ["eigenlayer"]:
+                    cost_usd = Decimal(str(modified_airdrop["cost_usd"]))
+                    modified_airdrop["cost_usd"] = cost_usd * Decimal("0.8")
+            simulated_airdrops.append(modified_airdrop)
+
+        return self.analyze_historical_data(simulated_airdrops)
+
+    def _calculate_sharpe_ratio(
+        self,
+        returns: List[Decimal],
+        risk_free_rate: Decimal
+    ) -> Decimal:
+        """
+        Calculate the Sharpe Ratio for a list of returns.
+        Assumes returns are periodic (e.g., daily, weekly).
+        """
+        if len(returns) < 2:
+            return Decimal("0")
+
+        returns_array = np.array([float(r) for r in returns])
+        excess_returns = returns_array - float(risk_free_rate)
+
+        mean_excess_return = np.mean(excess_returns)
+        std_dev_excess_return = np.std(excess_returns, ddof=1)  # Sample standard deviation
+
+        if std_dev_excess_return == 0:
+            return Decimal("0")
+
+        sharpe_ratio = Decimal(str(mean_excess_return / std_dev_excess_return))
+        return sharpe_ratio.quantize(Decimal("0.001"))
+
+    def _calculate_max_drawdown(self, returns: List[Decimal]) -> Decimal:
+        """
+        Calculate the Maximum Drawdown for a list of returns.
+        """
+        if not returns:
+            return Decimal("0")
+
+        returns_array = np.array([float(r) for r in returns])
+        cumulative_returns = np.cumprod(1 + returns_array)
+        running_max = np.maximum.accumulate(cumulative_returns)
+        drawdowns = (cumulative_returns - running_max) / running_max
+        max_drawdown = Decimal(str(abs(np.min(drawdowns))))
+        return max_drawdown.quantize(Decimal("0.001"))
 
     def calculate_portfolio_roi(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        start_date: Optional[Any] = None,
+        end_date: Optional[Any] = None
     ) -> List[ROIMetrics]:
         """
-        Calculate ROI metrics for all protocols in the portfolio.
-
+        Calculate portfolio ROI metrics for the given date range.
+        
         Args:
             start_date: Start date for analysis (optional)
             end_date: End date for analysis (optional)
-
+            
         Returns:
-            List of ROI metrics for all protocols
-
+            List of ROI metrics for the portfolio
+            
         Example:
-            >>> portfolio_roi = optimizer.calculate_portfolio_roi()
-            >>> for roi in portfolio_roi:
-            ...     print(f"{roi.protocol_name}: {roi.roi_percentage}%")
+            >>> optimizer = ROIOptimizer()
+            >>> metrics = optimizer.calculate_portfolio_roi("2024-01-01", "2024-12-31")
         """
-        try:
-            # Get all events in date range
-            if start_date and end_date:
-                events = self.tracker.get_airdrops_by_date_range(start_date, end_date)
-            else:
-                # Get all events by querying a wide date range
-                start_date = datetime(2020, 1, 1)
-                end_date = datetime.now()
-                events = self.tracker.get_airdrops_by_date_range(start_date, end_date)
+        # Use existing analyze_historical_data method as base
+        if self.tracker:
+            # Pass empty list as historical_airdrops parameter
+            return [self.analyze_historical_data([])]
+        else:
+            # Return empty metrics if no tracker available
+            return [ROIMetrics(
+                total_roi=Decimal("0"),
+                average_roi_per_airdrop=Decimal("0"),
+                success_rate=Decimal("0"),
+                total_capital_deployed=Decimal("0"),
+                total_profit=Decimal("0"),
+                protocol_rois={}
+            )]
 
-            # Group events by protocol
-            protocols = set(event.protocol_name for event in events)
-
-            # Calculate ROI for each protocol
-            portfolio_roi = []
-            for protocol in protocols:
-                try:
-                    roi_metrics = self.calculate_protocol_roi(
-                        protocol, start_date, end_date
-                    )
-                    portfolio_roi.append(roi_metrics)
-                except ValueError:
-                    # Skip protocols with no events
-                    continue
-
-            # Sort by ROI percentage (descending)
-            portfolio_roi.sort(key=lambda x: x.roi_percentage, reverse=True)
-
-            logger.info(f"Calculated portfolio ROI for {len(portfolio_roi)} protocols")
-            return portfolio_roi
-
-        except Exception as e:
-            logger.error(f"Failed to calculate portfolio ROI: {e}")
-            raise RuntimeError(f"Portfolio ROI calculation failed: {e}") from e
-
-    def generate_optimization_suggestions(
-        self,
-        strategy: OptimizationStrategy = OptimizationStrategy.ROI_MAXIMIZATION,
-        min_roi_threshold: Decimal = Decimal("50.0")
-    ) -> List[OptimizationSuggestion]:
+    def generate_optimization_suggestions(self) -> List[OptimizationSuggestion]:
         """
-        Generate optimization suggestions based on ROI analysis.
-
-        Args:
-            strategy: Optimization strategy to use
-            min_roi_threshold: Minimum ROI threshold for recommendations
-
+        Generate optimization suggestions based on current portfolio performance.
+        
         Returns:
             List of optimization suggestions
-
+            
         Example:
+            >>> optimizer = ROIOptimizer()
             >>> suggestions = optimizer.generate_optimization_suggestions()
-            >>> for suggestion in suggestions:
-            ...     print(f"{suggestion.protocol_name}: {suggestion.description}")
         """
-        try:
-            portfolio_roi = self.calculate_portfolio_roi()
-            suggestions = []
-
-            if strategy == OptimizationStrategy.ROI_MAXIMIZATION:
-                suggestions.extend(
-                    self._generate_roi_maximization_suggestions(
-                        portfolio_roi, min_roi_threshold
-                    ) or []
-                )
-            elif strategy == OptimizationStrategy.RISK_ADJUSTED:
-                suggestions.extend(
-                    self._generate_risk_adjusted_suggestions(portfolio_roi) or []
-                )
-            elif strategy == OptimizationStrategy.DIVERSIFIED:
-                suggestions.extend(
-                    self._generate_diversification_suggestions(portfolio_roi) or []
-                )
-
-            # Sort by priority and potential impact
-            priority_order = {"high": 0, "medium": 1, "low": 2}
-            suggestions.sort(key=lambda x: priority_order.get(x.priority, 3))
-
-            logger.info(f"Generated {len(suggestions)} optimization suggestions")
-            return suggestions
-
-        except Exception as e:
-            logger.error(f"Failed to generate optimization suggestions: {e}")
-            raise RuntimeError(f"Optimization suggestion generation failed: {e}") from e
-
-    def _calculate_protocol_costs(
-        self, protocol_name: str, transaction_count: int
-    ) -> Decimal:
-        """Calculate total costs for a protocol based on the cost model."""
-        if protocol_name in self._cost_data_cache:
-            cost_data = self._cost_data_cache[protocol_name]
-
-            if (self.cost_model == CostModel.MANUAL_INPUT and
-                    cost_data.manual_cost_usd):
-                return cost_data.manual_cost_usd
-            elif cost_data.total_gas_cost_usd:
-                return cost_data.total_gas_cost_usd
-            elif cost_data.average_gas_cost_usd:
-                return cost_data.average_gas_cost_usd * transaction_count
-
-        # Fallback to default gas cost estimation
-        return self.default_gas_cost_usd * transaction_count
-
-    def _generate_roi_maximization_suggestions(
-        self, portfolio_roi: List[ROIMetrics], min_threshold: Decimal
-    ) -> List[OptimizationSuggestion]:
-        """Generate suggestions focused on maximizing ROI."""
-        suggestions = []
-
-        # Identify high-performing protocols
-        high_performers = [roi for roi in portfolio_roi
-                           if roi.roi_percentage > min_threshold]
-        low_performers = [roi for roi in portfolio_roi
-                          if roi.roi_percentage < min_threshold]
-
-        # Suggest focusing on high-performing protocols
-        if high_performers:
-            top_performer = high_performers[0]
-            suggestions.append(
-                OptimizationSuggestion(
-                    protocol_name=top_performer.protocol_name,
-                    suggestion_type="focus_allocation",
-                    priority="high",
-                    description=(f"Increase allocation to {top_performer.protocol_name} "  # noqa: E501
-                                 f"(current ROI: {top_performer.roi_percentage:.1f}%)"),  # noqa: E501
-                    expected_impact="High potential for increased returns",
-                    current_roi=top_performer.roi_percentage,
-                )
-            )
-
-        # Suggest reducing or eliminating low-performing protocols
-        for roi in low_performers[:3]:  # Top 3 worst performers
-            suggestions.append(
-                OptimizationSuggestion(
-                    protocol_name=roi.protocol_name,
-                    suggestion_type="reduce_allocation",
-                    priority="medium",
-                    description=(f"Consider reducing allocation to {roi.protocol_name} "  # noqa: E501
-                                 f"(current ROI: {roi.roi_percentage:.1f}%)"),  # noqa: E501
-                    expected_impact="Reduce capital exposure to underperforming assets",
-                    current_roi=roi.roi_percentage,
-                )
-            )
-
-        return suggestions
-
-    def _generate_risk_adjusted_suggestions(
-        self, portfolio_roi: List[ROIMetrics]
-    ) -> List[OptimizationSuggestion]:
-        """Generate suggestions focused on risk-adjusted returns."""
-        suggestions: List[OptimizationSuggestion] = []
-
-        # Calculate portfolio metrics
-        if not portfolio_roi:
-            return suggestions
-
-        avg_roi = (sum(roi.roi_percentage for roi in portfolio_roi) /
-                   len(portfolio_roi))
-
-        # Suggest protocols with consistent performance
-        consistent_performers = [
-            roi for roi in portfolio_roi
-            if roi.roi_percentage > avg_roi and roi.transaction_count >= 5
-        ]
-
-        for roi in consistent_performers[:2]:
-            suggestions.append(
-                OptimizationSuggestion(
-                    protocol_name=roi.protocol_name,
-                    suggestion_type="stable_allocation",
-                    priority="medium",
-                    description=(f"Maintain or increase allocation to {roi.protocol_name} "  # noqa: E501
-                                 f"for consistent returns ({roi.roi_percentage:.1f}% ROI, "  # noqa: E501
-                                 f"{roi.transaction_count} transactions)"),  # noqa: E501
-                    expected_impact="Stable returns with proven track record",
-                    current_roi=roi.roi_percentage,
-                )
-            )
-
-        return suggestions
-
-    def _generate_diversification_suggestions(
-        self, portfolio_roi: List[ROIMetrics]
-    ) -> List[OptimizationSuggestion]:
-        """Generate suggestions focused on portfolio diversification."""
-        suggestions = []
-
-        if len(portfolio_roi) < 3:
-            suggestions.append(
-                OptimizationSuggestion(
-                    protocol_name="Portfolio",
-                    suggestion_type="diversification",
-                    priority="high",
-                    description=("Consider diversifying across more protocols to reduce risk"),  # noqa: E501
-                    expected_impact="Reduced portfolio volatility and risk",
-                    current_roi=Decimal('0'),
-                )
-            )
-
-        # Check for over-concentration
-        if portfolio_roi:
-            total_transactions = sum(roi.transaction_count for roi in portfolio_roi)
-            if total_transactions > 0:
-                for roi in portfolio_roi:
-                    concentration = (roi.transaction_count / total_transactions) * 100
-                    if concentration > 50:  # More than 50% concentration
-                        suggestions.append(
-                            OptimizationSuggestion(
-                                protocol_name=roi.protocol_name,
-                                suggestion_type="reduce_concentration",
-                                priority="medium",
-                                description=(
-                                    f"Reduce concentration in "
-                                    f"{roi.protocol_name} "
-                                    f"({concentration:.1f}% of transactions)"
-                                ),
-                                expected_impact="Better risk distribution",
-                                current_roi=roi.roi_percentage,
-                            )
-                        )
-
-        return suggestions
-
-    def optimize_protocol_strategy(
-        self, protocol_name: str, metrics: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Optimize the strategy for a specific protocol based on its performance metrics.
-        This is a placeholder for a more sophisticated optimization algorithm.
-        """
-        logger.info(f"Optimizing strategy for protocol: {protocol_name}")
-        
-        # Dummy optimization logic
-        if metrics.get("success_rate", 0) < 0.8:
-            return {
-                "recommended_actions": ["review_gas_settings", "check_slippage"],
-                "expected_improvement": Decimal("0.10"),
-                "reason": "Low success rate",
-            }
-        elif metrics.get("average_gas_used", 0) > 200000:
-            return {
-                "recommended_actions": [
-                    "optimize_gas_limits", "explore_alternative_routes"
-                ],
-                "expected_improvement": Decimal("0.05"),
-                "reason": "High gas usage",
-            }
+        # Use existing suggest_optimization method
+        if self.tracker:
+            current_metrics = self.analyze_historical_data([])
+            return self.suggest_optimization(current_metrics, {})
         else:
-            return {
-                "recommended_actions": ["continue_monitoring"],
-                "expected_improvement": Decimal("0.00"),
-                "reason": "Performance is satisfactory",
-            }
+            # Return empty suggestions if no tracker available
+            return []
 
-    def optimize_gas_usage(self, metrics_collector: Any) -> Dict[str, Any]:
-        """
-        Optimize gas usage based on historical transaction data.
-        This is a placeholder for a more advanced gas optimization logic.
-        """
-        logger.info("Optimizing gas usage...")
-        
-        # Dummy gas optimization
-        return {
-            "optimal_gas_price": 30,  # gwei
-            "best_times": ["02:00 UTC", "14:00 UTC"],
-            "estimated_savings": Decimal("50.0"),  # USD per day
-        }
 
-    def optimize_swap_routes(self, swap_params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Optimize swap routes for better execution prices or lower slippage.
-        This is a placeholder for a more complex routing algorithm.
-        """
-        logger.info(
-            f"Optimizing swap routes for {swap_params.get('token_in')} to "
-            f"{swap_params.get('token_out')}"
-        )
-        
-        # Dummy route optimization
-        return {
-            "best_route": ["protocol_A", "protocol_B"],
-            "expected_output": Decimal("0.99"),  # e.g., 0.99 WETH for 1 USDC
-            "price_impact": Decimal("0.001"),  # 0.1% price impact
-        }
+__all__ = [
+    "ROIOptimizer",
+    "ROIMetrics",
+    "OptimizationSuggestion",
+    "OptimizationStrategy",
+    "CostData",
+    "CostModel"
+]

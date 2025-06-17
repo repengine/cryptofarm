@@ -215,6 +215,37 @@ python -m airdrops.scheduler.bot --config /path/to/config.json
 
 ## Integration with Other Modules
 
+### Cross-Chain Management Integration
+
+The scheduler now integrates with the CrossChainManager to enable automated, periodic liquidity checks and rebalancing:
+
+```python
+from airdrops.scheduler.bot import AirdropSchedulerBot
+from airdrops.cross_chain.manager import CrossChainManager
+from airdrops.cross_chain.adapters.layerzero_adapter import LayerZeroBridgeAdapter
+from airdrops.protocols.layerzero.layerzero import LayerZeroProtocol
+from decimal import Decimal
+
+# Initialize CrossChainManager with bridge adapters
+layerzero_protocol = LayerZeroProtocol("https://eth.llamarpc.com", "0x...", 1)
+layerzero_adapter = LayerZeroBridgeAdapter(layerzero_protocol)
+cross_chain_manager = CrossChainManager([layerzero_adapter])
+
+# Set up liquidity thresholds
+thresholds = {"ethereum": Decimal("1000"), "arbitrum": Decimal("500")}
+cross_chain_manager.set_liquidity_thresholds(thresholds)
+
+# Initialize scheduler with CrossChainManager
+scheduler = AirdropSchedulerBot(
+    config={"scheduler": {"max_concurrent_tasks": 5}},
+    cross_chain_manager=cross_chain_manager
+)
+
+# Start scheduler and enable automated rebalancing checks
+scheduler.start()
+scheduler.schedule_rebalancing_checks(2.0)  # Check every 2 hours
+```
+
 ### Risk Management Integration
 
 ```python

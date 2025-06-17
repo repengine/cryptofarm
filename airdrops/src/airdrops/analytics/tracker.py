@@ -86,18 +86,19 @@ class AirdropTracker:
     and retrieve historical data for analysis and reporting.
 
     Example:
-        >>> tracker = AirdropTracker()
-        >>> event = AirdropEvent(
-        ...     protocol_name="Uniswap",
-        ...     token_symbol="UNI",
-        ...     amount_received=Decimal("400"),
-        ...     estimated_value_usd=Decimal("1200.50"),
-        ...     wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-        ...     event_date=datetime.now()
-        ... )
-        >>> tracker.record_airdrop(event)
-        >>> events = tracker.get_airdrops_by_protocol("Uniswap")
+    >>> tracker = AirdropTracker()
+    >>> event = AirdropEvent(
+    ...     protocol_name="Uniswap",
+    ...     token_symbol="UNI",
+    ...     amount_received=Decimal("400"),
+    ...     estimated_value_usd=Decimal("1200.50"),
+    ...     wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
+    ...     event_date=datetime.now()
+    ... )
+    >>> tracker.record_airdrop(event)
+    >>> events = tracker.get_airdrops_by_protocol("Uniswap")
     """
+
     def __init__(self, db_path: Optional[str] = None) -> None:
         """
         Initialize the airdrop tracker.

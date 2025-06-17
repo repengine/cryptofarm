@@ -1,15 +1,4 @@
-"""EigenLayer protocol module for LST restaking operations."""
+from .eigenlayer import EigenLayerProtocol
+from .exceptions import EigenLayerError, RestakeError, WithdrawalError, ClaimError
 
-from airdrops.protocols.eigenlayer.eigenlayer import restake_lst
-from airdrops.protocols.eigenlayer.exceptions import (
-    DepositCapReachedError,
-    EigenLayerRestakeError,
-    UnsupportedLSTError,
-)
-
-__all__ = [
-    "restake_lst",
-    "DepositCapReachedError",
-    "EigenLayerRestakeError", 
-    "UnsupportedLSTError",
-]
+__all__ = ["EigenLayerProtocol", "EigenLayerError", "RestakeError", "WithdrawalError", "ClaimError"]

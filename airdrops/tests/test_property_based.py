@@ -15,7 +15,6 @@ from airdrops.capital_allocation.engine import CapitalAllocator  # type: ignore
 from airdrops.monitoring.collector import MetricsCollector  # type: ignore
 from airdrops.monitoring.aggregator import calculate_percentiles  # type: ignore
 
-
 # Custom strategies for domain-specific types
 protocol_strategy = st.sampled_from(
     ["scroll", "zksync", "eigenlayer", "layerzero", "hyperliquid"]
@@ -54,10 +53,10 @@ class TestCapitalAllocationProperties:
     ) -> None:
         """Test that allocations always sum to total capital or less.
         Property: Sum of all allocations <= total capital
-        
+
         Args:
-            protocols: List of protocol names
-            total_capital: Total capital to allocate
+                protocols: List of protocol names
+                total_capital: Total capital to allocate
         """
         config = {
             "capital_allocation": {
@@ -68,20 +67,20 @@ class TestCapitalAllocationProperties:
             }
         }
         allocator = CapitalAllocator(config)
-        
+
         # Create equal weight portfolio
         portfolio = {p: Decimal("1") / len(protocols) for p in protocols}
-        
+
         risk_metrics = {"volatility_state": "low"}
         allocations = allocator.allocate_risk_adjusted_capital(
             total_capital, portfolio, risk_metrics
         )
-        
+
         # Property: sum of allocations <= total capital
         total_allocated = sum(allocations.values())
         assert total_allocated <= total_capital + Decimal("1e-9")  \
             # Allow for small precision errors
-        
+
         # Property: no negative allocations
         assert all(amount >= 0 for amount in allocations.values())
 
@@ -98,19 +97,19 @@ class TestCapitalAllocationProperties:
         self, protocols: List[str], risk_scores: List[Decimal]
     ) -> None:
         """Test risk parity allocation maintains expected properties.
-        
+
         Properties:
         - Lower risk protocols get higher allocations
         - All protocols get non-zero allocation
         - Allocations sum to 100%
-        
+
         Args:
-            protocols: List of protocol names
-            risk_scores: List of risk scores (0-1)
+                protocols: List of protocol names
+                risk_scores: List of risk scores (0-1)
         """
         assume(len(protocols) == len(risk_scores))
         assume(all(0 < score < 1 for score in risk_scores))
-        
+
         config = {
             "capital_allocation": {
                 "strategy": "risk_parity",
@@ -120,28 +119,28 @@ class TestCapitalAllocationProperties:
             }
         }
         allocator = CapitalAllocator(config)
-        
+
         # Create risk score mapping
         protocol_risks = dict(zip(protocols, risk_scores))
         risk_constraints = {"max_protocol_exposure": Decimal("0.5")}
-        
+
         # Optimize portfolio
         portfolio = allocator.optimize_portfolio(
             protocols,
             risk_constraints,
             risk_scores=protocol_risks
         )
-        
+
         # Property: allocations sum to 100%
         total_allocation = sum(portfolio.values())
         assert abs(total_allocation - Decimal("1.0")) < Decimal("0.01")
-        
+
         # Property: all protocols get minimum allocation
         assert all(
             alloc >= allocator.min_allocation
             for alloc in portfolio.values()
         )
-        
+
         # Property: no protocol exceeds maximum
         assert all(
             alloc <= allocator.max_allocation
@@ -169,17 +168,17 @@ class TestCapitalAllocationProperties:
         target_allocation: Dict[str, Decimal]
     ) -> None:
         """Test rebalancing threshold calculations are consistent.
-        
+
         Property: Rebalancing should only trigger when drift exceeds threshold
-        
+
         Args:
-            current_prices: Current token prices
-            target_allocation: Target allocation percentages
+                current_prices: Current token prices
+                target_allocation: Target allocation percentages
         """
         # Ensure dictionaries have same keys and at least two protocols
         protocols = list(set(current_prices.keys()) & set(target_allocation.keys()))
         assume(len(protocols) >= 2)
-        
+
         # Normalize target allocation
         total_target = sum(target_allocation[p] for p in protocols)
         assume(total_target > 0)
@@ -197,11 +196,11 @@ class TestCapitalAllocationProperties:
 
         config = {"capital_allocation": {"rebalance_threshold": Decimal("0.1")}}
         allocator = CapitalAllocator(config)
-        
+
         # Test various drift scenarios
         for drift_trigger in [False, True]:  # Test cases for below and above threshold
             current_allocation = normalized_target.copy()
-            
+
             # Pick two distinct protocols to create drift
             # Ensure we have at least two protocols to shift between
             if len(protocols_with_non_zero_target) < 2:
@@ -235,13 +234,13 @@ class TestCapitalAllocationProperties:
                 }
             else:
                 assume(False)  # Discard if total becomes zero or negative
-            
+
             # Check rebalancing decision
             needs_rebalance = allocator.check_rebalance_needed(
                 normalized_target,
                 current_allocation
             )
-            
+
             # Property: rebalance only if drift > threshold
             if drift_trigger:
                 assert needs_rebalance is True
@@ -269,17 +268,17 @@ class TestMonitoringProperties:
         self, transactions: List[Dict[str, Any]]
     ) -> None:
         """Test that metrics aggregation is consistent and accurate.
-        
+
         Properties:
         - Sum of protocol metrics equals total metrics
         - Success rate is between 0 and 1
         - Average calculations are correct
-        
+
         Args:
-            transactions: List of transaction records
+                transactions: List of transaction records
         """
         collector = MetricsCollector()
-        
+
         # Record all transactions
         for i, tx in enumerate(transactions):
             collector.record_transaction(
@@ -291,7 +290,7 @@ class TestMonitoringProperties:
                 value_usd=Decimal(str(tx["value_usd"])),  # Convert float to Decimal
                 tx_hash=f"0x{'a' * 63}{i}"
             )
-        
+
         # Get aggregated metrics
         total_metrics = {
             "transactions": Decimal("0"),
@@ -300,7 +299,7 @@ class TestMonitoringProperties:
             "value": Decimal("0")
         }
         all_protocols = list(set(tx["protocol"] for tx in transactions))
-        
+
         for protocol in all_protocols:
             metrics = collector.get_protocol_metrics(protocol)
             total_metrics["transactions"] += Decimal(str(metrics["total_transactions"]))
@@ -309,15 +308,15 @@ class TestMonitoringProperties:
             )
             total_metrics["gas"] += Decimal(str(metrics["total_gas_used"]))
             total_metrics["value"] += metrics["total_value_usd"]  # Already Decimal
-        
+
         # Property: sum of parts equals whole
         assert total_metrics["transactions"] == Decimal(str(len(transactions)))
-        
+
         # Property: success rate is valid probability
         if total_metrics["transactions"] > Decimal("0"):
             success_rate = total_metrics["successes"] / total_metrics["transactions"]
             assert Decimal("0") <= success_rate <= Decimal("1")
-        
+
         # Property: gas and value are non-negative
         assert total_metrics["gas"] >= Decimal("0")
         assert total_metrics["value"] >= Decimal("0")
@@ -331,26 +330,26 @@ class TestMonitoringProperties:
     )
     def test_percentile_calculations(self, metric_values: List[float]) -> None:
         """Test percentile calculations maintain mathematical properties.
-        
+
         Properties:
         - p50 (median) divides data in half
         - p95 >= p50 >= p5
         - Percentiles are within data range
-        
+
         Args:
-            metric_values: List of metric values
+                metric_values: List of metric values
         """
         percentiles = calculate_percentiles(metric_values, [5, 50, 95])
-        
+
         # Property: percentiles are ordered
         assert percentiles["p5"] <= percentiles["p50"] <= percentiles["p95"]
-        
+
         # Property: percentiles are within data range
         assert Decimal(str(min(metric_values))) <= percentiles["p5"] <= \
             Decimal(str(max(metric_values)))
         assert Decimal(str(min(metric_values))) <= percentiles["p95"] <= \
             Decimal(str(max(metric_values)))
-        
+
         # Property: median divides data (approximately for even lengths)
         sorted_values = sorted(metric_values)
         median_idx = len(sorted_values) // 2
@@ -368,7 +367,7 @@ class TestMonitoringProperties:
 
 class PortfolioStateMachine(RuleBasedStateMachine):
     """Stateful testing for portfolio management operations."""
-    
+
     def __init__(self) -> None:
         super().__init__()
         self.protocols = ["scroll", "zksync", "eigenlayer"]
@@ -378,7 +377,7 @@ class PortfolioStateMachine(RuleBasedStateMachine):
         self.total_capital = Decimal("100000")
         self.transactions: List[Dict[str, Any]] = []
         self.current_prices = {p: Decimal("1") for p in self.protocols}
-    
+
     @rule(
         protocol=st.sampled_from(["scroll", "zksync", "eigenlayer"]),
         amount=st.decimals(
@@ -394,7 +393,7 @@ class PortfolioStateMachine(RuleBasedStateMachine):
             "amount": amount,
             "timestamp": pendulum.now()
         })
-    
+
     @rule(
         protocol=st.sampled_from(["scroll", "zksync", "eigenlayer"]),
         percentage=st.decimals(
@@ -413,37 +412,37 @@ class PortfolioStateMachine(RuleBasedStateMachine):
                 "amount": reduction,
                 "timestamp": pendulum.now()
             })
-    
+
     @rule()
     def rebalance(self) -> None:
         """Rebalance portfolio to equal weights."""
         total_value = sum(self.portfolio.values())
         if total_value > 0:
             target_per_protocol = total_value / Decimal(str(len(self.protocols)))
-            
+
             for protocol in self.protocols:
                 diff = target_per_protocol - self.portfolio[protocol]
                 self.portfolio[protocol] = target_per_protocol
-                
+
                 self.transactions.append({
                     "type": "rebalance",
                     "protocol": protocol,
                     "amount": diff,
                     "timestamp": pendulum.now()
                 })
-    
+
     @invariant()
     def portfolio_value_non_negative(self) -> None:
         """Portfolio values should never be negative."""
         assert all(value >= 0 for value in self.portfolio.values())
-    
+
     @invariant()
     def total_value_conserved(self) -> None:
         """Total portfolio value should be conserved (minus fees)."""
         # Allow for small rounding errors
         total_value: Decimal = cast(Decimal, sum(self.portfolio.values()))
         assert total_value >= Decimal("0")  # Compare with Decimal
-        
+
         # If we've done transactions, check conservation
         if self.transactions:
             net_additions: Decimal = sum(
@@ -454,12 +453,10 @@ class PortfolioStateMachine(RuleBasedStateMachine):
                 tx["amount"] for tx in self.transactions
                 if tx["type"] == "reduce"
             )
-            
+
             # Account for rebalancing (net zero)
             expected_value: Decimal = net_additions - net_reductions
             assert abs(total_value - expected_value) < Decimal("1")
 
-
 # Test the stateful portfolio machine
-TestPortfolioStateMachine = PortfolioStateMachine.TestCase
 TestPortfolioStateMachine = PortfolioStateMachine.TestCase

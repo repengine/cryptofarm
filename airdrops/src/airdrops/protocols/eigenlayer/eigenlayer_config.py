@@ -19,16 +19,16 @@ DEFAULT_GAS_LIMIT_DEPOSIT = 300000
 # Mapping for easy lookup
 LST_ASSET_DETAILS = {
     "stETH": {
-        "token_address": STETH_TOKEN_ADDRESS,
-        "strategy_address": STETH_STRATEGY_ADDRESS,
-        "token_abi_file": "ERC20.json",
-        "strategy_abi_file": "StrategyBaseTVLLimits_stETH.json"
+    "token_address": STETH_TOKEN_ADDRESS,
+    "strategy_address": STETH_STRATEGY_ADDRESS,
+    "token_abi_file": "ERC20.json",
+    "strategy_abi_file": "StrategyBaseTVLLimits_stETH.json"
     },
     "rETH": {
-        "token_address": RETH_TOKEN_ADDRESS,
-        "strategy_address": RETH_STRATEGY_ADDRESS,
-        "token_abi_file": "ERC20.json",
-        "strategy_abi_file": "StrategyBaseTVLLimits_stETH.json"
+    "token_address": RETH_TOKEN_ADDRESS,
+    "strategy_address": RETH_STRATEGY_ADDRESS,
+    "token_abi_file": "ERC20.json",
+    "strategy_abi_file": "StrategyBaseTVLLimits_stETH.json"
     }
 }
 

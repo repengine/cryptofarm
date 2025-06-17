@@ -18,7 +18,6 @@ from decimal import Decimal
 from prometheus_client import Counter, Gauge, Histogram, CollectorRegistry
 from prometheus_client import generate_latest
 
-
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -48,14 +47,14 @@ class MetricsCollector:
     Metrics Collector for the Airdrops Automation System.
 
     Collects metrics from Phase 3 components (RiskManager, CapitalAllocator,
-    CentralScheduler) and system-level metrics, exposing them in Prometheus
+    CentralScheduler and system-level metrics, exposing them in Prometheus
     exposition format for monitoring and alerting.
 
     Example:
-        >>> collector = MetricsCollector()
-        >>> collector.initialize()
-        >>> metrics_data = collector.collect_all_metrics()
-        >>> prometheus_output = collector.export_prometheus_format()
+    >>> collector = MetricsCollector()
+    >>> collector.initialize()
+    >>> metrics_data = collector.collect_all_metrics()
+    >>> prometheus_output = collector.export_prometheus_format()
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
@@ -74,6 +73,8 @@ class MetricsCollector:
         self.metrics_port = int(
             os.getenv("METRICS_HTTP_PORT", "8000")
         )
+        # Initialize redis client as None - will be set up when needed
+        self.redis_client: Optional[Any] = None
 
     def _initialize_prometheus_metrics(self) -> None:
         """Initialize Prometheus metric objects."""
@@ -593,7 +594,7 @@ class MetricsCollector:
         failed_tasks = self.task_execution_status.labels(
             protocol="overall", status='failed'
         )._value.get()
-        
+
         # Dummy average duration and total gas used
         avg_task_duration = 10.0  # seconds
         total_gas_used = self.scheduler_total_gas_used._value.get()
@@ -613,6 +614,10 @@ class MetricsCollector:
         Persist metrics data to a storage (e.g., Redis).
         This is a placeholder for actual persistence logic.
         """
+        if self.redis_client is None:
+            logger.warning("Redis client not initialized, skipping persistence")
+            return
+
         try:
             self.redis_client.setex(key, expiry_seconds, json.dumps(metrics_data))
             logger.info(f"Persisted metrics for key: {key}")
@@ -625,11 +630,15 @@ class MetricsCollector:
         Recover metrics data from storage.
         This is a placeholder for actual recovery logic.
         """
+        if self.redis_client is None:
+            logger.warning("Redis client not initialized, cannot recover metrics")
+            return None
+
         try:
             data = self.redis_client.get(key)
             if data:
-                return json.loads(data)
-            logger.info(f"Recovered metrics for key: {key}")
+                logger.info(f"Recovered metrics for key: {key}")
+                return json.loads(data)  # type: ignore[no-any-return]
             return None
         except Exception as e:
             logger.error(f"Failed to recover metrics for {key}: {e}")

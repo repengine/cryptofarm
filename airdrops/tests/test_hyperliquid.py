@@ -21,10 +21,8 @@ from airdrops.protocols.hyperliquid import (
 )
 import logging
 
-
 # Suppress logging during tests for cleaner output
 logging.basicConfig(level=logging.CRITICAL)
-
 
 @pytest.fixture
 def mock_exchange_agent():
@@ -52,7 +50,6 @@ def mock_exchange_agent():
     }
     mock_exchange.wallet.address = "0x1234567890123456789012345678901234567890"
     return mock_exchange
-
 
 @pytest.fixture
 def mock_info_agent():
@@ -91,7 +88,6 @@ def mock_info_agent():
     mock_info.all_mids.return_value = {"ETH": "3000.0", "BTC": "70000.0"}
     mock_info.clearing_house_state.return_value = {"status": "ok"}
     return mock_info
-
 
 @pytest.fixture
 def mock_web3():
@@ -339,7 +335,6 @@ def test_stake_rotate_exception(mock_exchange_agent, mock_info_agent):
 
     assert result is False
 
-
 @patch('time.sleep')
 def test_vault_cycle_success(mock_sleep, mock_exchange_agent, mock_info_agent):
     """Test successful vault cycle."""
@@ -358,7 +353,6 @@ def test_vault_cycle_success(mock_sleep, mock_exchange_agent, mock_info_agent):
     mock_info_agent.user_vault_equities.assert_called_once()
     mock_sleep.assert_called_once()
 
-
 @patch('time.sleep')
 def test_vault_cycle_deposit_failure(
     mock_sleep, mock_exchange_agent, mock_info_agent
@@ -376,7 +370,6 @@ def test_vault_cycle_deposit_failure(
     mock_exchange_agent.vault_transfer.assert_called_once()
     mock_sleep.assert_not_called()
 
-
 @patch('time.sleep')
 def test_vault_cycle_no_equity(mock_sleep, mock_exchange_agent, mock_info_agent):
     """Test vault cycle when no equity found."""
@@ -392,7 +385,6 @@ def test_vault_cycle_no_equity(mock_sleep, mock_exchange_agent, mock_info_agent)
 
     assert result is False
     mock_sleep.assert_called_once()
-
 
 @patch('time.sleep')
 def test_vault_cycle_zero_equity(
@@ -416,7 +408,6 @@ def test_vault_cycle_zero_equity(
 
     assert result is True
     mock_sleep.assert_called_once()
-
 
 @patch('airdrops.protocols.hyperliquid._poll_arbitrum_withdrawal_confirmation')
 @patch('airdrops.protocols.hyperliquid._withdraw_from_l1')
@@ -465,7 +456,6 @@ def test_evm_roundtrip_amount_too_low(
     )
 
     assert result is False
-
 
 @patch('airdrops.protocols.hyperliquid._deposit_to_l1')
 def test_evm_roundtrip_deposit_failure(
@@ -527,7 +517,6 @@ def test_deposit_to_l1_exception(mock_web3):
 
     assert result is False
 
-
 @patch('time.sleep')
 @patch('time.time')
 def test_poll_l1_deposit_confirmation_success(
@@ -549,7 +538,6 @@ def test_poll_l1_deposit_confirmation_success(
     )
 
     assert result is True
-
 
 @patch('time.sleep')
 @patch('time.time')
@@ -598,7 +586,6 @@ def test_withdraw_from_l1_exception(mock_exchange_agent):
 
     assert result is False
 
-
 @patch('time.sleep')
 @patch('time.time')
 def test_poll_arbitrum_withdrawal_confirmation_success(
@@ -623,7 +610,6 @@ def test_poll_arbitrum_withdrawal_confirmation_success(
 
     assert result is True
 
-
 @patch('time.sleep')
 @patch('time.time')
 def test_poll_arbitrum_withdrawal_confirmation_timeout(
@@ -643,7 +629,6 @@ def test_poll_arbitrum_withdrawal_confirmation_timeout(
     )
 
     assert result is False
-
 
 @patch('random.choices')
 def test_perform_random_onchain_stake_rotate(
@@ -671,7 +656,6 @@ def test_perform_random_onchain_stake_rotate(
 
     assert success is True
     assert "Successfully rotated" in message
-
 
 @patch('random.choices')
 def test_perform_random_onchain_vault_cycle(
@@ -703,7 +687,6 @@ def test_perform_random_onchain_vault_cycle(
     assert success is True
     assert "Successfully completed vault cycle" in message
 
-
 @patch('random.choices')
 def test_perform_random_onchain_spot_swap(
     mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
@@ -732,7 +715,6 @@ def test_perform_random_onchain_spot_swap(
     assert success is True
     assert "Successfully swapped" in message
 
-
 @patch('random.choices')
 def test_perform_random_onchain_query_user_state(
     mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
@@ -753,7 +735,6 @@ def test_perform_random_onchain_query_user_state(
 
     assert success is True
     assert "Successfully performed query_user_state" in message
-
 
 @patch('random.choices')
 def test_perform_random_onchain_query_meta(
@@ -776,7 +757,6 @@ def test_perform_random_onchain_query_meta(
     assert success is True
     assert "Successfully performed query_meta" in message
 
-
 @patch('random.choices')
 def test_perform_random_onchain_query_all_mids(
     mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
@@ -797,7 +777,6 @@ def test_perform_random_onchain_query_all_mids(
 
     assert success is True
     assert "Successfully performed query_all_mids" in message
-
 
 @patch('random.choices')
 def test_perform_random_onchain_query_clearing_house_state(
@@ -838,7 +817,6 @@ def test_perform_random_onchain_no_weights(
 
     assert success is False
     assert "No action weights provided" in message
-
 
 @patch('random.choices')
 def test_perform_random_onchain_unknown_action(

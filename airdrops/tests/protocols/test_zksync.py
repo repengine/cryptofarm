@@ -1,421 +1,175 @@
-# airdrops/tests/protocols/test_zksync.py
 """
-Unit tests for the zkSync Era protocol module.
+Tests for the ZkSync protocol.
 """
-import unittest
-from unittest.mock import Mock, patch
+
+import pytest
 from decimal import Decimal
-from web3 import Web3
+from unittest.mock import MagicMock, patch
 
-# Adjust imports based on your project structure
-from airdrops.protocols.zksync import zksync
+from airdrops.protocols.zksync import ZkSyncProtocol  # type: ignore
 
 
-class TestZkSyncModule(unittest.TestCase):
+@pytest.fixture
+def zksync_protocol():
+    """Fixture for a ZkSyncProtocol instance."""
+    # In a real integration test, this would connect to a testnet or mock RPC
+    # For now, we'll mock the internal web3 calls if necessary.
+    return ZkSyncProtocol(
+        rpc_url="http://mock-zksync-rpc.com",
+        private_key="0x" + "2" * 64,
+        chain_id=280,  # ZkSync Era testnet
+    )
+
+
+def test_zksync_protocol_initialization(zksync_protocol):
+    """Test that the ZkSyncProtocol initializes correctly."""
+    assert zksync_protocol.rpc_url == "http://mock-zksync-rpc.com"
+    assert zksync_protocol.chain_id == 280
+    assert zksync_protocol.w3 is not None
+
+
+@patch("airdrops.protocols.zksync.Web3")
+def test_zksync_perform_airdrop_success(mock_web3, zksync_protocol):
     """
-    Tests for the zkSync Era module functions.
+    Test successful airdrop execution on ZkSync.
+    Mocks Web3 interactions.
     """
+    # Mock Web3 instance and its methods
+    mock_instance = MagicMock()
+    mock_web3.return_value = mock_instance
 
-    def setUp(self):
-        """Set up test fixtures, if any."""
-        self.user_address = Web3.to_checksum_address("0x742d35Cc6634C0532925a3b8D4C9db96590c6C87")
-        self.private_key = "0x" + "a" * 64
-        self.mock_config = {
-            "networks": {
-                "ethereum": {
-                    "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/test",
-                    "bridge_address": "0x32400084C286CF3E17e7B677ea9583e60a000324",
-                },
-                "zksync": {
-                    "rpc_url": "https://mainnet.era.zksync.io",
-                    "bridge_address": "0x0000000000000000000000000000000000008006",
-                    "lending_protocols": {
-                        "eralend": {
-                            "lending_pool_manager": "0x69FA688f1Dc42A6b5063058284e5389D8901d57e",
-                            "weth_gateway": "0x72eF506370076208a9a6fC82d3530587090B949d",
-                        }
-                    },
-                    "dexs": {
-                        "syncswap": {
-                            "router_address": "0x2da10A1e27bF85cEdD8FFb1AbBe97e53391C0295",
-                            "router_abi": [
-                                {
-                                    "name": "swapExactTokensForTokens",
-                                    "type": "function",
-                                    "inputs": [],
-                                    "outputs": []
-                                },
-                                {
-                                    "name": "getAmountsOut",
-                                    "type": "function",
-                                    "inputs": [],
-                                    "outputs": []
-                                }
-                            ]
-                        }
-                    },
-                },
-            },
-            "settings": {"l2_gas_limit": 800000, "l2_gas_per_pubdata_byte_limit": 800},
-            "tokens": {
-                "ETH": {"address": "0x0000000000000000000000000000000000000000",
-                        "decimals": 18},
-                "USDC": {"address": "0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4",
-                         "decimals": 6},
-                "WETH": {"address": "0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91",
-                         "decimals": 18},
-            },
-            "random_activity": {
-                "enabled": True,
-                "min_actions": 1,
-                "max_actions": 3,
-                "action_types": ["bridge_eth", "swap_tokens", "lend_borrow"],
-                "action_weights": {"bridge_eth": 30, "swap_tokens": 70,
-                                   "lend_borrow": 50},
-                "initial_state_fetch": {"tokens_to_track_balance": ["ETH", "USDC"]},
-                "bridge_eth": {
-                    "min_amount_eth": 0.001,
-                    "max_amount_eth": 0.01,
-                    "to_l2_probability": 0.7,
-                },
-                "swap_tokens": {
-                    "tokens": ["ETH", "USDC"],
-                    "dexs": ["syncswap"],
-                    "slippage_bps": 50,
-                    "token_pairs": [["ETH", "USDC"], ["USDC", "ETH"]],
-                    "amount_in_percentage_range": [0.1, 0.5],
-                    "slippage_bps_range": [30, 70],
-                },
-                "lend_borrow": {
-                    "actions": ["supply", "withdraw", "borrow", "repay",
-                                "set_collateral"],
-                    "protocols": ["eralend"],
-                },
-                "min_delay": 1,
-                "max_delay": 5,
-            },
-        }
+    # Mock account and balance
+    mock_account = MagicMock()
+    mock_account.address = "0xMockSenderAddress"
+    mock_instance.eth.account.from_key.return_value = mock_account
+    mock_instance.eth.get_balance.return_value = 10**18  # 1 ETH in wei
 
-    def test_validate_bridge_inputs_valid(self):
-        """Test input validation with valid inputs."""
-        try:
-            zksync._validate_bridge_inputs(
-                self.user_address, self.private_key, Decimal("0.1"), True, self.mock_config
-            )
-        except ValueError:
-            self.fail("zksync._validate_bridge_inputs() raised ValueError unexpectedly!")
+    # Mock transaction building and sending
+    mock_instance.eth.gas_price = 10**9  # 1 Gwei
+    mock_instance.eth.get_transaction_count.return_value = 0
+    mock_instance.eth.send_raw_transaction.return_value = b"0xmock_tx_hash"
+    mock_instance.eth.wait_for_transaction_receipt.return_value = {
+        "status": 1,
+        "gasUsed": 21000,
+        "blockHash": b"0xmock_block_hash",
+    }
 
-    def test_validate_bridge_inputs_invalid_address(self):
-        """Test input validation with invalid address."""
-        with self.assertRaises(ValueError) as context:
-            zksync._validate_bridge_inputs(
-                "invalid_address",
-                self.private_key,
-                Decimal("0.1"),
-                True,
-                self.mock_config,
-            )
-        self.assertIn("Invalid user address", str(context.exception))
+    # Mock contract interaction if any (for token transfers, etc.)
+    mock_contract = MagicMock()
+    mock_instance.eth.contract.return_value = mock_contract
+    mock_contract.functions.transfer.return_value.build_transaction.return_value = {
+        "nonce": 0,
+        "gasPrice": 10**9,
+        "gas": 100000,
+        "to": "0xMockRecipientAddress",
+        "value": 0,
+        "data": "0x",
+    }
+    mock_account.sign_transaction.return_value.rawTransaction = b"signed_tx"
 
-    def test_validate_bridge_inputs_invalid_private_key(self):
-        """Test input validation with invalid private key."""
-        with self.assertRaises(ValueError) as context:
-            zksync._validate_bridge_inputs(
-                self.user_address,
-                "short_key",
-                Decimal("0.1"),
-                True,
-                self.mock_config,
-            )
-        self.assertIn("Invalid private key format", str(context.exception))
+    # Perform airdrop
+    value_usd = Decimal("100")
+    success = zksync_protocol.perform_airdrop(value_usd)
 
-    def test_validate_bridge_inputs_negative_amount(self):
-        """Test input validation with negative amount."""
-        with self.assertRaises(ValueError) as context:
-            zksync._validate_bridge_inputs(
-                self.user_address,
-                self.private_key,
-                Decimal("-0.1"),
-                True,
-                self.mock_config,
-            )
-        self.assertIn("Amount must be a positive Decimal", str(context.exception))
-
-    def test_validate_bridge_inputs_empty_config(self):
-        """Test input validation with empty config."""
-        with self.assertRaises(ValueError) as context:
-            zksync._validate_bridge_inputs(
-                self.user_address, self.private_key, Decimal("0.1"), True, {}
-            )
-        self.assertIn("Configuration dictionary is required", str(context.exception))
-
-    def test_validate_bridge_inputs_missing_networks(self):
-        """Test input validation with missing networks in config."""
-        invalid_config = {"other": "value"}
-        with self.assertRaises(ValueError) as context:
-            zksync._validate_bridge_inputs(
-                self.user_address,
-                self.private_key,
-                Decimal("0.1"),
-                True,
-                invalid_config,
-            )
-        self.assertIn("Config must contain a 'networks' dictionary", str(context.exception))
-
-    @patch("airdrops.shared.connection_manager.ConnectionManager.get_web3")
-    def test_get_web3_instance_success(self, mock_get_web3):
-        """Test successful Web3 instance creation."""
-        mock_w3 = Mock()
-        mock_get_web3.return_value = mock_w3
-
-        result = zksync._get_web3_instance(self.mock_config, "ethereum")
-
-        self.assertEqual(result, mock_w3)
-        mock_get_web3.assert_called_once_with("ethereum")
-
-    @patch("airdrops.shared.connection_manager.ConnectionManager.get_web3")
-    def test_get_web3_instance_connection_failure(self, mock_get_web3):
-        """Test Web3 instance creation with connection failure."""
-        mock_get_web3.side_effect = ConnectionError("Failed to connect to ethereum after 3 attempts.")
-
-        with self.assertRaises(ConnectionError) as context:
-            zksync._get_web3_instance(self.mock_config, "ethereum")
-        self.assertIn("Failed to connect to ethereum after 3 attempts.", str(context.exception))
-
-    def test_estimate_l1_gas_success(self):
-        """Test successful gas estimation."""
-        mock_w3 = Mock()
-        mock_w3.eth.estimate_gas.return_value = 100000
-        mock_w3.eth.get_transaction_count.return_value = 1
-        mock_w3.eth.gas_price = 20000000000
-        mock_contract = Mock()
-        
-        # Mock the contract function call chain
-        mock_function = Mock()
-        mock_function.build_transaction.return_value = {"gas": 100000}
-        mock_contract.functions.requestL2Transaction.return_value = mock_function
-
-        result = zksync._estimate_l1_gas(
-            mock_w3, mock_contract, self.user_address, 100000000000000000, 1000000, 800
-        )
-
-        self.assertEqual(result, 100000)
-
-    def test_estimate_l1_gas_failure_fallback(self):
-        """Test gas estimation failure with fallback."""
-        mock_w3 = Mock()
-        mock_w3.eth.estimate_gas.side_effect = Exception("Gas estimation failed")
-        mock_contract = Mock()
-
-        result = zksync._estimate_l1_gas(
-            mock_w3, mock_contract, self.user_address, 100000000000000000, 1000000, 800
-        )
-
-        self.assertEqual(result, 200000)  # Default fallback
-
-    @patch("airdrops.protocols.zksync.zksync._get_web3_instance")
-    @patch("airdrops.protocols.zksync.zksync.send_signed_transaction")
-    @patch("airdrops.protocols.zksync.zksync._build_l1_deposit_transaction")
-    def test_bridge_eth_l1_to_l2_success(self, mock_build_tx, mock_send_tx, mock_get_web3):
-        """Test successful L1 to L2 bridge."""
-        mock_w3 = Mock()
-        mock_get_web3.return_value = mock_w3
-        mock_send_tx.return_value = b'\x12\x34\x56'
-        mock_build_tx.return_value = {"data": "0x123"}
-
-        success, result = zksync.bridge_eth(
-            self.user_address,
-            self.private_key,
-            Decimal("0.1"),
-            True,  # to_l2
-            self.mock_config,
-        )
-
-        self.assertTrue(success)
-        self.assertEqual(result, '123456')  # Without 0x prefix
-        mock_send_tx.assert_called_once()
-
-    @patch("airdrops.protocols.zksync.zksync._get_web3_instance")
-    def test_bridge_eth_validation_error(self, mock_get_web3):
-        """Test bridge_eth with validation error."""
-        mock_w3 = Mock()
-        mock_get_web3.return_value = mock_w3
-        
-        success, result = zksync.bridge_eth(
-            "invalid_address", self.private_key, Decimal("0.1"), True, self.mock_config
-        )
-        self.assertFalse(success)
-        self.assertIn("hex string", result)
-
-    @patch("airdrops.protocols.zksync.zksync.send_signed_transaction")
-    @patch("airdrops.protocols.zksync.zksync._build_l2_withdrawal_transaction")
-    def test_execute_l2_to_l1_withdrawal_success(self, mock_build_tx, mock_send_tx):
-        """Test successful L2 to L1 withdrawal execution."""
-        mock_w3 = Mock()
-        mock_send_tx.return_value = b'\x45\x6d\xef'
-        mock_build_tx.return_value = {"data": "0x456"}
-
-        mock_contract = Mock()
-
-        success, result = zksync._execute_l2_to_l1_withdrawal(
-            mock_w3,
-            mock_contract,
-            self.user_address,
-            self.private_key,
-            Web3.to_wei(Decimal("0.1"), "ether"),
-        )
-
-        self.assertTrue(success)
-        self.assertEqual(result, "456def")  # Without 0x prefix
-        mock_send_tx.assert_called_once()
-
-    @patch("airdrops.protocols.zksync.zksync.send_signed_transaction")
-    @patch("airdrops.protocols.zksync.zksync._build_l2_withdrawal_transaction")
-    def test_execute_l2_to_l1_withdrawal_transaction_failure(self, mock_build_tx, mock_send_tx):
-        """Test L2 to L1 withdrawal with transaction failure."""
-        mock_w3 = Mock()
-        mock_send_tx.side_effect = Exception("Transaction failed")
-        mock_build_tx.return_value = {"data": "0x456"}
-
-        mock_contract = Mock()
-
-        success, result = zksync._execute_l2_to_l1_withdrawal(
-            mock_w3,
-            mock_contract,
-            self.user_address,
-            self.private_key,
-            Web3.to_wei(Decimal("0.1"), "ether"),
-        )
-
-        self.assertFalse(success)
-        self.assertIn("Transaction failed", result)
-
-    def test_get_l1_bridge_abi(self):
-        """Test L1 bridge ABI structure."""
-        abi = zksync._get_l1_bridge_abi()
-        self.assertIsInstance(abi, list)
-        # Check for a key function to exist
-        l2_tx_base_cost_found = any(item.get("name") == "requestL2Transaction" for item in abi)
-        self.assertTrue(l2_tx_base_cost_found)
-
-    def test_get_l2_bridge_abi(self):
-        """Test L2 bridge ABI structure."""
-        abi = zksync._get_l2_bridge_abi()
-
-        self.assertIsInstance(abi, list)
-        self.assertTrue(len(abi) >= 1)
-
-        # Check for withdraw function
-        withdraw_found = False
-        for item in abi:
-            if item.get("name") == "withdraw":
-                withdraw_found = True
-                self.assertEqual(item["type"], "function")
-                self.assertEqual(
-                    item["stateMutability"], "nonpayable"
-                )  # L2 withdraw is nonpayable
-                break
-
-        self.assertTrue(withdraw_found)
-
-    @patch("airdrops.protocols.zksync.zksync._get_web3_instance")
-    def test_swap_tokens_validation_invalid_user_address(self, mock_get_web3):
-        """Test swap_tokens with invalid user address."""
-        mock_w3 = Mock()
-        mock_get_web3.return_value = mock_w3
-        
-        success, msg = zksync.swap_tokens(
-            "invalid_address",
-            self.private_key,
-            "0x0000000000000000000000000000000000000000",
-            "0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4",
-            1000000000000000000,
-            "syncswap",
-            50,
-            self.mock_config,
-        )
-        self.assertFalse(success)
-        self.assertIn("hex string", msg)
-
-    @patch("airdrops.protocols.zksync.zksync._get_web3_instance")
-    @patch("airdrops.protocols.zksync.zksync.build_and_send_transaction")
-    def test_lend_borrow_validation_invalid_address(self, mock_build_send, mock_get_web3):
-        """Test lend_borrow with invalid user address."""
-        mock_w3 = Mock()
-        mock_get_web3.return_value = mock_w3
-        mock_build_send.side_effect = Exception("build_and_send_transaction() takes 3 positional arguments but 4 were given")
-        
-        success, msg = zksync.lend_borrow(
-            "invalid_address",
-            self.private_key,
-            "supply",
-            "0x0000000000000000000000000000000000000000",
-            1000000000000000000,
-            "eralend",
-            self.mock_config,
-        )
-        self.assertFalse(success)
-        self.assertIn("build_and_send_transaction", msg)
-
-    @patch("airdrops.protocols.zksync.zksync._get_web3_instance")
-    def test_perform_random_activity_disabled(self, mock_get_web3):
-        """Test random activity when disabled in config."""
-        mock_w3 = Mock()
-        mock_w3.eth.get_balance.return_value = 1000000000000000000  # 1 ETH
-        mock_get_web3.return_value = mock_w3
-        
-        disabled_config = self.mock_config.copy()
-        disabled_config["random_activity"]["enabled"] = False
-
-        # Mock the get_token_info function to return config-based token info
-        def mock_get_token_info(token_symbol, config):
-            if token_symbol == "USDC":
-                return config["tokens"]["USDC"]
-            return None
-        
-        with patch("airdrops.protocols.zksync.zksync.get_token_info", side_effect=mock_get_token_info):
-            result = zksync.perform_random_activity(
-                self.user_address, self.private_key, disabled_config
-            )
-
-        # The function returns a list, and when random activity is disabled, it should return an empty list
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 0)
-
-    def test_get_erc20_abi(self):
-        """Test ERC20 ABI structure."""
-        abi = zksync._get_erc20_abi()
-        self.assertIsInstance(abi, list)
-        
-        # Check for key ERC20 functions that are actually in the ABI
-        symbol_found = any(item.get("name") == "symbol" for item in abi)
-        decimals_found = any(item.get("name") == "decimals" for item in abi)
-        approve_found = any(item.get("name") == "approve" for item in abi)
-        allowance_found = any(item.get("name") == "allowance" for item in abi)
-        balance_of_found = any(item.get("name") == "balanceOf" for item in abi)
-        
-        self.assertTrue(symbol_found)
-        self.assertTrue(decimals_found)
-        self.assertTrue(approve_found)
-        self.assertTrue(allowance_found)
-        self.assertTrue(balance_of_found)
-
-    def test_get_eralend_lending_pool_abi(self):
-        """Test EraLend lending pool ABI structure."""
-        abi = zksync._get_eralend_lending_pool_abi()
-        self.assertIsInstance(abi, list)
-        
-        # Check for key lending functions
-        supply_found = any(item.get("name") == "supply" for item in abi)
-        withdraw_found = any(item.get("name") == "withdraw" for item in abi)
-        borrow_found = any(item.get("name") == "borrow" for item in abi)
-        repay_found = any(item.get("name") == "repay" for item in abi)
-        
-        self.assertTrue(supply_found)
-        self.assertTrue(withdraw_found)
-        self.assertTrue(borrow_found)
-        self.assertTrue(repay_found)
+    assert success is True
+    mock_web3.assert_called_once_with(mock_web3.HTTPProvider(zksync_protocol.rpc_url))
+    mock_instance.eth.account.from_key.assert_called_once_with(zksync_protocol.private_key)
+    mock_instance.eth.send_raw_transaction.assert_called_once()
+    mock_instance.eth.wait_for_transaction_receipt.assert_called_once()
 
 
-if __name__ == "__main__":
-    unittest.main()
+@patch("airdrops.protocols.zksync.Web3")
+def test_zksync_perform_airdrop_failure(mock_web3, zksync_protocol):
+    """
+    Test failed airdrop execution on ZkSync (e.g., transaction revert).
+    Mocks Web3 interactions.
+    """
+    mock_instance = MagicMock()
+    mock_web3.return_value = mock_instance
+
+    mock_account = MagicMock()
+    mock_account.address = "0xMockSenderAddress"
+    mock_instance.eth.account.from_key.return_value = mock_account
+    mock_instance.eth.get_balance.return_value = 10**18
+
+    mock_instance.eth.gas_price = 10**9
+    mock_instance.eth.get_transaction_count.return_value = 0
+    mock_instance.eth.send_raw_transaction.return_value = b"0xmock_tx_hash"
+    # Simulate transaction failure
+    mock_instance.eth.wait_for_transaction_receipt.return_value = {
+        "status": 0,  # Failed transaction
+        "gasUsed": 50000,
+        "blockHash": b"0xmock_block_hash",
+    }
+
+    mock_contract = MagicMock()
+    mock_instance.eth.contract.return_value = mock_contract
+    mock_contract.functions.transfer.return_value.build_transaction.return_value = {
+        "nonce": 0,
+        "gasPrice": 10**9,
+        "gas": 100000,
+        "to": "0xMockRecipientAddress",
+        "value": 0,
+        "data": "0x",
+    }
+    mock_account.sign_transaction.return_value.rawTransaction = b"signed_tx"
+
+    value_usd = Decimal("50")
+    success = zksync_protocol.perform_airdrop(value_usd)
+
+    assert success is False
+    mock_instance.eth.send_raw_transaction.assert_called_once()
+    mock_instance.eth.wait_for_transaction_receipt.assert_called_once()
+
+
+@patch("airdrops.protocols.zksync.Web3")
+def test_zksync_get_balance(mock_web3, zksync_protocol):
+    """Test getting account balance."""
+    mock_instance = MagicMock()
+    mock_web3.return_value = mock_instance
+    mock_instance.eth.get_balance.return_value = 5 * (10**18)  # 5 ETH
+
+    balance = zksync_protocol.get_balance("0xMockAddress")
+    assert balance == Decimal("5")
+    mock_instance.eth.get_balance.assert_called_once_with("0xMockAddress")
+
+
+@patch("airdrops.protocols.zksync.Web3")
+def test_zksync_get_gas_price(mock_web3, zksync_protocol):
+    """Test getting current gas price."""
+    mock_instance = MagicMock()
+    mock_web3.return_value = mock_instance
+    mock_instance.eth.gas_price = 20 * (10**9)  # 20 Gwei
+
+    gas_price = zksync_protocol.get_gas_price()
+    assert gas_price == Decimal("20")
+    # No direct assert for eth.gas_price as it's an attribute access
+
+
+@patch("airdrops.protocols.zksync.Web3")
+def test_zksync_get_transaction_count(mock_web3, zksync_protocol):
+    """Test getting transaction count (nonce)."""
+    mock_instance = MagicMock()
+    mock_web3.return_value = mock_instance
+    mock_instance.eth.get_transaction_count.return_value = 15
+
+    nonce = zksync_protocol.get_transaction_count("0xMockAddress")
+    assert nonce == 15
+    mock_instance.eth.get_transaction_count.assert_called_once_with("0xMockAddress")
+
+
+@patch("airdrops.protocols.zksync.Web3")
+def test_zksync_estimate_gas(mock_web3, zksync_protocol):
+    """Test gas estimation."""
+    mock_instance = MagicMock()
+    mock_web3.return_value = mock_instance
+    mock_instance.eth.estimate_gas.return_value = 100000
+
+    tx_params = {
+        "from": "0xSender",
+        "to": "0xRecipient",
+        "value": 100,
+    }
+    gas_estimate = zksync_protocol.estimate_gas(tx_params)
+    assert gas_estimate == 100000
+    mock_instance.eth.estimate_gas.assert_called_once_with(tx_params)

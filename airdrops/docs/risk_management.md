@@ -27,8 +27,9 @@ The main class that orchestrates all risk management activities:
 
 #### Risk Metrics and Limits
 - **RiskMetrics**: Data structure containing current risk assessment results
+- **RiskAssessment**: Comprehensive risk assessment data structure with overall risk level, circuit breaker status, unhealthy protocols, and timestamp
 - **RiskLimits**: Configurable parameters defining acceptable risk boundaries
-- **RiskLevel**: Enumeration for risk state classification (LOW, MEDIUM, HIGH, CRITICAL)
+- **RiskLevel**: Enumeration for risk state classification (LOW, MEDIUM, HIGH, CRITICAL, EXTREME)
 - **VolatilityState**: Market volatility classification (LOW, MEDIUM, HIGH, EXTREME)
 
 ### Key Features

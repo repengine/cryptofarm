@@ -90,7 +90,7 @@ class TestPortfolioPerformanceAnalyzer:
                 event_date=base_date + timedelta(days=2),
                 wallet_address="0x1234567890123456789012345678901234567890",
                 notes=None
-            )
+            ),
         ]
 
     def test_analyzer_initialization(self, tracker: AirdropTracker) -> None:

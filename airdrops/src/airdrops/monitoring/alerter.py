@@ -94,11 +94,11 @@ class Alerter:
     configured channels. Supports email, Slack, and webhook notifications.
 
     Example:
-        >>> alerter = Alerter()
-        >>> alerter.load_alert_rules("alert_rules.yaml")
-        >>> alerter.load_notification_channels("notifications.yaml")
-        >>> metrics = {"system_cpu_usage_percent": 85.0}
-        >>> alerter.evaluate_rules(metrics)
+    >>> alerter = Alerter()
+    >>> alerter.load_alert_rules("alert_rules.yaml")
+    >>> alerter.load_notification_channels("notifications.yaml")
+    >>> metrics = {"system_cpu_usage_percent": 85.0}
+    >>> alerter.evaluate_rules(metrics)
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
@@ -335,16 +335,23 @@ class Alerter:
             if '.' in metric_name:
                 parts = metric_name.split('.')
                 value = metrics
+                current_value: Any = metrics
                 for part in parts:
-                    value = value.get(part)
-                    if value is None:
+                    if not isinstance(current_value, dict):
+                        return None  # Path is invalid, not a dictionary
+                    assert isinstance(current_value, dict)  # Explicitly assert type for mypy
+                    current_value = current_value.get(part)
+                    if current_value is None:
                         return None
-                return float(value)
+                if isinstance(current_value, (int, float)):
+                    return float(current_value)
+                return None
             else:
                 # Direct metric name
                 if metric_name in metrics:
                     value = metrics[metric_name]
-                    return float(value) if isinstance(value, (int, float)) else None
+                    if isinstance(value, (int, float)):
+                        return float(value)
                 return None
 
         except (ValueError, TypeError, KeyError):

@@ -66,11 +66,12 @@ class AirdropReporter:
     protocol summaries, ROI calculations, and performance analytics.
 
     Example:
-        >>> tracker = AirdropTracker()
-        >>> reporter = AirdropReporter(tracker)
-        >>> report = reporter.generate_comprehensive_report()
-        >>> reporter.export_report(report, "report.json", ReportFormat.JSON)
+    >>> tracker = AirdropTracker()
+    >>> reporter = AirdropReporter(tracker)
+    >>> report = reporter.generate_comprehensive_report()
+    >>> reporter.export_report(report, "report.json", ReportFormat.JSON)
     """
+
     def __init__(self, tracker: AirdropTracker) -> None:
         """
         Initialize the airdrop reporter.
@@ -118,7 +119,7 @@ class AirdropReporter:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         include_roi: bool = True,
-        include_portfolio: bool = True
+        include_portfolio: bool = True,
     ) -> AirdropReport:
         """
         Generate a comprehensive airdrop analytics report.
@@ -127,7 +128,8 @@ class AirdropReporter:
             start_date: Start date for report (optional)
             end_date: End date for report (optional)
             include_roi: Whether to include ROI analysis (requires roi_optimizer)
-            include_portfolio: Whether to include portfolio analytics (requires portfolio_analyzer)
+            include_portfolio: Whether to include portfolio analytics
+                                (requires portfolio_analyzer)
 
         Returns:
             AirdropReport instance with complete analytics
@@ -176,7 +178,8 @@ class AirdropReporter:
                     roi_metrics = self.roi_optimizer.calculate_portfolio_roi(
                         start_date, end_date
                     )
-                    optimization_suggestions = self.roi_optimizer.generate_optimization_suggestions()
+                    optimization_suggestions = \
+                        self.roi_optimizer.generate_optimization_suggestions()
                     logger.info("ROI analysis included in comprehensive report")
                 except Exception as e:
                     logger.warning(f"Failed to generate ROI analysis: {e}")
@@ -185,10 +188,24 @@ class AirdropReporter:
             portfolio_metrics = None
             if include_portfolio and self.portfolio_analyzer:
                 try:
-                    portfolio_metrics = self.portfolio_analyzer.calculate_portfolio_metrics(
-                        end_date
+                    # Calculate current capital allocation based on events up to end_date
+                    current_capital_allocation = \
+                        self._get_current_protocol_allocations(events)
+                    # Mock current prices for now, in a real system this would come from a
+                    # price oracle
+                    mock_current_prices = {
+                        token: Decimal("1.0") for token in
+                        set(e.token_symbol for e in events)
+                    }
+                    portfolio_metrics = \
+                        self.portfolio_analyzer.calculate_portfolio_metrics(
+                            capital_allocation=current_capital_allocation,
+                            current_prices=mock_current_prices,
+                            as_of_date=end_date
+                        )
+                    logger.info(
+                        "Portfolio performance analytics included in comprehensive report"
                     )
-                    logger.info("Portfolio performance analytics included in comprehensive report")
                 except Exception as e:
                     logger.warning(f"Failed to generate portfolio analytics: {e}")
 
@@ -196,9 +213,11 @@ class AirdropReporter:
                 report_generated_at=datetime.now(),
                 total_airdrops=total_airdrops,
                 total_protocols=total_protocols,
-                total_estimated_value_usd=Decimal(str(total_estimated_value))
-                if total_estimated_value is not None and total_estimated_value > 0
-                else None,
+                total_estimated_value_usd=(
+                    Decimal(str(total_estimated_value))
+                    if total_estimated_value is not None and total_estimated_value > 0
+                    else None
+                ),
                 date_range_start=start_date,
                 date_range_end=end_date,
                 protocol_summaries=protocol_summaries,
@@ -312,6 +331,7 @@ class AirdropReporter:
             reverse=True
         )
 
+
     def _create_protocol_summary(
         self, protocol_name: str, events: List[AirdropEvent]
     ) -> ProtocolSummary:
@@ -336,6 +356,7 @@ class AirdropReporter:
             last_airdrop_date=last_date
         )
 
+
     def _generate_top_protocols_by_value(
         self, summaries: List[ProtocolSummary]
     ) -> List[Dict[str, Union[str, Decimal, int]]]:
@@ -353,6 +374,7 @@ class AirdropReporter:
             }
             for summary in protocols_with_value[:10]  # Top 10
         ]
+
 
     def _generate_monthly_breakdown(
         self, events: List[AirdropEvent]
@@ -401,6 +423,17 @@ class AirdropReporter:
             top_protocols_by_value=[],
             monthly_breakdown=[]
         )
+
+
+    def _get_current_protocol_allocations(self, events: List[AirdropEvent]) -> \
+            Dict[str, Decimal]:
+        """Calculate current protocol allocations from event values."""
+        allocations: Dict[str, Decimal] = {}
+        for event in events:
+            protocol = event.protocol_name
+            value = event.estimated_value_usd or Decimal('0')
+            allocations[protocol] = allocations.get(protocol, Decimal('0')) + value
+        return allocations
 
     def _export_json(self, report: AirdropReport, output_file: Path) -> None:
         """Export report as JSON."""

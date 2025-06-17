@@ -7,7 +7,8 @@ covering positive, edge, and failure cases for all health check functionality.
 
 import pytest
 import time
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from airdrops.monitoring.health_checker import (
@@ -123,7 +124,7 @@ class TestHealthChecker:
             )
 
         assert health_status.overall_status == HealthStatus.CRITICAL
-
+        
         # Find risk manager component
         risk_component = next(
             c for c in health_status.components
@@ -147,7 +148,7 @@ class TestHealthChecker:
             health_status = health_checker.check_system_health()
 
         assert health_status.overall_status == HealthStatus.WARNING
-
+        
         # Find system resources component
         system_component = next(
             c for c in health_status.components
@@ -171,7 +172,7 @@ class TestHealthChecker:
             health_status = health_checker.check_system_health()
 
         assert health_status.overall_status == HealthStatus.CRITICAL
-
+        
         # Find system resources component
         system_component = next(
             c for c in health_status.components
@@ -457,7 +458,13 @@ class TestHealthChecker:
         components = [
             ComponentHealth("comp1", HealthStatus.OK, "OK", time.time(), {}),
             ComponentHealth("comp2", HealthStatus.WARNING, "Warning", time.time(), {}),
-            ComponentHealth("comp3", HealthStatus.CRITICAL, "Critical", time.time(), {}),
+            ComponentHealth(
+                "comp3",
+                HealthStatus.CRITICAL,
+                "Critical",
+                time.time(),
+                {},
+            ),
         ]
 
         overall_status = health_checker._determine_overall_status(components)
@@ -480,7 +487,7 @@ class TestHealthChecker:
                 overall_status=HealthStatus.OK,
                 timestamp=time.time(),
                 components=[
-                    ComponentHealth("test", HealthStatus.OK, "OK", time.time(), {})
+                    ComponentHealth("test", HealthStatus.OK, "OK", time.time(), {}),
                 ],
                 summary={"total_components": 1, "ok_count": 1, "warning_count": 0, "critical_count": 0}
             )
@@ -504,7 +511,13 @@ class TestHealthChecker:
                 overall_status=HealthStatus.WARNING,
                 timestamp=time.time(),
                 components=[
-                    ComponentHealth("test", HealthStatus.WARNING, "Warning", time.time(), {})
+                    ComponentHealth(
+                        "test",
+                        HealthStatus.WARNING,
+                        "Warning",
+                        time.time(),
+                        {}
+                    )
                 ],
                 summary={"total_components": 1, "ok_count": 0, "warning_count": 1, "critical_count": 0}
             )
@@ -526,7 +539,13 @@ class TestHealthChecker:
                 overall_status=HealthStatus.CRITICAL,
                 timestamp=time.time(),
                 components=[
-                    ComponentHealth("test", HealthStatus.CRITICAL, "Critical", time.time(), {})
+                    ComponentHealth(
+                        "test",
+                        HealthStatus.CRITICAL,
+                        "Critical",
+                        time.time(),
+                        {}
+                    )
                 ],
                 summary={"total_components": 1, "ok_count": 0, "warning_count": 0, "critical_count": 1}
             )
@@ -672,7 +691,6 @@ class TestDataClasses:
             ComponentHealth("comp1", HealthStatus.OK, "OK", time.time(), {})
         ]
         summary = {"total_components": 1, "ok_count": 1, "warning_count": 0, "critical_count": 0}
-
         system_health = SystemHealth(
             overall_status=HealthStatus.OK,
             timestamp=1234567890.0,

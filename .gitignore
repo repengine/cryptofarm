@@ -52,10 +52,14 @@ coverage.xml
 
 # Environment variables
 .env
+.env.testnet
 .venv
 ENV/
 env/
 venv/
+
+# Testnet wallets (never commit!)
+airdrops/testnet_wallets/
 
 # IDE
 .vscode/

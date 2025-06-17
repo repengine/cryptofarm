@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Added `RiskAssessment` dataclass to risk management core module with fields for overall risk level, circuit breaker status, unhealthy protocols, and timestamp
+- Added `EXTREME` risk level to `RiskLevel` enum for comprehensive risk classification
+- Implemented missing methods in `RiskManager` class: `assess_volatility()`, `assess_gas_price()`, `record_transaction_outcome()`, `assess_transaction_failures()`, `check_circuit_breaker()`, `get_overall_risk_assessment()`, `update_risk_parameters()`, `handle_external_risk_event()`
+- Added comprehensive Google-style docstrings with usage examples for all new methods
+- Added full type annotations and mypy --strict compliance for all new code
+
+### Fixed
+- Fixed volatility assessment logic in RiskManager to use proper threshold ranges for consistent risk level determination across individual and transition tests
+- Fixed line length violation in risk management core module for flake8 compliance
+- Resolved import ambiguity between `RiskAssessment` and `RiskMetrics` classes
+
+### Updated
+- Updated risk management documentation to include new `RiskAssessment` class and `EXTREME` risk level
+- Updated `__all__` list in risk management core module to include `RiskAssessment`
 ## [0.2.0] - 2025-06-08
 
 ### Added
@@ -72,5 +89,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Addressed `TypeError` in `test_metrics_aggregation_consistency` by converting `Decimal` to `float` for `prometheus_client.Histogram.observe`.
   - Ensured `mypy --strict` compliance for `airdrops/tests/test_property_based.py` and `airdrops/src/airdrops/monitoring/collector.py` by adding explicit type annotations and `Decimal` conversions.
   - Resolved all `flake8` errors (trailing whitespace, blank lines, missing newline at EOF) in `airdrops/tests/test_property_based.py` and `airdrops/src/airdrops/monitoring/collector.py` using `ruff`.
+
+## [0.2.2] - 2025-06-15
+
+### Fixed
+- fix(risk_management): Corrected volatility assessment logic in `RiskManager.assess_volatility` to align with `self.risk_limits` and `monitor_market_volatility` thresholds, resolving inconsistencies in risk level classification.
 
 ## [Unreleased]

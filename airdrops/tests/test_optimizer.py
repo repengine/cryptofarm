@@ -74,7 +74,7 @@ class TestROIOptimizer:
                 transaction_hash=None,
                 block_number=None,
                 notes=None,
-            )
+            ),
         ]
 
     def test_optimizer_initialization(self, tracker: AirdropTracker) -> None:
@@ -96,7 +96,7 @@ class TestROIOptimizer:
             protocol_name="Uniswap",
             total_gas_cost_usd=Decimal("150.0"),
             transaction_count=30,
-            average_gas_cost_usd=Decimal("5.0"),
+            average_gas_cost_usd=None,
             manual_cost_usd=None,
             time_investment_hours=None
         )

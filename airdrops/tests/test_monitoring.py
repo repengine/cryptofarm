@@ -7,14 +7,14 @@ to ensure proper metrics collection from system and components.
 
 import pytest
 from unittest.mock import Mock, patch
-from dataclasses import dataclass, asdict
-from typing import Dict, Any
-
+from typing import Dict
+from dataclasses import dataclass
 from airdrops.monitoring.collector import (
     MetricsCollector,
     SystemMetrics,
     ComponentMetrics
 )
+
 
 @dataclass
 class MockRiskLimits:
@@ -38,12 +38,14 @@ class MockPortfolioMetrics:
                 'layerzero': 0.3
             }
 
+
 class MockRiskManager:
     """Mock RiskManager for testing."""
 
     def __init__(self, circuit_breaker_active: bool = False):
         self.risk_limits = MockRiskLimits()
         self.circuit_breaker_active = circuit_breaker_active
+
 
 class MockCapitalAllocator:
     """Mock CapitalAllocator for testing."""
@@ -54,12 +56,14 @@ class MockCapitalAllocator:
         else:
             self.portfolio_history = []
 
+
 class MockTaskExecution:
     """Mock task execution for testing."""
 
     def __init__(self, status_value: str = "completed"):
         self.status = Mock()
         self.status.value = status_value
+
 
 class MockScheduler:
     """Mock CentralScheduler for testing."""
@@ -72,6 +76,7 @@ class MockScheduler:
             "exec_2": MockTaskExecution("failed"),
             "exec_3": MockTaskExecution("running")
         }
+
 
 class TestSystemMetrics:
     """Test SystemMetrics dataclass."""
@@ -92,6 +97,7 @@ class TestSystemMetrics:
         assert metrics.network_bytes_sent == 1024000
         assert metrics.network_bytes_recv == 2048000
 
+
 class TestComponentMetrics:
     """Test ComponentMetrics dataclass."""
 
@@ -110,6 +116,7 @@ class TestComponentMetrics:
         assert metrics.last_execution_time == 123.45
         assert metrics.error_count == 2
         assert metrics.success_count == 98
+
 
 class TestMetricsCollector:
     """Test MetricsCollector class."""
@@ -145,7 +152,12 @@ class TestMetricsCollector:
     @patch('airdrops.monitoring.collector.psutil.virtual_memory')
     @patch('airdrops.monitoring.collector.psutil.disk_usage')
     @patch('airdrops.monitoring.collector.psutil.net_io_counters')
-    def test_collect_system_metrics_success(self, mock_net, mock_disk, mock_memory, mock_cpu):
+    def test_collect_system_metrics_success(self,
+        mock_net,
+        mock_disk,
+        mock_memory,
+        mock_cpu
+    ):
         """Test successful system metrics collection."""
         # Setup mocks
         mock_cpu.return_value = 45.5
@@ -420,6 +432,7 @@ class TestMetricsCollector:
         with pytest.raises(RuntimeError, match="Prometheus export failed"):
             collector.export_prometheus_format()
 
+
 class TestIntegration:
     """Integration tests for MetricsCollector."""
 
@@ -427,7 +440,12 @@ class TestIntegration:
     @patch('airdrops.monitoring.collector.psutil.virtual_memory')
     @patch('airdrops.monitoring.collector.psutil.disk_usage')
     @patch('airdrops.monitoring.collector.psutil.net_io_counters')
-    def test_full_metrics_collection_workflow(self, mock_net, mock_disk, mock_memory, mock_cpu):
+    def test_full_metrics_collection_workflow(self,
+        mock_net,
+        mock_disk,
+        mock_memory,
+        mock_cpu
+    ):
         """Test complete metrics collection workflow."""
         # Setup system mocks
         mock_cpu.return_value = 45.5

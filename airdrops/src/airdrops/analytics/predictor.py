@@ -43,6 +43,7 @@ class PredictionWindow(BaseModel):
     probability: Decimal = Field(..., ge=0, le=1, description="Probability score")
 
     @field_validator('end_date')
+    @classmethod
     def validate_end_after_start(cls, v: datetime, info: Any) -> datetime:
         """Validate that end_date is after start_date."""
         if 'start_date' in info.data and v <= info.data['start_date']:
@@ -53,7 +54,11 @@ class PredictionWindow(BaseModel):
 class PredictionResult(BaseModel):
     """Model representing a complete airdrop timing prediction."""
     protocol_name: str = Field(..., min_length=1, max_length=100)
-    prediction_windows: List[PredictionWindow] = Field(..., description="Prediction windows", min_length=1)
+    prediction_windows: List[PredictionWindow] = Field(
+        ...,
+        description="Prediction windows",
+        min_length=1
+    )
     confidence_level: PredictionConfidence
     model_version: str = Field(..., description="Version of prediction model used")
     data_sources_used: List[DataSourceType]
@@ -62,6 +67,7 @@ class PredictionResult(BaseModel):
     metadata: Optional[Dict[str, Union[str, int, float]]] = Field(default=None)
 
     @field_validator('protocol_name')
+    @classmethod
     def validate_protocol_name(cls, v: str) -> str:
         """Validate and normalize protocol name."""
         if not v.strip():
@@ -82,16 +88,16 @@ class MarketDataStub:
         Get historical token price data (stub implementation).
 
         Args:
-            token_symbol: Token symbol to fetch data for
-            start_date: Start date for historical data
-            end_date: End date for historical data
+                token_symbol: Token symbol to fetch data for
+                start_date: Start date for historical data
+                end_date: End date for historical data
 
         Returns:
-            DataFrame with price history (empty in stub)
+                DataFrame with price history (empty in stub)
 
         Example:
-            >>> market_data = MarketDataStub()
-            >>> df = market_data.get_token_price_history("ETH", start, end)
+                >>> market_data = MarketDataStub()
+                >>> df = market_data.get_token_price_history("ETH", start, end)
         """
         logger.info(f"Market data stub called for {token_symbol}")
         return pd.DataFrame(columns=['timestamp', 'price', 'volume'])
@@ -110,16 +116,16 @@ class OnChainActivityStub:
         Get on-chain activity metrics for a protocol (stub implementation).
 
         Args:
-            protocol_name: Protocol to fetch metrics for
-            start_date: Start date for metrics
-            end_date: End date for metrics
+                protocol_name: Protocol to fetch metrics for
+                start_date: Start date for metrics
+                end_date: End date for metrics
 
         Returns:
-            DataFrame with activity metrics (empty in stub)
+                DataFrame with activity metrics (empty in stub)
 
         Example:
-            >>> activity_data = OnChainActivityStub()
-            >>> df = activity_data.get_protocol_activity_metrics("Uniswap", start, end)
+                >>> activity_data = OnChainActivityStub()
+                >>> df = activity_data.get_protocol_activity_metrics("Uniswap", start, end)
         """
         logger.info(f"On-chain activity stub called for {protocol_name}")
         return pd.DataFrame(columns=['timestamp', 'tx_count', 'active_addresses'])
@@ -138,16 +144,16 @@ class SocialSentimentStub:
         Get social sentiment scores for a protocol (stub implementation).
 
         Args:
-            protocol_name: Protocol to analyze sentiment for
-            start_date: Start date for sentiment analysis
-            end_date: End date for sentiment analysis
+                protocol_name: Protocol to analyze sentiment for
+                start_date: Start date for sentiment analysis
+                end_date: End date for sentiment analysis
 
         Returns:
-            DataFrame with sentiment scores (empty in stub)
+                DataFrame with sentiment scores (empty in stub)
 
         Example:
-            >>> sentiment_data = SocialSentimentStub()
-            >>> df = sentiment_data.get_sentiment_score("Arbitrum", start, end)
+                >>> sentiment_data = SocialSentimentStub()
+                >>> df = sentiment_data.get_sentiment_score("Arbitrum", start, end)
         """
         logger.info(f"Social sentiment stub called for {protocol_name}")
         return pd.DataFrame(columns=['timestamp', 'sentiment_score', 'mention_count'])
@@ -163,10 +169,10 @@ class AirdropPredictor:
     model integration.
 
     Example:
-        >>> tracker = AirdropTracker()
-        >>> predictor = AirdropPredictor(tracker)
-        >>> prediction = predictor.predict_airdrop_timing("Uniswap")
-        >>> print(f"Next window: {prediction.prediction_windows[0].start_date}")
+    >>> tracker = AirdropTracker()
+    >>> predictor = AirdropPredictor(tracker)
+    >>> prediction = predictor.predict_airdrop_timing("Uniswap")
+    >>> print(f"Next window: {prediction.prediction_windows[0].start_date}")
     """
 
     def __init__(
@@ -180,10 +186,10 @@ class AirdropPredictor:
         Initialize the airdrop predictor.
 
         Args:
-            tracker: AirdropTracker instance for historical data
-            market_data: Market data source (optional, uses stub if None)
-            onchain_data: On-chain activity data source (optional, uses stub if None)
-            sentiment_data: Social sentiment data source (optional, uses stub if None)
+                tracker: AirdropTracker instance for historical data
+                market_data: Market data source (optional, uses stub if None)
+                onchain_data: On-chain activity data source (optional, uses stub if None)
+                sentiment_data: Social sentiment data source (optional, uses stub if None)
         """
         self.tracker = tracker
         self.market_data = market_data or MarketDataStub()
@@ -202,20 +208,20 @@ class AirdropPredictor:
         Predict airdrop timing for a given protocol using historical patterns.
 
         Args:
-            protocol_name: Name of the protocol to predict for
-            lookback_days: Number of days to look back for historical data
+                protocol_name: Name of the protocol to predict for
+                lookback_days: Number of days to look back for historical data
 
         Returns:
-            PredictionResult with timing predictions
+                PredictionResult with timing predictions
 
         Raises:
-            ValueError: If protocol_name is invalid
-            RuntimeError: If prediction generation fails
+                ValueError: If protocol_name is invalid
+                RuntimeError: If prediction generation fails
 
         Example:
-            >>> predictor = AirdropPredictor(tracker)
-            >>> result = predictor.predict_airdrop_timing("Arbitrum")
-            >>> print(f"Confidence: {result.confidence_level}")
+                >>> predictor = AirdropPredictor(tracker)
+                >>> result = predictor.predict_airdrop_timing("Arbitrum")
+                >>> print(f"Confidence: {result.confidence_level}")
         """
         # Validate input parameters first (let ValueError propagate)
         if not protocol_name or not protocol_name.strip():
@@ -273,12 +279,12 @@ class AirdropPredictor:
         to suggest potential future airdrop windows.
 
         Args:
-            protocol_name: Protocol name
-            historical_events: List of historical airdrop events
-            lookback_days: Days to look back for analysis
+                protocol_name: Protocol name
+                historical_events: List of historical airdrop events
+                lookback_days: Days to look back for analysis
 
         Returns:
-            List of predicted time windows
+                List of predicted time windows
         """
         if not historical_events:
             # No historical data - predict based on typical patterns
@@ -308,6 +314,7 @@ class AirdropPredictor:
                 end_date=predicted_end,
                 probability=Decimal("0.6")
             )]
+
         else:
             # Single historical event - use default pattern
             last_event_date = event_dates[0]
@@ -320,12 +327,13 @@ class AirdropPredictor:
                 probability=Decimal("0.4")
             )]
 
+
     def _generate_default_prediction_windows(self) -> List[PredictionWindow]:
         """
         Generate default prediction windows when no historical data is available.
 
         Returns:
-            List of default prediction windows
+                List of default prediction windows
         """
         now = datetime.now()
 
@@ -351,10 +359,10 @@ class AirdropPredictor:
         Calculate confidence level based on available historical data.
 
         Args:
-            historical_events: List of historical airdrop events
+                historical_events: List of historical airdrop events
 
         Returns:
-            Confidence level for the prediction
+                Confidence level for the prediction
         """
         event_count = len(historical_events)
 
@@ -370,12 +378,12 @@ class AirdropPredictor:
         Get status of all data sources.
 
         Returns:
-            Dictionary mapping data source names to availability status
+                Dictionary mapping data source names to availability status
 
         Example:
-            >>> predictor = AirdropPredictor(tracker)
-            >>> status = predictor.get_data_source_status()
-            >>> print(f"Market data available: {status['market_data']}")
+                >>> predictor = AirdropPredictor(tracker)
+                >>> status = predictor.get_data_source_status()
+                >>> print(f"Market data available: {status['market_data']}")
         """
         return {
             "historical_airdrops": True,  # Always available via tracker
@@ -389,11 +397,11 @@ class AirdropPredictor:
         Update the prediction model version.
 
         Args:
-            model_version: New model version identifier
+                model_version: New model version identifier
 
         Example:
-            >>> predictor = AirdropPredictor(tracker)
-            >>> predictor.update_prediction_model("2.0.0-ml")
+                >>> predictor = AirdropPredictor(tracker)
+                >>> predictor.update_prediction_model("2.0.0-ml")
         """
         self.model_version = model_version
         logger.info(f"Updated prediction model to version: {model_version}")

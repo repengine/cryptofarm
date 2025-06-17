@@ -5,6 +5,6 @@ This module provides the CentralScheduler class for orchestrating airdrop-relate
 tasks using APScheduler with DAG-based dependency management and market awareness.
 """
 
-from airdrops.scheduler.bot import CentralScheduler
+from airdrops.scheduler.bot import AirdropSchedulerBot
 
-__all__ = ["CentralScheduler"]
+__all__ = ["AirdropSchedulerBot"]

@@ -9,7 +9,7 @@ and robust error handling with retry logic.
 import logging
 import time
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, Callable, Set, Tuple, List
+from typing import Dict, Any, Optional, Callable, Set, Tuple, List, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
 import argparse
@@ -17,6 +17,9 @@ import importlib
 import sys
 
 from airdrops.monitoring.alerter import Alert, AlertSeverity, AlertStatus
+
+if TYPE_CHECKING:
+    from airdrops.cross_chain.manager import CrossChainManager
 
 # APScheduler imports - will be added to dependencies
 try:
@@ -30,7 +33,6 @@ except ImportError:
     CronTrigger = None
     DateTrigger = None
     IntervalTrigger = None
-
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -54,7 +56,6 @@ class TaskPriority(Enum):
     CRITICAL = 4
 
 
-@dataclass
 @dataclass
 class TaskDefinition:
     """Data class for task definitions."""
@@ -94,9 +95,9 @@ class TaskExecution:
     result: Any = None
 
 
-class CentralScheduler:
+class AirdropSchedulerBot:
     """
-    Central Scheduler for orchestrating airdrop-related tasks.
+    Airdrop Scheduler Bot for orchestrating airdrop-related tasks.
 
     This class provides comprehensive task scheduling capabilities with:
     - APScheduler integration for flexible scheduling
@@ -106,29 +107,35 @@ class CentralScheduler:
     - Priority-based task execution
 
     Example:
-        >>> scheduler = CentralScheduler()
-        >>> scheduler.add_job(
-        ...     task_id="daily_bridge",
-        ...     func=bridge_eth_to_scroll,
-        ...     trigger="cron",
-        ...     hour=10,
-        ...     minute=0
-        ... )
-        >>> scheduler.start()
+    >>> scheduler = AirdropSchedulerBot()
+    >>> scheduler.add_job(
+    ...     task_id="daily_bridge",
+    ...     func=bridge_eth_to_scroll,
+    ...     trigger="cron",
+    ...     hour=10,
+    ...     minute=0
+    ... )
+    >>> scheduler.start()
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        cross_chain_manager: Optional["CrossChainManager"] = None
+    ):
         """
-        Initialize the Central Scheduler.
+        Initialize the Airdrop Scheduler Bot.
 
         Args:
             config: Optional configuration dictionary
+            cross_chain_manager: Optional CrossChainManager instance for automated rebalancing
         """
         self.config = config or {}
         self._scheduler: Optional[BlockingScheduler] = None
         self._task_definitions: Dict[str, TaskDefinition] = {}
         self._task_executions: Dict[str, TaskExecution] = {}
         self._running = False
+        self._cross_chain_manager = cross_chain_manager
 
         # Configuration with defaults
         self.max_retries = self.config.get("scheduler", {}).get("max_retries", 3)
@@ -140,7 +147,14 @@ class CentralScheduler:
         )
         self._last_wallet_index = -1
 
-        logger.info("CentralScheduler initialized with config: %s", self.config)
+        # Initialize alerter as None - will be set up when needed
+        self.alerter: Optional[Any] = None
+
+        logger.info(
+            "AirdropSchedulerBot initialized with config: %s, cross_chain_manager: %s",
+            self.config,
+            "enabled" if cross_chain_manager else "disabled"
+        )
 
     def add_job(
         self,
@@ -175,7 +189,7 @@ class CentralScheduler:
             ...     trigger="cron",
             ...     hour=10,
             ...     minute=0,
-            ...     args=(100,),
+            ...     args=(100, ),
             ...     kwargs={"slippage": 0.01}
             ... )
         """
@@ -207,7 +221,7 @@ class CentralScheduler:
             self._scheduler.add_job(
                 func=self._execute_task_wrapper,
                 trigger=trigger_obj,
-                args=(task_id,),
+                args=(task_id, ),
                 id=task_id,
                 max_instances=1,
                 replace_existing=True
@@ -308,6 +322,74 @@ class CentralScheduler:
 
         logger.info("Dynamic scheduling adjustment completed")
 
+    def schedule_rebalancing_checks(self, interval_hours: float) -> None:
+        """
+        Schedule periodic cross-chain liquidity threshold checks and rebalancing.
+        
+        This method sets up automated, periodic execution of the CrossChainManager's
+        liquidity threshold checking functionality using APScheduler's interval trigger.
+        
+        Args:
+            interval_hours: Time interval between checks in hours (e.g., 1.0 for hourly,
+                          0.5 for every 30 minutes, 24.0 for daily)
+        
+        Raises:
+            RuntimeError: If scheduler is not initialized or no CrossChainManager is configured
+            ValueError: If interval_hours is not positive
+            
+        Example:
+            >>> from airdrops.scheduler.bot import AirdropSchedulerBot
+            >>> from airdrops.cross_chain.manager import CrossChainManager
+            >>> manager = CrossChainManager()
+            >>> scheduler = AirdropSchedulerBot(cross_chain_manager=manager)
+            >>> scheduler.start()
+            >>> scheduler.schedule_rebalancing_checks(2.0)  # Check every 2 hours
+        """
+        if not self._scheduler:
+            raise RuntimeError("Scheduler not initialized. Call start() first.")
+        
+        if not self._cross_chain_manager:
+            raise RuntimeError(
+                "No CrossChainManager configured. Initialize scheduler with "
+                "cross_chain_manager parameter."
+            )
+        
+        if interval_hours <= 0:
+            raise ValueError("interval_hours must be positive")
+        
+        # Convert hours to seconds for IntervalTrigger
+        interval_seconds = interval_hours * 3600
+        
+        # Create the rebalancing check job
+        job_id = "cross_chain_rebalancing_check"
+        
+        # Remove existing job if it exists
+        if job_id in self._task_definitions:
+            logger.info("Removing existing rebalancing check job")
+            if self._scheduler:
+                try:
+                    self._scheduler.remove_job(job_id)
+                except Exception as e:
+                    logger.warning("Failed to remove existing job %s: %s", job_id, e)
+            del self._task_definitions[job_id]
+            if job_id in self._task_executions:
+                del self._task_executions[job_id]
+        
+        # Add the new rebalancing check job
+        self.add_job(
+            task_id=job_id,
+            func=self._cross_chain_manager.check_liquidity_thresholds,
+            trigger="interval",
+            seconds=interval_seconds,
+            priority=TaskPriority.HIGH,
+            max_retries=2  # Fewer retries for monitoring tasks
+        )
+        
+        logger.info(
+            "Scheduled cross-chain rebalancing checks every %.2f hours",
+            interval_hours
+        )
+
     def handle_task_failure(
         self,
         task_id: str,
@@ -362,13 +444,13 @@ class CentralScheduler:
                 )
                 alert_message = (
                     f"Task {task_id} ({task_def.protocol}/"
-                    f"{task_def.action}) failed permanently: {error}"
+                    f"{task_def.action} failed permanently: {error}"
                 )
                 alert_labels = {
                     "task_id": task_id,
-                    "protocol": task_def.protocol,
-                    "action": task_def.action,
-                    "wallet": execution.wallet,
+                    "protocol": task_def.protocol or "unknown",
+                    "action": task_def.action or "unknown",
+                    "wallet": execution.wallet or "unknown",
                 }
                 alert = Alert(
                     rule_name=f"task_failure_{task_id}",
@@ -404,18 +486,18 @@ class CentralScheduler:
 
         # Schedule retry
         retry_time = datetime.now() + timedelta(seconds=total_delay)
-        if DateTrigger is None:
-            logger.error("APScheduler not available, cannot schedule retry")
-            return False
-
         if self._scheduler is not None:
-            self._scheduler.add_job(
-                func=self._execute_task_wrapper,
-                trigger=DateTrigger(run_date=retry_time),
-                args=(task_id,),
-                id=f"{task_id}_retry_{execution.retry_count}",
-                replace_existing=True
-            )
+            trigger = self._create_trigger("date", run_date=retry_time)
+            if trigger:
+                self._scheduler.add_job(
+                    func=self._execute_task_wrapper,
+                    trigger=trigger,
+                    args=(task_id, ),
+                    id=f"{task_id}_retry_{execution.retry_count}",
+                    replace_existing=True
+                )
+            else:
+                logger.error("APScheduler not available, cannot schedule retry")
 
         return True
 
@@ -424,7 +506,7 @@ class CentralScheduler:
         Initialize and start the APScheduler.
 
         Example:
-            >>> scheduler = CentralScheduler()
+            >>> scheduler = AirdropSchedulerBot()
             >>> scheduler.start()
         """
         if self._running:
@@ -439,7 +521,7 @@ class CentralScheduler:
         self._scheduler = BlockingScheduler()
         self._running = True
 
-        logger.info("CentralScheduler started successfully")
+        logger.info("AirdropSchedulerBot started successfully")
 
     def stop(self) -> None:
         """
@@ -457,7 +539,7 @@ class CentralScheduler:
             self._scheduler = None
 
         self._running = False
-        logger.info("CentralScheduler stopped gracefully")
+        logger.info("AirdropSchedulerBot stopped gracefully")
 
     def _execute_task_wrapper(self, task_id: str) -> Any:
         """Execute a task with proper error handling and tracking."""
@@ -490,7 +572,7 @@ class CentralScheduler:
         except Exception as error:
             logger.error("Task %s failed: %s", task_id, error)
             self.handle_task_failure(task_id, error, execution)
-            return {
+            execution.result = {
                 "success": False,
                 "message": str(error),
                 "tx_hash": None,
@@ -530,19 +612,14 @@ class CentralScheduler:
 
     def _create_trigger(self, trigger_type: str, **kwargs: Any) -> Any:
         """Create appropriate trigger object based on type."""
-        if CronTrigger is None:
-            raise ImportError("APScheduler not available")
-
         if trigger_type == "cron":
-            return CronTrigger(**kwargs)
+            return CronTrigger(**kwargs) if CronTrigger else None
         elif trigger_type == "date":
-            return DateTrigger(**kwargs)
+            return DateTrigger(**kwargs) if DateTrigger else None
         elif trigger_type == "interval":
-            return IntervalTrigger(**kwargs)
+            return IntervalTrigger(**kwargs) if IntervalTrigger else None
         else:
-            raise ValueError(
-                f"Unsupported trigger type: {trigger_type}"
-            )
+            raise ValueError(f"Unsupported trigger type: {trigger_type}")
 
     def _check_dependencies(self, task_id: str) -> bool:
         """Check if all dependencies for a task are completed."""
@@ -585,12 +662,10 @@ class CentralScheduler:
             for dep_id in task_info.get("dependencies", []):
                 adj_list[dep_id].append(task_id)
                 in_degree[task_id] += 1
-
         queue: List[str] = [
             task_id for task_id, degree in in_degree.items() if degree == 0
         ]
         topological_order: List[str] = []
-
         while queue:
             current_task_id = queue.pop(0)
             topological_order.append(current_task_id)
@@ -786,38 +861,38 @@ def main() -> None:
     parser.add_argument("--config", help="Configuration file path")
 
     args = parser.parse_args()
-
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    try:
-        scheduler = CentralScheduler()
+    scheduler = AirdropSchedulerBot() # Instantiate the scheduler here
 
-        if args.dry_run:
-            logger.info("Dry run mode - scheduler initialized but not started")
-            return
+    if args.dry_run:
+        logger.info("Dry run mode - scheduler initialized but not started")
+        return
 
-        scheduler.start()
+    scheduler.start()
 
-        if args.once:
-            logger.info("Running once and exiting")
+    if args.once:
+        logger.info("Running once and exiting")
+        scheduler.stop()
+    else:
+        logger.info("Scheduler running. Press Ctrl+C to stop.")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("Shutdown signal received")
             scheduler.stop()
-        else:
-            logger.info("Scheduler running. Press Ctrl+C to stop.")
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                logger.info("Shutdown signal received")
-                scheduler.stop()
 
-    except Exception as error:
-        logger.error("Scheduler failed: %s", error)
-        sys.exit(1)
+        except Exception as error:
+            logger.error("Scheduler failed: %s", error)
+            sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
+
+__all__ = ["AirdropSchedulerBot", "TaskStatus", "TaskPriority", "TaskDefinition", "TaskExecution"]

@@ -5,7 +5,6 @@ list see the documentation:
 https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -131,11 +130,11 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (
-        "index",
-        "AirdropsAutomation.tex",
-        "Airdrops Automation Documentation",
-        "Airdrops Automation Team",
-        "manual",
+    "index",
+    "AirdropsAutomation.tex",
+    "Airdrops Automation Documentation",
+    "Airdrops Automation Team",
+    "manual",
     ),
 ]
 
@@ -145,11 +144,11 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     (
-        "index",
-        "airdropsautomation",
-        "Airdrops Automation Documentation",
-        [author],
-        1,
+    "index",
+    "airdropsautomation",
+    "Airdrops Automation Documentation",
+    [author],
+    1,
     )
 ]
 
@@ -160,12 +159,12 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (
-        "index",
-        "AirdropsAutomation",
-        "Airdrops Automation Documentation",
-        author,
-        "AirdropsAutomation",
-        "Automated airdrop farming system.",
-        "Miscellaneous",
+    "index",
+    "AirdropsAutomation",
+    "Airdrops Automation Documentation",
+    author,
+    "AirdropsAutomation",
+    "Automated airdrop farming system.",
+    "Miscellaneous",
     ),
 ]
