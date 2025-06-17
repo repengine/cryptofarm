@@ -249,8 +249,15 @@ class TestZkSyncBridgeAdapter:
                 "ethereum", "zksync", "ETH", Decimal("1.0"), "invalid_address"
             )
     
-    # Note: test_bridge_assets_invalid_direction removed as it tests an artificial edge case
-    # that conflicts with the current error handling pattern where ValueError is wrapped in RuntimeError
+    def test_bridge_assets_invalid_direction(self, adapter):
+        """Test bridge assets with invalid chain combination."""
+        # This should not happen with current supported chains, but test edge case
+        with patch.object(adapter, 'get_supported_chains', return_value=['ethereum', 'zksync', 'polygon']):
+            with pytest.raises(ValueError, match="Invalid bridge direction"):
+                adapter.bridge_assets(
+                    "ethereum", "polygon", "ETH", Decimal("1.0"),
+                    "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
+                )
     
     def test_bridge_assets_protocol_exception(self, adapter, mock_protocol):
         """Test bridge assets when protocol raises exception."""

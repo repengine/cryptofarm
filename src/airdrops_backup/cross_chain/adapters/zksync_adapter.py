@@ -255,18 +255,18 @@ class ZkSyncBridgeAdapter(BridgeAdapter):
         if not recipient_address or not recipient_address.startswith("0x"):
             raise ValueError("Invalid recipient address format")
 
-        try:
-            # Determine bridge direction
-            if source_chain == "ethereum" and destination_chain == "zksync":
-                direction = "deposit"  # L1 to L2
-            elif source_chain == "zksync" and destination_chain == "ethereum":
-                direction = "withdraw"  # L2 to L1
-            else:
-                raise ValueError(
-                    f"Invalid bridge direction: {source_chain} to "
-                    f"{destination_chain}"
-                )
+        # Determine bridge direction
+        if source_chain == "ethereum" and destination_chain == "zksync":
+            direction = "deposit"  # L1 to L2
+        elif source_chain == "zksync" and destination_chain == "ethereum":
+            direction = "withdraw"  # L2 to L1
+        else:
+            raise ValueError(
+                f"Invalid bridge direction: {source_chain} to "
+                f"{destination_chain}"
+            )
 
+        try:
             # Use the ZkSync protocol's bridge_assets method
             tx_hash = self._protocol.bridge_assets(
                 token_symbol=asset,

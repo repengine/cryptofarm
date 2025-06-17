@@ -1,6 +1,0 @@
-
-channels:
-  - name: "test_webhook"
-    type: "webhook"
-    config:
-      url: "http://test.webhook.com"

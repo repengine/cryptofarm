@@ -1,6 +1,0 @@
-Name                                      Stmts   Miss Branch BrPart  Cover   Missing
--------------------------------------------------------------------------------------
-src/airdrops/protocols/zksync/zksync.py     495    495    198      0     0%   1-1702
--------------------------------------------------------------------------------------
-TOTAL                                       495    495    198      0     0%
-Coverage failure: total of 0 is less than fail-under=85

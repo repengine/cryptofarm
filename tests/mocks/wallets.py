@@ -365,3 +365,4 @@ __all__ = [
     'MockCompromisedWallet',
     'MockNetworkFailureWallet'
 ]
+

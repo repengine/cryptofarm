@@ -1,0 +1,12 @@
+src/airdrops/cross_chain/adapters/scroll_adapter.py:14: error: Cannot find implementation or library stub for module named "airdrops.cross_chain.adapters.base"  [import-not-found]
+src/airdrops/cross_chain/adapters/scroll_adapter.py:14: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+src/airdrops/cross_chain/adapters/scroll_adapter.py:15: error: Cannot find implementation or library stub for module named "airdrops.cross_chain.types"  [import-not-found]
+src/airdrops/cross_chain/adapters/scroll_adapter.py:195: error: Unexpected keyword argument "protocol" for "bridge_assets"  [call-arg]
+airdrops/src/airdrops/protocols/scroll/scroll.py:1415: note: "bridge_assets" defined here
+src/airdrops/cross_chain/adapters/scroll_adapter.py:195: error: Unexpected keyword argument "asset" for "bridge_assets"  [call-arg]
+airdrops/src/airdrops/protocols/scroll/scroll.py:1415: note: "bridge_assets" defined here
+src/airdrops/cross_chain/adapters/scroll_adapter.py:195: error: Unexpected keyword argument "recipient" for "bridge_assets"  [call-arg]
+airdrops/src/airdrops/protocols/scroll/scroll.py:1415: note: "bridge_assets" defined here
+src/airdrops/cross_chain/adapters/scroll_adapter.py:205: error: "str" has no attribute "get"  [attr-defined]
+src/airdrops/cross_chain/adapters/scroll_adapter.py:212: error: "str" has no attribute "get"  [attr-defined]
+Found 7 errors in 1 file (checked 2 source files)

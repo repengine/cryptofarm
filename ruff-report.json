@@ -1,0 +1,299 @@
+[
+  {
+    "cell": null,
+    "code": "F841",
+    "end_location": {
+      "column": 13,
+      "row": 616
+    },
+    "filename": "/home/nate/projects/cryptofarm/airdrops/src/airdrops/protocols/hyperliquid.py",
+    "fix": {
+      "applicability": "unsafe",
+      "edits": [
+        {
+          "content": "",
+          "end_location": {
+            "column": 16,
+            "row": 616
+          },
+          "location": {
+            "column": 5,
+            "row": 616
+          }
+        }
+      ],
+      "message": "Remove assignment to unused variable `protocol`"
+    },
+    "location": {
+      "column": 5,
+      "row": 616
+    },
+    "message": "Local variable `protocol` is assigned to but never used",
+    "noqa_row": 616,
+    "url": "https://docs.astral.sh/ruff/rules/unused-variable"
+  },
+  {
+    "cell": null,
+    "code": "F841",
+    "end_location": {
+      "column": 13,
+      "row": 648
+    },
+    "filename": "/home/nate/projects/cryptofarm/airdrops/src/airdrops/protocols/hyperliquid.py",
+    "fix": {
+      "applicability": "unsafe",
+      "edits": [
+        {
+          "content": "",
+          "end_location": {
+            "column": 16,
+            "row": 648
+          },
+          "location": {
+            "column": 5,
+            "row": 648
+          }
+        }
+      ],
+      "message": "Remove assignment to unused variable `protocol`"
+    },
+    "location": {
+      "column": 5,
+      "row": 648
+    },
+    "message": "Local variable `protocol` is assigned to but never used",
+    "noqa_row": 648,
+    "url": "https://docs.astral.sh/ruff/rules/unused-variable"
+  },
+  {
+    "cell": null,
+    "code": "F841",
+    "end_location": {
+      "column": 13,
+      "row": 681
+    },
+    "filename": "/home/nate/projects/cryptofarm/airdrops/src/airdrops/protocols/hyperliquid.py",
+    "fix": {
+      "applicability": "unsafe",
+      "edits": [
+        {
+          "content": "",
+          "end_location": {
+            "column": 16,
+            "row": 681
+          },
+          "location": {
+            "column": 5,
+            "row": 681
+          }
+        }
+      ],
+      "message": "Remove assignment to unused variable `protocol`"
+    },
+    "location": {
+      "column": 5,
+      "row": 681
+    },
+    "message": "Local variable `protocol` is assigned to but never used",
+    "noqa_row": 681,
+    "url": "https://docs.astral.sh/ruff/rules/unused-variable"
+  },
+  {
+    "cell": null,
+    "code": "F841",
+    "end_location": {
+      "column": 22,
+      "row": 825
+    },
+    "filename": "/home/nate/projects/cryptofarm/airdrops/tests/test_end_to_end.py",
+    "fix": {
+      "applicability": "unsafe",
+      "edits": [
+        {
+          "content": "",
+          "end_location": {
+            "column": 25,
+            "row": 825
+          },
+          "location": {
+            "column": 5,
+            "row": 825
+          }
+        }
+      ],
+      "message": "Remove assignment to unused variable `volatility_factor`"
+    },
+    "location": {
+      "column": 5,
+      "row": 825
+    },
+    "message": "Local variable `volatility_factor` is assigned to but never used",
+    "noqa_row": 825,
+    "url": "https://docs.astral.sh/ruff/rules/unused-variable"
+  },
+  {
+    "cell": null,
+    "code": "F401",
+    "end_location": {
+      "column": 24,
+      "row": 12
+    },
+    "filename": "/home/nate/projects/cryptofarm/src/airdrops/cross_chain/adapters/scroll_adapter.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "from typing import Set",
+          "end_location": {
+            "column": 45,
+            "row": 12
+          },
+          "location": {
+            "column": 1,
+            "row": 12
+          }
+        }
+      ],
+      "message": "Remove unused import"
+    },
+    "location": {
+      "column": 20,
+      "row": 12
+    },
+    "message": "`typing.Dict` imported but unused",
+    "noqa_row": 12,
+    "url": "https://docs.astral.sh/ruff/rules/unused-import"
+  },
+  {
+    "cell": null,
+    "code": "F401",
+    "end_location": {
+      "column": 30,
+      "row": 12
+    },
+    "filename": "/home/nate/projects/cryptofarm/src/airdrops/cross_chain/adapters/scroll_adapter.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "from typing import Set",
+          "end_location": {
+            "column": 45,
+            "row": 12
+          },
+          "location": {
+            "column": 1,
+            "row": 12
+          }
+        }
+      ],
+      "message": "Remove unused import"
+    },
+    "location": {
+      "column": 26,
+      "row": 12
+    },
+    "message": "`typing.List` imported but unused",
+    "noqa_row": 12,
+    "url": "https://docs.astral.sh/ruff/rules/unused-import"
+  },
+  {
+    "cell": null,
+    "code": "F401",
+    "end_location": {
+      "column": 40,
+      "row": 12
+    },
+    "filename": "/home/nate/projects/cryptofarm/src/airdrops/cross_chain/adapters/scroll_adapter.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "from typing import Set",
+          "end_location": {
+            "column": 45,
+            "row": 12
+          },
+          "location": {
+            "column": 1,
+            "row": 12
+          }
+        }
+      ],
+      "message": "Remove unused import"
+    },
+    "location": {
+      "column": 32,
+      "row": 12
+    },
+    "message": "`typing.Optional` imported but unused",
+    "noqa_row": 12,
+    "url": "https://docs.astral.sh/ruff/rules/unused-import"
+  },
+  {
+    "cell": null,
+    "code": "F401",
+    "end_location": {
+      "column": 67,
+      "row": 13
+    },
+    "filename": "/home/nate/projects/cryptofarm/tests/cross_chain/adapters/test_scroll_adapter.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "from airdrops.cross_chain.types import BridgeRequest",
+          "end_location": {
+            "column": 67,
+            "row": 13
+          },
+          "location": {
+            "column": 1,
+            "row": 13
+          }
+        }
+      ],
+      "message": "Remove unused import: `airdrops.cross_chain.types.BridgeResult`"
+    },
+    "location": {
+      "column": 55,
+      "row": 13
+    },
+    "message": "`airdrops.cross_chain.types.BridgeResult` imported but unused",
+    "noqa_row": 13,
+    "url": "https://docs.astral.sh/ruff/rules/unused-import"
+  },
+  {
+    "cell": null,
+    "code": "F401",
+    "end_location": {
+      "column": 38,
+      "row": 10
+    },
+    "filename": "/home/nate/projects/cryptofarm/tests/cross_chain/adapters/test_zksync_adapter.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "from unittest.mock import Mock",
+          "end_location": {
+            "column": 38,
+            "row": 10
+          },
+          "location": {
+            "column": 1,
+            "row": 10
+          }
+        }
+      ],
+      "message": "Remove unused import: `unittest.mock.patch`"
+    },
+    "location": {
+      "column": 33,
+      "row": 10
+    },
+    "message": "`unittest.mock.patch` imported but unused",
+    "noqa_row": 10,
+    "url": "https://docs.astral.sh/ruff/rules/unused-import"
+  }
+]
