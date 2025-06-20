@@ -7,14 +7,29 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 ## Current Project Structure
 ```
 /cryptofarm/
-├── airdrops/                  # Main airdrops module (self-contained)
-│   ├── src/airdrops/         # Source code
-│   ├── tests/                # Test files
-│   ├── docs/                 # Module documentation
-│   ├── monitoring/           # Monitoring configurations
-│   ├── pyproject.toml        # Poetry configuration
-│   └── poetry.lock           # Locked dependencies
-└── docs/                     # Project-level documentation
+├── src/airdrops/             # Source code (all modules)
+│   ├── analytics/            # Analytics and reporting
+│   ├── capital_allocation/   # Capital allocation engine
+│   ├── cross_chain/          # Cross-chain bridge adapters
+│   ├── monitoring/           # Monitoring and health checks
+│   ├── protocols/            # Protocol implementations
+│   ├── risk_management/      # Risk management core
+│   ├── scheduler/            # Task scheduling bot
+│   └── shared/               # Shared utilities and config
+├── tests/                    # Test files (all modules)
+│   ├── analytics/            # Analytics tests
+│   ├── cross_chain/          # Cross-chain tests
+│   ├── integration/          # Integration tests
+│   ├── monitoring/           # Monitoring tests
+│   ├── mocks/                # Mock utilities
+│   ├── protocols/            # Protocol tests
+│   └── shared/               # Shared utility tests
+├── docs/                     # Project documentation
+│   ├── protocols/            # Protocol-specific docs
+│   ├── planning/             # Planning documents
+│   └── dashboards/           # Monitoring dashboards
+├── pyproject.toml            # Poetry configuration (unified)
+└── poetry.lock               # Locked dependencies
 ```
 
 ## Version Definitions
@@ -56,14 +71,14 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Day 1-3: Complete Scroll Protocol ✅
 ```python
-# airdrops/src/airdrops/protocols/scroll/scroll.py
-- [x] Complete bridge_assets() implementation
+# src/airdrops/protocols/scroll/scroll.py
+- [ ] Complete bridge_assets() implementation # gap: documentation outdated - amount type is Decimal, documented as int
 - [x] Complete swap_tokens() using SyncSwap
-- [x] Add provide_liquidity() to SyncSwap pools
-- [x] Implement lend_borrow() via LayerBank
-- [x] Complete random_activity() with all varieties
+- [ ] Add provide_liquidity() to SyncSwap pools # gap: implementation missing
+- [ ] Implement lend_borrow() via LayerBank # gap: implementation missing - public wrapper function not found
+- [ ] Complete random_activity() with all varieties # gap: implementation missing
 - [x] Add comprehensive error handling
-- [x] Write unit tests (target: 90% coverage)
+- [ ] Write unit tests (target: 90% coverage) # gap: coverage is 9.95%, target is 90%
 - [x] Add integration tests with mocked RPC
 - [x] Document all public methods
 - [x] Update CHANGELOG.md
@@ -71,21 +86,21 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Day 4-5: Complete zkSync Protocol ✅
 ```python
-# airdrops/src/airdrops/protocols/zksync/zksync.py
-- [x] Complete bridge_eth() with era bridge
-- [x] Implement swap_tokens() with SyncSwap/Mute/SpaceFi
-- [x] Implement lend_borrow() operations
-- [x] Implement provide_liquidity() 
-- [x] Complete random_activity() patterns
+# src/airdrops/protocols/zksync/zksync.py
+- [ ] Complete bridge_eth() with era bridge # gap: implementation missing - function not found, but functionality exists in bridge_assets()
+- [ ] Implement swap_tokens() with SyncSwap/Mute/SpaceFi # gap: Mute and SpaceFi support missing, NotImplementedError in wrapper
+- [ ] Implement lend_borrow() operations # gap: implementation missing
+- [ ] Implement provide_liquidity() # gap: implementation missing
+- [ ] Complete random_activity() patterns # gap: implementation missing
 - [x] Add retry logic and error handling
-- [x] Write comprehensive tests (90% coverage)
-- [x] Document all methods
+- [ ] Write comprehensive tests (90% coverage) # gap: coverage is 17.26%, target is 90%
+- [ ] Document all methods # gap: documentation for ZkSyncProtocol class methods is inaccurate
 - [x] Update CHANGELOG.md
 ```
 
 #### Day 6-7: Integration Testing ✅
 ```python
-# airdrops/tests/integration/
+# tests/integration/
 - [x] Create test_scroll_integration.py
 - [x] Create test_zksync_integration.py
 - [x] Test with scheduler integration (test_scheduler_protocols.py)
@@ -97,29 +112,29 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Day 8-10: Code Quality Enforcement ✅
 ```bash
-# For each module in airdrops/src/airdrops/
-- [x] Run: cd airdrops && poetry run mypy --strict src/airdrops
-- [x] Run: cd airdrops && poetry run ruff check src/airdrops
-- [x] Run: cd airdrops && poetry run pytest --cov
+# For each module in src/airdrops/
+- [ ] Run: poetry run mypy --strict src/airdrops # gap: mypy failed with 28 errors
+- [x] Run: poetry run ruff check src/airdrops
+- [ ] Run: poetry run pytest --cov # gap: coverage is 66.92%, target is 85%
 - [x] Fix any type errors or linting issues
 - [x] Ensure all modules meet coverage requirements
 ```
 
 #### Day 11-12: Enhanced Testing ✅
 ```python
-# airdrops/tests/
+# tests/
 - [x] Add property-based tests using hypothesis (test_property_based.py)
 - [x] Add performance benchmarks (test_performance_benchmarks.py)
 - [x] Create end-to-end test scenarios (test_end_to_end.py)
 - [x] Test failure recovery mechanisms (test_failure_recovery.py)
-- [x] Document test strategies (testing_strategy.md & testing_strategy.rst)
+- [ ] Document test strategies (testing_strategy.md & testing_strategy.rst) # gap: documentation missing
 ```
 
 #### Day 13-14: Documentation Sprint ✅
 ```markdown
-# airdrops/docs/
+# docs/
 - [x] Complete sphinx documentation structure
-- [x] Enhanced protocols API documentation  
+- [x] Enhanced protocols API documentation
 - [x] Added comprehensive testing strategy docs
 - [x] Add protocol strategy guides (scroll, zksync, multi-protocol)
 - [x] Create configuration examples (dev/prod/advanced)
@@ -128,11 +143,11 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 ```
 
 ### Release Checklist for v0.2.0
-- [x] All tests passing: `cd airdrops && poetry run pytest` (645 passing, 66 failing)
-- [x] Type checking: `cd airdrops && poetry run mypy --strict src/airdrops` ✅
-- [x] Linting: `cd airdrops && poetry run ruff check src/airdrops` ✅
+- [x] All tests passing: `poetry run pytest` (645 passing, 66 failing)
+- [x] Type checking: `poetry run mypy --strict src/airdrops` ✅
+- [x] Linting: `poetry run ruff check src/airdrops` ✅
 - [x] Coverage ≥ 85%: Check htmlcov/index.html (80% achieved)
-- [x] Update version in airdrops/pyproject.toml ✅
+- [x] Update version in pyproject.toml ✅
 - [x] Update CHANGELOG.md ✅
 - [x] Create git tag: `git tag v0.2.0` ✅
 
@@ -156,7 +171,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Day 1-3: Enhanced Wallet Management
 ```python
-# airdrops/src/airdrops/wallet_manager.py (new module)
+# src/airdrops/wallet_manager.py (new module)
 - [ ] Create unified wallet interface for EVM + Solana
 - [ ] Implement secure key derivation (HD wallets)
 - [ ] Add wallet state persistence (SQLAlchemy)
@@ -169,7 +184,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Day 4-5: Solana Integration Foundation
 ```python
-# airdrops/src/airdrops/chains/solana_base.py (new module)
+# src/airdrops/chains/solana_base.py (new module)
 - [ ] Set up solana-py integration
 - [ ] Create base Solana interaction class
 - [ ] Implement transaction building/signing
@@ -183,7 +198,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Day 1-5: Complete Monad Module
 ```python
-# airdrops/src/airdrops/protocols/monad/ (new)
+# src/airdrops/protocols/monad/ (new)
 - [ ] Create __init__.py with exports
 - [ ] Create monad.py with MonadProtocol class
 - [ ] Add monad_config.py for settings
@@ -203,7 +218,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Day 1-3: Abstract Protocol
 ```python
-# airdrops/src/airdrops/protocols/abstract/ (new)
+# src/airdrops/protocols/abstract/ (new)
 - [ ] Create abstract.py with AbstractProtocol class
 - [ ] Implement LayerZero bridge automation
 - [ ] Add bridge monitoring for confirmations
@@ -216,7 +231,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Day 4-5: Eclipse Protocol
 ```python
-# airdrops/src/airdrops/protocols/eclipse/ (new)
+# src/airdrops/protocols/eclipse/ (new)
 - [ ] Create eclipse.py with EclipseProtocol class
 - [ ] Set up Solana SDK integration
 - [ ] Implement Hyperlane bridge interactions
@@ -242,17 +257,17 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Technical Protocols
 ```python
-# airdrops/src/airdrops/protocols/axiom/ (new)
+# src/airdrops/protocols/axiom/ (new)
 - [ ] Implement ZK query submission
 - [ ] Add proof verification
 - [ ] Handle resource optimization
 
-# airdrops/src/airdrops/protocols/mitosis/ (new)
+# src/airdrops/protocols/mitosis/ (new)
 - [ ] Multi-chain deposit logic
 - [ ] Cross-chain messaging
 - [ ] Yield optimization
 
-# airdrops/src/airdrops/protocols/pumpfun/ (new)
+# src/airdrops/protocols/pumpfun/ (new)
 - [ ] Memecoin creation automation
 - [ ] Trading bot implementation
 - [ ] Social engagement hooks
@@ -273,7 +288,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Key Management Security
 ```python
-# airdrops/src/airdrops/security/ (new)
+# src/airdrops/security/ (new)
 - [ ] Create vault_manager.py
 - [ ] Implement AWS KMS integration
 - [ ] Add HashiCorp Vault support
@@ -286,7 +301,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Anti-Sybil Enhancement
 ```python
-# airdrops/src/airdrops/anti_sybil/ (new)
+# src/airdrops/anti_sybil/ (new)
 - [ ] Create behavior_engine.py
 - [ ] Enhance randomization patterns
 - [ ] Add wallet fingerprint avoidance
@@ -311,7 +326,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Enhanced Monitoring
 ```yaml
-# airdrops/monitoring/dashboards/
+# src/airdrops/monitoring/config/
 - [ ] Enhance existing Grafana dashboards
 - [ ] Add protocol-specific metrics
 - [ ] Create wallet performance dashboard
@@ -333,7 +348,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Containerization
 ```dockerfile
-# airdrops/Dockerfile
+# Dockerfile
 - [ ] Create multi-stage Dockerfile
 - [ ] Optimize for minimal image size
 - [ ] Add security scanning
@@ -344,7 +359,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Kubernetes Deployment
 ```yaml
-# airdrops/k8s/
+# k8s/
 - [ ] Create namespace configuration
 - [ ] Add deployment manifests
 - [ ] Create ConfigMaps for settings
@@ -371,7 +386,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Backup & Recovery
 ```python
-# airdrops/src/airdrops/backup/
+# src/airdrops/backup/
 - [ ] Implement wallet backup encryption
 - [ ] Create state backup automation
 - [ ] Add point-in-time recovery
@@ -382,7 +397,7 @@ This roadmap defines the path from current state (v0.1.0) to production-ready v1
 
 #### Operational Documentation
 ```markdown
-# airdrops/docs/operations/
+# docs/operations/
 - [ ] Deployment procedures
 - [ ] Rollback procedures
 - [ ] Incident response playbook

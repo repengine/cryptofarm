@@ -48,7 +48,7 @@ Bridges ETH or ERC20 tokens between L1 (Ethereum) and L2 (Scroll).
 - `web3_l2` (Web3): Web3 instance for L2 (Scroll)
 - `private_key` (str): Private key of the account
 - `token_symbol` (str): Symbol of the token to bridge (e.g., "ETH", "USDC")
-- `amount` (int): Amount of token to bridge (in Wei for ETH, smallest unit for ERC20)
+- `amount` (Decimal): Amount of token to bridge (in Wei for ETH, smallest unit for ERC20)
 - `direction` (str): "deposit" (L1 to L2) or "withdraw" (L2 to L1)
 - `l2_gas_limit` (int, optional): Gas limit for the L2 transaction (for deposits)
 - `l2_gas_price` (int, optional): Gas price for the L2 transaction (for deposits)
