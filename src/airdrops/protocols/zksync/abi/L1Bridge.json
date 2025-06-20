@@ -1,0 +1,17 @@
+[
+  {
+    "inputs": [
+      {"name": "_l2Receiver", "type": "address"},
+      {"name": "_l2Value", "type": "uint256"},
+      {"name": "_calldata", "type": "bytes"},
+      {"name": "_l2GasLimit", "type": "uint256"},
+      {"name": "_l2GasPerPubdataByteLimit", "type": "uint256"},
+      {"name": "_factoryDeps", "type": "bytes[]"},
+      {"name": "_refundRecipient", "type": "address"}
+    ],
+    "name": "requestL2Transaction",
+    "outputs": [{"name": "", "type": "bytes32"}],
+    "stateMutability": "payable",
+    "type": "function"
+  }
+]

@@ -16,6 +16,12 @@ from enum import Enum
 
 import numpy as np
 
+from airdrops.protocols.scroll.interfaces import IScrollProtocol
+from airdrops.protocols.zksync.interfaces import IZkSyncProtocol
+from airdrops.protocols.layerzero.interfaces import ILayerZeroProtocol
+from airdrops.protocols.eigenlayer.interfaces import IEigenLayerProtocol
+from airdrops.risk_management.interfaces import IRiskManager
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -74,12 +80,32 @@ class CapitalAllocator:
     >>> metrics = allocator.calculate_efficiency_metrics()
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        risk_manager: Optional[IRiskManager] = None,
+        scroll_client: Optional[IScrollProtocol] = None,
+        zksync_client: Optional[IZkSyncProtocol] = None,
+        layerzero_client: Optional[ILayerZeroProtocol] = None,
+        eigenlayer_client: Optional[IEigenLayerProtocol] = None
+    ) -> None:
         """
         Initialize the Capital Allocation Engine.
 
         Args:
-                config: Optional configuration dictionary for allocation parameters.
+            config: Optional configuration dictionary for allocation parameters.
+            risk_manager: Optional risk manager instance for dependency injection.
+            scroll_client: Optional Scroll protocol client for dependency injection.
+            zksync_client: Optional ZkSync protocol client for dependency injection.
+            layerzero_client: Optional LayerZero protocol client for dependency injection.
+            eigenlayer_client: Optional EigenLayer protocol client for dependency injection.
+
+        Example:
+            >>> from airdrops.risk_management.core import RiskManager
+            >>> from airdrops.protocols.scroll.scroll import ScrollProtocol
+            >>> risk_manager = RiskManager()
+            >>> scroll_client = ScrollProtocol(l1_rpc_url="...", l2_rpc_url="...", private_key="...")
+            >>> allocator = CapitalAllocator(risk_manager=risk_manager, scroll_client=scroll_client)
         """
         getcontext().prec = 28
 
@@ -122,6 +148,17 @@ class CapitalAllocator:
             os.getenv("CAPITAL_MAX_PROTOCOLS", "10")
         )
         self.portfolio_history: List[PortfolioMetrics] = []
+        
+        # Dependency injection for protocol clients and risk manager
+        self.risk_manager: Optional[IRiskManager] = risk_manager
+        self.scroll_client: Optional[IScrollProtocol] = scroll_client
+        self.zksync_client: Optional[IZkSyncProtocol] = zksync_client
+        self.layerzero_client: Optional[ILayerZeroProtocol] = layerzero_client
+        self.eigenlayer_client: Optional[IEigenLayerProtocol] = eigenlayer_client
+        
+        # Initialize fallback implementations if no dependencies provided
+        if not any([risk_manager, scroll_client, zksync_client, layerzero_client, eigenlayer_client]):
+            self._initialize_default_dependencies()
 
     def allocate_capital(self, wallets: List[str]) -> Dict[str, Dict[str, Decimal]]:
         """
@@ -260,12 +297,12 @@ class CapitalAllocator:
 
                 logger.debug(
                     f"Protocol {protocol}: {percentage:.2%} = "
-                    f"${allocated_amount:, .2f}"
+                    f"${allocated_amount:,.2f}"
                 )
 
             logger.info(
                 f"Risk-adjusted capital allocation completed. "
-                f"Total allocated: ${sum(capital_allocations.values()):, .2f} "
+                f"Total allocated: ${sum(capital_allocations.values()):,.2f} "
                 f"(Risk multiplier: {risk_multiplier:.2f})"
             )
 
@@ -334,7 +371,7 @@ class CapitalAllocator:
 
                     logger.debug(
                         f"Rebalance needed for {protocol}: {action} by "
-                        f"{deviation:.2%} (${amount:, .2f})"
+                        f"{deviation:.2%} (${amount:,.2f})"
                     )
 
             # Sort by priority (highest first)
@@ -411,7 +448,7 @@ class CapitalAllocator:
                 wallet_allocations[protocol] = capital_per_wallet * percentage
             distribution[wallet] = wallet_allocations
 
-        logger.info(f"Distributed ${total_capital:, .2f} across {len(wallets)} wallets.")
+        logger.info(f"Distributed ${total_capital:,.2f} across {len(wallets)} wallets.")
         return distribution
 
     def track_allocation_metrics(
@@ -432,7 +469,7 @@ class CapitalAllocator:
         # For now, just log the action
         total_allocated = sum(allocation.values())
         logger.info(
-            f"Tracking allocation metrics. Total allocated: ${total_allocated:, .2f}"
+            f"Tracking allocation metrics. Total allocated: ${total_allocated:,.2f}"
         )
         # Example of what might be recorded:
         # self.metrics_collector.record_allocation(
@@ -495,7 +532,7 @@ class CapitalAllocator:
                 adjusted_allocation[p] += redistribution_amount_per_protocol
 
         logger.warning(
-            f"Emergency withdrawal: {amount_to_withdraw:, .2f} from {affected_protocol} "
+            f"Emergency withdrawal: {amount_to_withdraw:,.2f} from {affected_protocol} "
             f"due to {risk_event.get('type', 'unknown')} event (Severity: {severity})"
         )
         return adjusted_allocation
@@ -888,6 +925,55 @@ class CapitalAllocator:
             multiplier *= Decimal("0.9")
 
         return multiplier
+
+    def _initialize_default_dependencies(self) -> None:
+        """Initialize default dependency implementations when none are provided."""
+        try:
+            # Import concrete implementations only when needed
+            from airdrops.risk_management.core import RiskManager
+            from airdrops.protocols.scroll.scroll import ScrollProtocol
+            from airdrops.protocols.zksync.zksync import ZkSyncProtocol
+            from airdrops.protocols.layerzero.layerzero import LayerZeroProtocol
+            from airdrops.protocols.eigenlayer.eigenlayer import EigenLayerProtocol
+            
+            # Initialize risk manager if not provided
+            if not self.risk_manager:
+                from typing import cast
+                self.risk_manager = cast(IRiskManager, RiskManager(config=self.config))
+                
+            # Initialize protocol clients with environment variables or config
+            if not self.scroll_client:
+                scroll_l1_rpc = os.getenv("ETH_RPC_URL")
+                scroll_l2_rpc = os.getenv("SCROLL_L2_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if scroll_l1_rpc and scroll_l2_rpc and private_key:
+                    self.scroll_client = ScrollProtocol(scroll_l1_rpc, scroll_l2_rpc, private_key)
+                    
+            if not self.zksync_client:
+                zksync_l1_rpc = os.getenv("ETH_RPC_URL")
+                zksync_l2_rpc = os.getenv("ZKSYNC_L2_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if zksync_l1_rpc and zksync_l2_rpc and private_key:
+                    self.zksync_client = ZkSyncProtocol(zksync_l1_rpc, zksync_l2_rpc, private_key)
+                    
+            if not self.layerzero_client:
+                eth_rpc = os.getenv("ETH_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if eth_rpc and private_key:
+                    self.layerzero_client = LayerZeroProtocol(eth_rpc, private_key, 1)  # Ethereum mainnet
+                    
+            if not self.eigenlayer_client:
+                eth_rpc = os.getenv("ETH_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if eth_rpc and private_key:
+                    self.eigenlayer_client = EigenLayerProtocol(eth_rpc, private_key, 1)  # Ethereum mainnet
+                    
+            logger.debug("Default dependencies initialized for CapitalAllocator")
+            
+        except ImportError as e:
+            logger.warning(f"Could not import dependency implementations: {e}")
+        except Exception as e:
+            logger.error(f"Failed to initialize default dependencies: {e}")
 
 
 __all__ = [

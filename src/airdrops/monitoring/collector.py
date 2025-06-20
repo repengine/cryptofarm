@@ -15,7 +15,8 @@ from dataclasses import dataclass, asdict
 import json
 from decimal import Decimal
 
-from prometheus_client import Counter, Gauge, Histogram, CollectorRegistry
+from prometheus_client import Counter, Gauge, Histogram
+from prometheus_client.core import CollectorRegistry
 from prometheus_client import generate_latest
 
 # Configure logging
@@ -57,15 +58,18 @@ class MetricsCollector:
     >>> prometheus_output = collector.export_prometheus_format()
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, config: Optional[Dict[str, Any]] = None, registry: Optional[CollectorRegistry] = None) -> None:
         """
         Initialize the Metrics Collector.
 
         Args:
             config: Optional configuration dictionary for metrics collection.
+            registry: Optional Prometheus registry. Defaults to the global registry.
         """
         self.config = config or {}
-        self.registry = CollectorRegistry()
+        # Use the provided registry or create a new one if not provided
+        # This ensures metrics are isolated for testing and prevents re-registration errors
+        self.registry = registry if registry is not None else CollectorRegistry()
         self._initialize_prometheus_metrics()
         self.collection_interval = float(
             os.getenv("METRICS_COLLECTION_INTERVAL", "30.0")

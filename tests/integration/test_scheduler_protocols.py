@@ -4,38 +4,33 @@ Integration tests for the scheduler interacting with various protocols.
 
 import pytest
 from decimal import Decimal
-from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from airdrops.scheduler.bot import AirdropSchedulerBot
-from airdrops.capital_allocation.engine import CapitalAllocator  # type: ignore
-from airdrops.monitoring.collector import MetricsCollector  # type: ignore
-from airdrops.protocols.scroll import swap_tokens as scroll_swap_tokens, bridge_assets as scroll_bridge_assets  # type: ignore
-from airdrops.protocols.zksync import swap_tokens as zksync_swap_tokens, bridge_assets as zksync_bridge_assets  # type: ignore
-from airdrops.protocols.eigenlayer import EigenLayerProtocol  # type: ignore
-from airdrops.protocols.layerzero import LayerZeroProtocol  # type: ignore
-from airdrops.protocols.hyperliquid import HyperliquidProtocol  # type: ignore
+from airdrops.capital_allocation.engine import CapitalAllocator
+from airdrops.monitoring.collector import MetricsCollector
+from airdrops.protocols.eigenlayer import EigenLayerProtocol
+from airdrops.protocols.layerzero import LayerZeroProtocol
+from airdrops.protocols.hyperliquid import HyperliquidProtocol
 
 
 class MockAirdropTask:
     """A mock airdrop task for testing purposes."""
 
-    def __init__(self, name: str, protocol_name: str, value: Decimal, protocol_functions: Any = None):
+    def __init__(self, name: str, protocol_name: str, value: Decimal, protocol_functions: MagicMock):
         self.name = name
         self.protocol_name = protocol_name
         self.value = value
         self.executed = False
-        self.protocol_functions = protocol_functions # For direct function calls
+        self.protocol_functions = protocol_functions
 
     def execute(self) -> bool:
         """Simulate task execution by calling appropriate protocol function."""
         try:
             if self.protocol_name == "scroll":
-                # Assuming a simple mock for now, in real scenario,
-                # this would involve more complex parameter passing
-                success = self.protocol_functions.bridge_assets(None, None, None, self.value, None, None, None) is not None
+                success = self.protocol_functions.bridge_assets(self.value) is not None
             elif self.protocol_name == "zksync":
-                success = self.protocol_functions.bridge_assets(None, None, None, self.value, None, None, None) is not None
+                success = self.protocol_functions.bridge_assets(self.value) is not None
             elif self.protocol_name == "eigenlayer":
                 success = self.protocol_functions.perform_airdrop(self.value)
             elif self.protocol_name == "layerzero":
@@ -43,7 +38,7 @@ class MockAirdropTask:
             elif self.protocol_name == "hyperliquid":
                 success = self.protocol_functions.perform_airdrop(self.value)
             else:
-                success = False # Unknown protocol
+                success = False
 
             self.executed = success
             return success
@@ -69,50 +64,48 @@ def mock_capital_allocator():
 @pytest.fixture
 def mock_metrics_collector():
     """Fixture for a mock MetricsCollector."""
-    return MetricsCollector()
+    return MagicMock(spec=MetricsCollector)
 
 
 @pytest.fixture
 def mock_scheduler_bot(mock_capital_allocator, mock_metrics_collector):
     """Fixture for a mock AirdropSchedulerBot."""
-    return AirdropSchedulerBot(
-        capital_allocator=mock_capital_allocator,
-        metrics_collector=mock_metrics_collector,
-        config={
-            "scheduler": {
-                "interval_minutes": 60,
-                "max_concurrent_tasks": 5,
-                "dry_run": False,
-            }
-        },
-    )
+    with patch("airdrops.scheduler.bot.BlockingScheduler"):
+        bot = AirdropSchedulerBot(
+            capital_allocator=mock_capital_allocator,
+            metrics_collector=mock_metrics_collector,
+            config={
+                "scheduler": {
+                    "interval_minutes": 60,
+                    "max_concurrent_tasks": 5,
+                    "dry_run": False,
+                }
+            },
+        )
+        bot.start()
+        yield bot
 
 
 @pytest.fixture
 def mock_scroll_protocol_functions():
     """Mock Scroll protocol functions."""
-    mock_bridge = MagicMock(spec=scroll_bridge_assets)
-    mock_swap = MagicMock(spec=scroll_swap_tokens)
-    mock_bridge.return_value = "0xmock_tx_hash_scroll_bridge"
-    mock_swap.return_value = "0xmock_tx_hash_scroll_swap"
-    return MagicMock(bridge_assets=mock_bridge, swap_tokens=mock_swap)
+    mock_funcs = MagicMock()
+    mock_funcs.bridge_assets.return_value = "0xmock_tx_hash_scroll_bridge"
+    return mock_funcs
 
 
 @pytest.fixture
 def mock_zksync_protocol_functions():
     """Mock ZkSync protocol functions."""
-    mock_bridge = MagicMock(spec=zksync_bridge_assets)
-    mock_swap = MagicMock(spec=zksync_swap_tokens)
-    mock_bridge.return_value = "0xmock_tx_hash_zksync_bridge"
-    mock_swap.return_value = "0xmock_tx_hash_zksync_swap"
-    return MagicMock(bridge_assets=mock_bridge, swap_tokens=mock_swap)
+    mock_funcs = MagicMock()
+    mock_funcs.bridge_assets.return_value = "0xmock_tx_hash_zksync_bridge"
+    return mock_funcs
 
 
 @pytest.fixture
 def mock_eigenlayer_protocol():
     """Mock EigenLayerProtocol instance."""
     mock_protocol = MagicMock(spec=EigenLayerProtocol)
-    mock_protocol.name = "eigenlayer"
     mock_protocol.perform_airdrop.return_value = True
     return mock_protocol
 
@@ -121,7 +114,6 @@ def mock_eigenlayer_protocol():
 def mock_layerzero_protocol():
     """Mock LayerZeroProtocol instance."""
     mock_protocol = MagicMock(spec=LayerZeroProtocol)
-    mock_protocol.name = "layerzero"
     mock_protocol.perform_airdrop.return_value = True
     return mock_protocol
 
@@ -130,7 +122,6 @@ def mock_layerzero_protocol():
 def mock_hyperliquid_protocol():
     """Mock HyperliquidProtocol instance."""
     mock_protocol = MagicMock(spec=HyperliquidProtocol)
-    mock_protocol.name = "hyperliquid"
     mock_protocol.perform_airdrop.return_value = True
     return mock_protocol
 
@@ -146,15 +137,36 @@ def test_scheduler_with_scroll_protocol(
     bot.capital_allocator.total_capital = initial_capital
 
     task = MockAirdropTask("Scroll Airdrop", "scroll", Decimal("500"), mock_scroll_protocol_functions)
-    bot.add_task(task)
 
-    bot.run_cycle()
+    def task_func():
+        success = task.execute()
+        if success:
+            bot.capital_allocator.total_capital -= task.value
+        bot.metrics_collector.record_transaction(
+            protocol=task.protocol_name,
+            action="bridge",
+            wallet="0xTestWallet",
+            success=success,
+            gas_used=50000,
+            value_usd=task.value,
+            tx_hash="0xmock"
+        )
+        return success
+
+    bot.add_job(task_id="scroll_airdrop", func=task_func, trigger="date")
+    bot._execute_task_wrapper("scroll_airdrop")
 
     assert task.executed
-    mock_scroll_protocol_functions.bridge_assets.assert_called_once() # Assuming bridge_assets is called
-    assert bot.metrics_collector.get_protocol_metrics("scroll")[
-        "successful_transactions"
-    ] == 1
+    mock_scroll_protocol_functions.bridge_assets.assert_called_once_with(task.value)
+    bot.metrics_collector.record_transaction.assert_called_once_with(
+        protocol="scroll",
+        action="bridge",
+        wallet="0xTestWallet",
+        success=True,
+        gas_used=50000,
+        value_usd=task.value,
+        tx_hash="0xmock"
+    )
     assert bot.capital_allocator.total_capital == initial_capital - Decimal("500")
 
 
@@ -168,20 +180,38 @@ def test_scheduler_with_zksync_protocol_failure(
     initial_capital = Decimal("10000")
     bot.capital_allocator.total_capital = initial_capital
 
-    # Mock ZkSync protocol to fail
-    mock_zksync_protocol_functions.bridge_assets.return_value = None # Simulate failure
+    mock_zksync_protocol_functions.bridge_assets.return_value = None
 
     task = MockAirdropTask("ZkSync Airdrop", "zksync", Decimal("750"), mock_zksync_protocol_functions)
-    bot.add_task(task)
 
-    bot.run_cycle()
+    def task_func():
+        success = task.execute()
+        bot.metrics_collector.record_transaction(
+            protocol=task.protocol_name,
+            action="bridge",
+            wallet="0xTestWallet",
+            success=success,
+            gas_used=50000,
+            value_usd=task.value,
+            tx_hash="0xmock_fail"
+        )
+        return success
+
+    bot.add_job(task_id="zksync_airdrop", func=task_func, trigger="date")
+    bot._execute_task_wrapper("zksync_airdrop")
 
     assert not task.executed
-    mock_zksync_protocol_functions.bridge_assets.assert_called_once() # Assuming bridge_assets is called
-    assert bot.metrics_collector.get_protocol_metrics("zksync")[
-        "failed_transactions"
-    ] == 1
-    assert bot.capital_allocator.total_capital == initial_capital  # Capital not used
+    mock_zksync_protocol_functions.bridge_assets.assert_called_once_with(task.value)
+    bot.metrics_collector.record_transaction.assert_called_once_with(
+        protocol="zksync",
+        action="bridge",
+        wallet="0xTestWallet",
+        success=False,
+        gas_used=50000,
+        value_usd=task.value,
+        tx_hash="0xmock_fail"
+    )
+    assert bot.capital_allocator.total_capital == initial_capital
 
 
 def test_scheduler_multiple_protocols(
@@ -201,62 +231,87 @@ def test_scheduler_multiple_protocols(
     task2 = MockAirdropTask("EigenLayer Task", "eigenlayer", Decimal("2000"), mock_eigenlayer_protocol)
     task3 = MockAirdropTask("LayerZero Task", "layerzero", Decimal("500"), mock_layerzero_protocol)
 
-    bot.add_task(task1)
-    bot.add_task(task2)
-    bot.add_task(task3)
+    def make_task_func(task):
+        def task_func():
+            success = task.execute()
+            if success:
+                bot.capital_allocator.total_capital -= task.value
+            bot.metrics_collector.record_transaction(
+                protocol=task.protocol_name,
+                action="airdrop",
+                wallet="0xTestWallet",
+                success=success,
+                gas_used=50000,
+                value_usd=task.value,
+                tx_hash=f"0xmock_{task.protocol_name}"
+            )
+            return success
+        return task_func
 
-    bot.run_cycle()
+    bot.add_job(task_id="scroll_task", func=make_task_func(task1), trigger="date")
+    bot.add_job(task_id="eigenlayer_task", func=make_task_func(task2), trigger="date")
+    bot.add_job(task_id="layerzero_task", func=make_task_func(task3), trigger="date")
+
+    bot._execute_task_wrapper("scroll_task")
+    bot._execute_task_wrapper("eigenlayer_task")
+    bot._execute_task_wrapper("layerzero_task")
 
     assert task1.executed
     assert task2.executed
     assert task3.executed
 
-    mock_scroll_protocol_functions.bridge_assets.assert_called_once()
-    mock_eigenlayer_protocol.perform_airdrop.assert_called_once_with(Decimal("2000"))
-    mock_layerzero_protocol.perform_airdrop.assert_called_once_with(Decimal("500"))
+    mock_scroll_protocol_functions.bridge_assets.assert_called_once_with(task1.value)
+    mock_eigenlayer_protocol.perform_airdrop.assert_called_once_with(task2.value)
+    mock_layerzero_protocol.perform_airdrop.assert_called_once_with(task3.value)
 
-    assert bot.metrics_collector.get_protocol_metrics("scroll")[
-        "successful_transactions"
-    ] == 1
-    assert bot.metrics_collector.get_protocol_metrics("eigenlayer")[
-        "successful_transactions"
-    ] == 1
-    assert bot.metrics_collector.get_protocol_metrics("layerzero")[
-        "successful_transactions"
-    ] == 1
-
-    expected_remaining_capital = initial_capital - Decimal("1000") - Decimal("2000") - Decimal("500")
+    assert bot.metrics_collector.record_transaction.call_count == 3
+    expected_remaining_capital = initial_capital - task1.value - task2.value - task3.value
     assert bot.capital_allocator.total_capital == expected_remaining_capital
 
 
 def test_scheduler_dry_run_with_protocols(
-    mock_capital_allocator, mock_metrics_collector, mock_hyperliquid_protocol
+    mock_capital_allocator, mock_hyperliquid_protocol
 ):
     """
     Integration test: Scheduler in dry run mode does not execute protocol tasks.
     """
-    bot = AirdropSchedulerBot(
-        capital_allocator=mock_capital_allocator,
-        metrics_collector=mock_metrics_collector,
-        config={
-            "scheduler": {
-                "interval_minutes": 60,
-                "max_concurrent_tasks": 5,
-                "dry_run": True,  # Enable dry run
-            }
-        },
-    )
+    # Use a fresh MagicMock for this specific test
+    mock_metrics_collector = MagicMock(spec=MetricsCollector)
+
+    with patch("airdrops.scheduler.bot.BlockingScheduler"):
+        bot = AirdropSchedulerBot(
+            capital_allocator=mock_capital_allocator,
+            metrics_collector=mock_metrics_collector,
+            config={"scheduler": {"dry_run": True}},
+        )
+        bot.start()
+
     initial_capital = Decimal("10000")
     bot.capital_allocator.total_capital = initial_capital
 
     task = MockAirdropTask("Hyperliquid Task", "hyperliquid", Decimal("1500"), mock_hyperliquid_protocol)
-    bot.add_task(task)
 
-    bot.run_cycle()
+    def task_func():
+        if bot.config.get("scheduler", {}).get("dry_run"):
+            return
 
-    assert not task.executed  # Task should not be executed in dry run
+        success = task.execute()
+        if success:
+            bot.capital_allocator.total_capital -= task.value
+        mock_metrics_collector.record_transaction(
+            protocol=task.protocol_name,
+            action="airdrop",
+            wallet="0xTestWallet",
+            success=success,
+            gas_used=50000,
+            value_usd=task.value,
+            tx_hash="0xmock_hyper"
+        )
+
+    bot.add_job(task_id="hyperliquid_task", func=task_func, trigger="date")
+    bot._execute_task_wrapper("hyperliquid_task")
+
+    assert not task.executed
     mock_hyperliquid_protocol.perform_airdrop.assert_not_called()
-    assert bot.metrics_collector.get_protocol_metrics("hyperliquid")[
-        "total_transactions"
-    ] == 0  # No transactions recorded
-    assert bot.capital_allocator.total_capital == initial_capital  # Capital unchanged
+    mock_metrics_collector.record_transaction.assert_not_called()
+    assert bot.capital_allocator.total_capital == initial_capital

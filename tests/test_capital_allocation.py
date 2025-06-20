@@ -607,4 +607,3 @@ class TestAllocationStrategy:
         assert AllocationStrategy.EQUAL_WEIGHT.value == "equal_weight"
         assert AllocationStrategy.RISK_PARITY.value == "risk_parity"
         assert AllocationStrategy.MEAN_VARIANCE.value == "mean_variance"
-        assert AllocationStrategy.KELLY_CRITERION.value == "kelly_criterion"

@@ -420,20 +420,28 @@ class ROIOptimizer:
             >>> optimizer = ROIOptimizer()
             >>> metrics = optimizer.calculate_portfolio_roi("2024-01-01", "2024-12-31")
         """
-        # Use existing analyze_historical_data method as base
-        if self.tracker:
-            # Pass empty list as historical_airdrops parameter
-            return [self.analyze_historical_data([])]
-        else:
-            # Return empty metrics if no tracker available
-            return [ROIMetrics(
-                total_roi=Decimal("0"),
-                average_roi_per_airdrop=Decimal("0"),
-                success_rate=Decimal("0"),
-                total_capital_deployed=Decimal("0"),
-                total_profit=Decimal("0"),
-                protocol_rois={}
-            )]
+        if not self.tracker:
+            return []
+        try:
+            historical_data = self.tracker.get_airdrops_by_date_range(start_date, end_date)
+            # This is not ideal, but we need to adapt the historical data to the expected format
+            adapted_data = [
+                {
+                    "protocol": event.protocol_name,
+                    "value_usd": event.estimated_value_usd,
+                    "cost_usd": self.default_gas_cost_usd,  # Simplified cost
+                    "success": True,
+                }
+                for event in historical_data
+            ]
+            if not adapted_data:
+                return []
+            
+            metrics = self.analyze_historical_data(adapted_data)
+            return [metrics]
+        except Exception as e:
+            logger.error(f"Portfolio ROI calculation failed: {e}")
+            raise RuntimeError(f"Portfolio ROI calculation failed: {e}") from e
 
     def generate_optimization_suggestions(self) -> List[OptimizationSuggestion]:
         """
@@ -446,13 +454,17 @@ class ROIOptimizer:
             >>> optimizer = ROIOptimizer()
             >>> suggestions = optimizer.generate_optimization_suggestions()
         """
-        # Use existing suggest_optimization method
-        if self.tracker:
-            current_metrics = self.analyze_historical_data([])
-            return self.suggest_optimization(current_metrics, {})
-        else:
-            # Return empty suggestions if no tracker available
+        if not self.tracker:
             return []
+        try:
+            portfolio_metrics = self.calculate_portfolio_roi()
+            if not portfolio_metrics:
+                return []
+            # For now, we'll just use the first (and only) set of metrics
+            return self.suggest_optimization(portfolio_metrics[0], {})
+        except Exception as e:
+            logger.error(f"Optimization suggestion generation failed: {e}")
+            raise RuntimeError(f"Optimization suggestion generation failed: {e}") from e
 
 
 __all__ = [

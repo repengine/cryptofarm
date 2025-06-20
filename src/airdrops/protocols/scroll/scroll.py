@@ -11,6 +11,7 @@ import logging
 import time
 from pathlib import Path
 from typing import Dict, Optional, Any, cast, Sequence, List
+from decimal import Decimal # Added import for Decimal
 from requests.exceptions import ConnectionError, Timeout
 
 from eth_abi.abi import encode as abi_encode
@@ -400,7 +401,7 @@ def _approve_erc20_scroll(
     private_key: str,
     token_address: str,
     spender_address: str,
-    amount: int,
+    amount: Decimal,
 ) -> str:
     """Approve ERC20 token for spending by a spender on Scroll L2."""
     logger.info(
@@ -461,7 +462,7 @@ def _estimate_l1_to_l2_message_fee_scroll(
     try:
         oracle = _get_contract_scroll(
             web3_l1,
-            "scroll_l1_gas_oracle",
+            "L1GatewayRouter",
             SCROLL_L1_GAS_ORACLE_ADDRESS
         )
         fee = oracle.functions.estimateCrossDomainMessageFee(l2_gas_limit).call()
@@ -1093,7 +1094,7 @@ def lend_borrow_layerbank_scroll(
     private_key: str,
     action: str,
     token_symbol: str,
-    amount: int,
+    amount: Decimal,
 ) -> str:
     """
     Handles lending, borrowing, repaying, and withdrawing assets on LayerBank V2 on
@@ -1173,7 +1174,7 @@ def _handle_lend_action_scroll(
     web3_scroll: Web3,
     private_key: str,
     token_symbol: str,
-    amount: int,
+    amount: Decimal,
     user_address: str,
     lbtoken_contract: Contract,
     lbtoken_address: str,
@@ -1234,7 +1235,7 @@ def _handle_withdraw_action_scroll(
     web3_scroll: Web3,
     private_key: str,
     token_symbol: str,
-    amount: int,
+    amount: Decimal,
     user_address: str,
     lbtoken_contract: Contract,
 ) -> str:
@@ -1276,7 +1277,7 @@ def _handle_borrow_action_scroll(
     web3_scroll: Web3,
     private_key: str,
     token_symbol: str,
-    amount: int,
+    amount: Decimal,
     user_address: str,
     lbtoken_contract: Contract,
     comptroller_contract: Contract,
@@ -1346,7 +1347,7 @@ def _handle_repay_action_scroll(
     web3_scroll: Web3,
     private_key: str,
     token_symbol: str,
-    amount: int,
+    amount: Decimal,
     user_address: str,
     lbtoken_contract: Contract,
 ) -> str:
@@ -1417,7 +1418,7 @@ def bridge_assets(
     web3_l2: Web3,
     private_key: str,
     token_symbol: str,
-    amount: int,
+    amount: Decimal,
     direction: str,
     l2_gas_limit: int = DEFAULT_L2_GAS_LIMIT,
     l2_gas_price: Optional[int] = None,
@@ -1525,11 +1526,11 @@ def _bridge_eth_scroll(
 
         tx_params: TxParams = {
             "from": l1_address,
-            "value": Wei(total_value),
+            "value": Wei(int(total_value)),
             "gasPrice": web3_l1.eth.gas_price,
         }
         deposit_tx = l1_gateway_router.functions.depositETH(
-            amount, l2_gas_limit, l2_address
+            int(amount), l2_gas_limit, l2_address
         ).build_transaction(tx_params)
 
         return _build_and_send_tx_scroll(web3_l1, private_key, deposit_tx)
@@ -1542,7 +1543,7 @@ def _bridge_eth_scroll(
 
         # Check L2 balance
         l2_balance = web3_l2.eth.get_balance(Web3.to_checksum_address(l2_address))
-        if l2_balance < amount:
+        if l2_balance < int(amount):
             raise InsufficientBalanceError(
                 f"Insufficient L2 ETH balance for withdrawal: have {l2_balance}, "
                 f"need {amount}"
@@ -1550,15 +1551,123 @@ def _bridge_eth_scroll(
 
         withdraw_tx_params: TxParams = {
             "from": l2_address,
-            "value": Wei(amount),
+            "value": Wei(int(amount)),
             "gasPrice": web3_l2.eth.gas_price,
         }
         withdraw_tx = l2_gateway_router.functions.withdrawETH(
-            amount, l1_address
+            int(amount), l1_address
         ).build_transaction(withdraw_tx_params)
 
         return _build_and_send_tx_scroll(web3_l2, private_key, withdraw_tx)
     return ""
+
+
+class ScrollProtocol:
+    """
+    ScrollProtocol handles interactions with the Scroll network.
+    
+    This class provides a high-level interface for bridging assets and performing
+    operations on the Scroll network, encapsulating the functionality provided by the
+    module-level functions in a convenient class-based API.
+    """
+
+    def __init__(self, l1_rpc_url: str, l2_rpc_url: str, private_key: str) -> None:
+        """
+        Initialize the ScrollProtocol.
+
+        Args:
+            l1_rpc_url: The RPC URL for the Ethereum L1 network.
+            l2_rpc_url: The RPC URL for the Scroll L2 network.
+            private_key: The private key of the wallet to use.
+            
+        Example:
+            >>> protocol = ScrollProtocol(
+            ...     "https://eth-mainnet.alchemyapi.io/v2/...",
+            ...     "https://scroll-mainnet.chainstacklabs.com",
+            ...     "0x123..."
+            ... )
+        """
+        if not l1_rpc_url:
+            raise ValueError("l1_rpc_url cannot be empty")
+        if not l2_rpc_url:
+            raise ValueError("l2_rpc_url cannot be empty")
+        if not private_key:
+            raise ValueError("private_key cannot be empty")
+            
+        self.l1_rpc_url = l1_rpc_url
+        self.l2_rpc_url = l2_rpc_url
+        self.private_key = private_key
+        
+        # Initialize Web3 instances
+        self.web3_l1 = Web3(Web3.HTTPProvider(l1_rpc_url))
+        self.web3_l2 = Web3(Web3.HTTPProvider(l2_rpc_url))
+        
+        if not self.web3_l1.is_connected():
+            raise ConnectionError(f"Failed to connect to L1 RPC: {l1_rpc_url}")
+        if not self.web3_l2.is_connected():
+            raise ConnectionError(f"Failed to connect to L2 RPC: {l2_rpc_url}")
+    
+    def bridge_assets(
+        self,
+        web3_l1: Web3,
+        web3_l2: Web3,
+        private_key: str,
+        token_symbol: str,
+        amount: int,
+        direction: str
+    ) -> str:
+        """Bridge assets between Ethereum L1 and Scroll L2.
+        
+        Args:
+            web3_l1: Web3 instance for Ethereum L1.
+            web3_l2: Web3 instance for Scroll L2.
+            private_key: Private key for signing transactions.
+            token_symbol: Symbol of the token to bridge (e.g., "ETH", "USDC").
+            amount: Amount to bridge in smallest token units (wei for ETH).
+            direction: Bridge direction ("deposit" for L1->L2, "withdraw" for L2->L1).
+            
+        Returns:
+            Transaction hash of the bridge operation.
+            
+        Raises:
+            ValueError: If parameters are invalid or unsupported.
+            RuntimeError: If the bridge transaction fails.
+        """
+        return bridge_assets(
+            web3_l1, web3_l2, private_key, token_symbol, amount, direction
+        )
+    
+    def swap_tokens(
+        self,
+        web3: Web3,
+        private_key: str,
+        token_in: str,
+        token_out: str,
+        amount_in: int,
+        min_amount_out: int,
+        deadline: int
+    ) -> str:
+        """Swap tokens on Scroll network.
+        
+        Args:
+            web3: Web3 instance for blockchain interaction.
+            private_key: Private key for signing transactions.
+            token_in: Address or symbol of input token.
+            token_out: Address or symbol of output token.
+            amount_in: Amount of input token to swap (in smallest units).
+            min_amount_out: Minimum acceptable output amount (slippage protection).
+            deadline: Transaction deadline timestamp.
+            
+        Returns:
+            Transaction hash of the swap operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            RuntimeError: If the swap transaction fails.
+        """
+        # For now, delegate to the functional implementation
+        # This would need to be implemented based on the actual swap functionality
+        raise NotImplementedError("Swap functionality not yet implemented in ScrollProtocol")
 
 
 def _bridge_erc20_scroll(

@@ -9,7 +9,7 @@ handling both ETH and ERC20 token transfers with proper fee estimation.
 """
 
 from decimal import Decimal
-from typing import Dict, List, Optional, Set
+from typing import Set
 
 from airdrops.cross_chain.adapters.base import BridgeAdapter
 from airdrops.cross_chain.types import BridgeRequest, BridgeResult

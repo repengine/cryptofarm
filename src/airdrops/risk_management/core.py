@@ -14,6 +14,11 @@ from enum import Enum
 
 from web3 import Web3
 
+from airdrops.protocols.scroll.interfaces import IScrollProtocol
+from airdrops.protocols.zksync.interfaces import IZkSyncProtocol
+from airdrops.protocols.layerzero.interfaces import ILayerZeroProtocol
+from airdrops.protocols.eigenlayer.interfaces import IEigenLayerProtocol
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -97,14 +102,27 @@ class RiskManager:
     def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
-        alerter: Optional[Any] = None
+        alerter: Optional[Any] = None,
+        scroll_client: Optional[IScrollProtocol] = None,
+        zksync_client: Optional[IZkSyncProtocol] = None,
+        layerzero_client: Optional[ILayerZeroProtocol] = None,
+        eigenlayer_client: Optional[IEigenLayerProtocol] = None
     ) -> None:
         """
         Initialize the Risk Management System.
 
         Args:
-                config: Optional configuration dictionary for risk parameters.
-                alerter: Optional Alerter instance for sending notifications.
+            config: Optional configuration dictionary for risk parameters.
+            alerter: Optional Alerter instance for sending notifications.
+            scroll_client: Optional Scroll protocol client for dependency injection.
+            zksync_client: Optional ZkSync protocol client for dependency injection.
+            layerzero_client: Optional LayerZero protocol client for dependency injection.
+            eigenlayer_client: Optional EigenLayer protocol client for dependency injection.
+
+        Example:
+            >>> from airdrops.protocols.scroll.scroll import ScrollProtocol
+            >>> scroll_client = ScrollProtocol(l1_rpc_url="...", l2_rpc_url="...", private_key="...")
+            >>> risk_manager = RiskManager(scroll_client=scroll_client)
         """
         self.config = config or {}
         self.alerter = alerter
@@ -113,6 +131,17 @@ class RiskManager:
         self.circuit_breaker_active = False
         self.current_risk_level = RiskLevel.LOW
         self.protocol_failure_counts: Dict[str, int] = {}
+        
+        # Protocol clients for dependency injection
+        self.scroll_client: Optional[IScrollProtocol] = scroll_client
+        self.zksync_client: Optional[IZkSyncProtocol] = zksync_client
+        self.layerzero_client: Optional[ILayerZeroProtocol] = layerzero_client
+        self.eigenlayer_client: Optional[IEigenLayerProtocol] = eigenlayer_client
+        
+        # Initialize fallback implementations if no clients provided
+        if not any([scroll_client, zksync_client, layerzero_client, eigenlayer_client]):
+            self._initialize_default_clients()
+        
         self._initialize_providers()
 
     def _load_risk_limits(self) -> RiskLimits:
@@ -164,6 +193,49 @@ class RiskManager:
         except Exception as e:
             logger.error(f"Failed to initialize Web3 providers: {e}")
             raise RuntimeError(f"Web3 provider initialization failed: {e}")
+
+    def _initialize_default_clients(self) -> None:
+        """Initialize default protocol client implementations when none are provided."""
+        try:
+            # Import concrete implementations only when needed
+            from airdrops.protocols.scroll.scroll import ScrollProtocol
+            from airdrops.protocols.zksync.zksync import ZkSyncProtocol
+            from airdrops.protocols.layerzero.layerzero import LayerZeroProtocol
+            from airdrops.protocols.eigenlayer.eigenlayer import EigenLayerProtocol
+            
+            # Initialize with environment variables or config
+            if not self.scroll_client:
+                scroll_l1_rpc = os.getenv("ETH_RPC_URL")
+                scroll_l2_rpc = os.getenv("SCROLL_L2_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if scroll_l1_rpc and scroll_l2_rpc and private_key:
+                    self.scroll_client = ScrollProtocol(scroll_l1_rpc, scroll_l2_rpc, private_key)
+                    
+            if not self.zksync_client:
+                zksync_l1_rpc = os.getenv("ETH_RPC_URL")
+                zksync_l2_rpc = os.getenv("ZKSYNC_L2_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if zksync_l1_rpc and zksync_l2_rpc and private_key:
+                    self.zksync_client = ZkSyncProtocol(zksync_l1_rpc, zksync_l2_rpc, private_key)
+                    
+            if not self.layerzero_client:
+                eth_rpc = os.getenv("ETH_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if eth_rpc and private_key:
+                    self.layerzero_client = LayerZeroProtocol(eth_rpc, private_key, 1)  # Ethereum mainnet
+                    
+            if not self.eigenlayer_client:
+                eth_rpc = os.getenv("ETH_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if eth_rpc and private_key:
+                    self.eigenlayer_client = EigenLayerProtocol(eth_rpc, private_key, 1)  # Ethereum mainnet
+                    
+            logger.debug("Default protocol clients initialized")
+            
+        except ImportError as e:
+            logger.warning(f"Could not import protocol implementations: {e}")
+        except Exception as e:
+            logger.error(f"Failed to initialize default clients: {e}")
 
     def assess_volatility(self, metrics: Dict[str, Any]) -> RiskLevel:
         """
@@ -872,7 +944,7 @@ class RiskManager:
 
         # Example: Check if estimated gas exceeds a threshold
         estimated_gas = operation.get("estimated_gas", 0)
-        if estimated_gas > 1000000:  # Arbitrary high gas limit for example
+        if estimated_gas > 400000:  # Arbitrary high gas limit for example
             logger.warning(
                 f"Operation {operation.get('action')} has very high estimated gas: "
                 f"{estimated_gas}"
@@ -881,7 +953,7 @@ class RiskManager:
 
         # Example: Check if value_usd exceeds a transaction size limit
         value_usd = operation.get("value_usd", 0.0)
-        if value_usd > 5000.0:  # Arbitrary high value limit for example
+        if value_usd > 1000.0:  # Arbitrary high value limit for example
             logger.warning(
                 f"Operation {operation.get('action')} has very high value: "
                 f"{value_usd} USD"

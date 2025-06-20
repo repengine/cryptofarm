@@ -11,6 +11,8 @@ class TestMetricsAggregatorSimple:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.mock_collector = Mock()
+        # Configure the registry to be iterable by default
+        self.mock_collector.registry.collect.return_value = []
         self.aggregator = MetricsAggregator(self.mock_collector)
 
     def test_init_with_collector(self) -> None:
@@ -101,6 +103,35 @@ class TestMetricsAggregatorSimple:
         self.aggregator.aggregation_config.window_size_seconds = 1
         self.aggregator.last_aggregation_time = time.time() - 2  # Ensure window is reached
 
+        # Mock Prometheus metrics for this test
+        class MockSample:
+            def __init__(self, name, value, labels):
+                self.name = name
+                self.value = value
+                self.labels = labels
+
+        class MockMetricFamily:
+            def __init__(self, name, documentation, _type, samples):
+                self.name = name
+                self.documentation = documentation
+                self.type = _type
+                self.samples = samples
+
+        mock_samples = [
+            MockSample(
+                name='test_metric',
+                value=100.0,
+                labels={'component': 'test', 'collection_timestamp': str(time.time())}
+            )
+        ]
+        mock_metric_family = MockMetricFamily(
+            name='test_metric',
+            documentation='Test metric',
+            _type='gauge',
+            samples=mock_samples
+        )
+        self.mock_collector.registry.collect.return_value = [mock_metric_family]
+
         raw_metrics = {"system": {"cpu": 50}}
         with patch('airdrops.monitoring.aggregator.time.time', return_value=time.time()):
             aggregated = self.aggregator.process_metrics(raw_metrics)
@@ -121,18 +152,61 @@ class TestMetricsAggregatorSimple:
 
     def test_aggregate_time_window_no_metrics(self) -> None:
         """Test aggregate_time_window with no metrics in the window."""
+        self.mock_collector.registry.collect.return_value = []
         result = self.aggregator.aggregate_time_window(0, time.time())
         assert result == []
 
     def test_aggregate_time_window_with_metrics(self) -> None:
         """Test aggregate_time_window with metrics in the window."""
-        self.aggregator.metrics_buffer = [
-            {"system": {"cpu": 10}, "collection_timestamp": time.time() - 10},
-            {"system": {"cpu": 20}, "collection_timestamp": time.time() - 5},
+        # Mock Prometheus MetricFamily and Sample objects
+        class MockSample:
+            def __init__(self, name, value, labels):
+                self.name = name
+                self.value = value
+                self.labels = labels
+
+        class MockMetricFamily:
+            def __init__(self, name, documentation, _type, samples):
+                self.name = name
+                self.documentation = documentation
+                self.type = _type
+                self.samples = samples
+
+        mock_samples = [
+            MockSample(
+                name='task_execution_status_total',
+                value=2.0,
+                labels={'protocol': 'scroll', 'status': 'success', 'collection_timestamp': str(time.time() - 10)}
+            ),
+            MockSample(
+                name='task_execution_status_total',
+                value=3.0,
+                labels={'protocol': 'zksync', 'status': 'failure', 'collection_timestamp': str(time.time() - 5)}
+            ),
+            MockSample(
+                name='some_other_metric',
+                value=100.0,
+                labels={'component': 'test', 'collection_timestamp': str(time.time() - 7)}
+            )
         ]
+        mock_metric_family = MockMetricFamily(
+            name='task_execution_status_total',
+            documentation='Task execution status counts',
+            _type='counter',
+            samples=mock_samples
+        )
+        self.mock_collector.registry.collect.return_value = [mock_metric_family]
+
         result = self.aggregator.aggregate_time_window(time.time() - 15, time.time())
         assert len(result) > 0
-        assert any(m.metric_name.startswith("system_cpu") for m in result)
+        
+        scroll_success_metric = next((m for m in result if m.metric_name == "scroll_success_transactions_count"), None)
+        assert scroll_success_metric is not None
+        assert scroll_success_metric.value == 2.0
+
+        zksync_failure_metric = next((m for m in result if m.metric_name == "zksync_failure_transactions_count"), None)
+        assert zksync_failure_metric is not None
+        assert zksync_failure_metric.value == 3.0
 
     def test_cleanup_old_metrics(self) -> None:
         """Test cleanup of old aggregated metrics."""

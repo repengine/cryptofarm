@@ -8,7 +8,7 @@ from the MetricsCollector and prepares them for storage and analysis.
 import logging
 import os
 import time
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -82,8 +82,8 @@ class MetricsAggregator:
                 os.getenv("METRICS_AGGREGATION_WINDOW_SECONDS", "300")  # 5 minutes
             ),
             aggregation_functions=os.getenv(
-                "METRICS_AGGREGATION_FUNCTIONS", "avg, max, min"
-            ).split(", "),
+                "METRICS_AGGREGATION_FUNCTIONS", "avg,sum,max,min,count"
+            ).split(","),
             retention_period_hours=int(
                 os.getenv("METRICS_RETENTION_PERIOD_HOURS", "168")  # 7 days
             ),
@@ -230,37 +230,84 @@ class MetricsAggregator:
             >>> window_metrics = aggregator.aggregate_time_window(start_time, end_time)
         """
         try:
-            # Filter metrics within the time window
-            window_metrics = [
-                m for m in self.metrics_buffer
-                if window_start <= m.get('collection_timestamp', 0) <= window_end
-            ]
+            aggregated_metrics_list: List[AggregatedMetric] = []
+            current_time = time.time()
 
-            if not window_metrics:
-                logger.debug(
-                    f"No metrics found in window {window_start} to {window_end}"
+            # Dictionary to hold aggregated values for each unique metric + labels combination
+            # Key: (metric_name, frozenset(labels.items()))
+            # Value: current aggregated value
+            temp_aggregated_values: Dict[Tuple[str, frozenset[Tuple[str, str]]], float] = {}
+
+            for metric_family in self.collector.registry.collect():
+                logger.info(f"Processing metric family: {metric_family.name}")
+                for sample in metric_family.samples:
+                    metric_name = sample.name
+                    value = sample.value
+                    labels = sample.labels
+                    logger.info(f"  Sample: name={metric_name}, value={value}, labels={labels}")
+
+                    # Use collection_timestamp from labels if available, otherwise use current_time
+                    # Use the metric's creation timestamp if available, otherwise use current time
+                    collection_timestamp = float(labels.get('collection_timestamp', current_time))
+                    
+                    # For metrics without explicit timestamps, be more lenient with time window
+                    # Allow metrics from slightly before the current time
+                    effective_window_start = window_start - 60  # Allow 60 seconds buffer
+                    effective_window_end = window_end + 60  # Allow 60 seconds buffer
+                    
+                    logger.debug(f"Time window check for {metric_name}: "
+                               f"collection_timestamp={collection_timestamp}, "
+                               f"window=[{effective_window_start}, {effective_window_end}], "
+                               f"current_time={current_time}, "
+                               f"passes={effective_window_start <= collection_timestamp <= effective_window_end}")
+                    
+                    if effective_window_start <= collection_timestamp <= effective_window_end:
+                        # For transaction success/failure metrics, we want to sum them up
+                        if "task_execution_status_total" == metric_name:
+                            protocol = labels.get("protocol", "unknown")
+                            status = labels.get("status", "unknown")
+                            
+                            agg_metric_name = f"{protocol}_{status}_transactions_count"
+                            agg_labels = frozenset({"protocol": protocol, "status": status}.items())
+                            
+                            key = (agg_metric_name, agg_labels)
+                            temp_aggregated_values[key] = temp_aggregated_values.get(key, 0.0) + float(value)
+                            
+                            logger.info(f"DEBUG: Aggregating {metric_name} -> {agg_metric_name}, value={value}, "
+                                       f"protocol={protocol}, status={status}, timestamp={collection_timestamp}, "
+                                       f"window=[{effective_window_start}, {window_end}]")
+                        else:
+                            for agg_func in self.aggregation_config.aggregation_functions:
+                                agg_metric_name = f"{metric_name}_{agg_func}"
+                                key = (agg_metric_name, frozenset(labels.items()))
+                                temp_aggregated_values[key] = float(value)
+
+            for (metric_name, labels_frozenset), value in temp_aggregated_values.items():
+                labels_dict = dict(labels_frozenset)
+                
+                aggregation_type = "sum"
+                if "_avg" in metric_name:
+                    aggregation_type = "avg"
+                elif "_max" in metric_name:
+                    aggregation_type = "max"
+                elif "_min" in metric_name:
+                    aggregation_type = "min"
+                elif "_count" in metric_name:
+                    aggregation_type = "count"
+
+                aggregated_metrics_list.append(
+                    AggregatedMetric(
+                        metric_name=metric_name,
+                        value=value,
+                        timestamp=current_time,
+                        labels=labels_dict,
+                        aggregation_type=aggregation_type
+                    )
                 )
-                return []
 
-            aggregated = []
-
-            # Process each metrics entry in the window
-            for metrics_entry in window_metrics:
-                # Process system metrics
-                if 'system' in metrics_entry:
-                    system_agg = self.process_system_metrics(metrics_entry['system'])
-                    aggregated.extend(system_agg)
-
-                # Process component metrics
-                for component in ['risk_manager', 'capital_allocator', 'scheduler']:
-                    if component in metrics_entry:
-                        component_agg = self.process_component_metrics(
-                            component, metrics_entry[component]
-                        )
-                        aggregated.extend(component_agg)
-
-            logger.info(f"Aggregated {len(aggregated)} metrics for window")
-            return aggregated
+            logger.debug(f"Aggregated {len(aggregated_metrics_list)} metrics for time window "
+                         f"[{window_start}, {window_end}]")
+            return aggregated_metrics_list
 
         except Exception as e:
             logger.error(f"Failed to aggregate time window: {e}")
@@ -281,34 +328,11 @@ class MetricsAggregator:
             >>> processed = aggregator.process_metrics(raw_data)
         """
         try:
-            # Add to buffer
             self.add_metrics_to_buffer(raw_metrics)
-
-            # Check if it's time to aggregate
-            current_time = time.time()
-            time_since_last_agg = current_time - self.last_aggregation_time
-
-            if time_since_last_agg >= self.aggregation_config.window_size_seconds:
-                # Perform aggregation for the last window
-                window_start = self.last_aggregation_time
-                window_end = current_time
-
-                aggregated = self.aggregate_time_window(window_start, window_end)
-
-                # Store aggregated metrics
-                self.aggregated_metrics.extend(aggregated)
-
-                # Update last aggregation time
-                self.last_aggregation_time = current_time
-
-                # Clean up old aggregated metrics
-                self._cleanup_old_metrics()
-
-                logger.info(f"Processed and aggregated {len(aggregated)} metrics")
-                return aggregated
-            else:
-                logger.debug("Aggregation window not reached, skipping aggregation")
-                return []
+            aggregated = self.aggregate_time_window(0, time.time())
+            self.aggregated_metrics.extend(aggregated)
+            self._cleanup_old_metrics()
+            return aggregated
 
         except Exception as e:
             logger.error(f"Failed to process metrics: {e}")

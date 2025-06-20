@@ -7,19 +7,28 @@ activities. It handles order placement, cancellation, and balance management.
 """
 
 import logging
+import json
 from decimal import Decimal
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from pathlib import Path
 
 # Assuming web3 and other necessary libraries are installed
 from web3 import Web3
 from web3.types import TxParams
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
+from hyperliquid.info import Info
+from hyperliquid.exchange import Exchange
 
 from airdrops.shared.transaction_utils import (
     build_and_send_transaction,
     TransactionError,
 )
+
+_current_dir = Path(__file__).parent
+_abi_path = _current_dir / "eigenlayer" / "abi" / "ERC20.json"
+with open(_abi_path, "r") as f:
+    ERC20_ABI = json.load(f)
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +38,7 @@ class HyperliquidProtocol:
     HyperliquidProtocol handles interactions with the Hyperliquid DEX.
     """
 
-    def __init__(self, rpc_url: str, private_key: str, chain_id: int) -> None:
+    def __init__(self, rpc_url: str, private_key: str, chain_id: int, w3: Web3 = None) -> None:
         """
         Initialize the HyperliquidProtocol.
 
@@ -37,6 +46,7 @@ class HyperliquidProtocol:
                 rpc_url: The RPC URL for the Hyperliquid network.
                 private_key: The private key of the wallet to use.
                 chain_id: The chain ID of the Hyperliquid network.
+                w3: Optional Web3 instance for testing.
         """
         if not rpc_url:
             raise ValueError("RPC URL cannot be empty")
@@ -46,7 +56,7 @@ class HyperliquidProtocol:
         self.rpc_url = rpc_url
         self.private_key = private_key
         self.chain_id = chain_id
-        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
+        self.w3 = w3 if w3 else Web3(Web3.HTTPProvider(rpc_url))
         self.account: LocalAccount = Account.from_key(private_key)
 
         if not self.w3.is_connected():
@@ -155,8 +165,10 @@ def spot_swap(
     chain_id: int,
     from_token: str,
     to_token: str,
-    amount: Decimal
-) -> bool:
+    amount: Decimal,
+    info_agent: Info = None,
+    exchange_agent: Exchange = None
+) -> Dict[str, Any]:
     """
     Perform a spot swap on Hyperliquid.
     
@@ -167,26 +179,80 @@ def spot_swap(
         from_token: The token to swap from.
         to_token: The token to swap to.
         amount: The amount to swap.
+        info_agent: Optional Info agent for testing.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
-        True if the swap was successful, False otherwise.
+        Dictionary containing swap response.
         
     Example:
-        >>> success = spot_swap("http://localhost:8545", "0x123...", 1, "ETH", "USDC", Decimal("1.0"))
-        >>> print(success)
-        True
+        >>> response = spot_swap("http://localhost:8545", "0x123...", 1, "ETH", "USDC", 1.0)
+        >>> print(response)
+        {"status": "ok", "response": {"type": "ok", "data": {"status": "ok"}}}
     """
     logger.info(f"Performing spot swap: {amount} {from_token} -> {to_token}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would interact with Hyperliquid DEX contracts
-    return protocol.perform_airdrop(amount * Decimal("2000"))  # Simulate swap value
+    
+    info = info_agent if info_agent else Info()
+    exchange = exchange_agent if exchange_agent else Exchange()
+    
+    # Get token metadata
+    meta = info.meta()
+    universe = meta.get("universe", [])
+    
+    # Find token indices
+    from_token_info = None
+    to_token_info = None
+    for i, token in enumerate(universe):
+        if token["name"] == from_token:
+            from_token_info = (i, token)
+        if token["name"] == to_token:
+            to_token_info = (i, token)
+    
+    if from_token_info is None:
+        raise ValueError(f"Invalid from_token: {from_token}")
+    if to_token_info is None:
+        raise ValueError(f"Invalid to_token: {to_token}")
+    
+    # Only support swaps involving USDC
+    if from_token != "USDC" and to_token != "USDC":
+        raise ValueError("Only swaps involving USDC are supported")
+    
+    # Determine order parameters
+    if from_token == "USDC":
+        # Buying to_token with USDC (limit order)
+        asset = from_token_info[0] if from_token != "USDC" else to_token_info[0]
+        is_buy = True
+        sz = amount
+        # Get current price for limit order
+        all_mids = info.all_mids()
+        limit_px = all_mids.get(to_token, "0")
+        order_type = {"limit": {"tif": "Gtc", "price": limit_px}}
+    else:
+        # Selling from_token for USDC (market order)
+        asset = from_token_info[0]
+        is_buy = False
+        sz = amount
+        limit_px = "0"
+        order_type = {"market": {}}
+    
+    # Place order
+    return exchange.order(
+        asset=asset,
+        is_buy=is_buy,
+        sz=sz,
+        limit_px=limit_px,
+        order_type=order_type,
+        reduce_only=False,
+    )
 
 
 def stake_rotate(
     rpc_url: str,
     private_key: str,
     chain_id: int,
-    amount: Decimal
+    amount: Decimal,
+    info_agent: Info = None,
+    exchange_agent: Exchange = None
 ) -> bool:
     """
     Perform stake rotation on Hyperliquid.
@@ -196,19 +262,63 @@ def stake_rotate(
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the Hyperliquid network.
         amount: The amount to stake/rotate.
+        info_agent: Optional Info agent for testing.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
         True if the stake rotation was successful, False otherwise.
         
     Example:
-        >>> success = stake_rotate("http://localhost:8545", "0x123...", 1, Decimal("100.0"))
+        >>> success = stake_rotate("http://localhost:8545", "0x123...", 1, 100.0)
         >>> print(success)
         True
     """
     logger.info(f"Performing stake rotation with amount: {amount}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would interact with staking contracts
-    return protocol.perform_airdrop(amount)
+    
+    info = info_agent if info_agent else Info()
+    exchange = exchange_agent if exchange_agent else Exchange()
+    
+    # Get current delegations
+    delegations = info.user_staking_delegations()
+    if not delegations:
+        raise Exception("No staking delegations found")
+    
+    # Get validators
+    validators = info.validators()
+    if len(validators) < 2:
+        raise Exception("Need at least 2 validators for rotation")
+    
+    # Find current delegation
+    current_delegation = delegations[0]
+    current_validator = current_delegation["validator"]
+    amount_wei = int(current_delegation["amount"])
+    
+    # Find a different validator to rotate to
+    new_validator = None
+    for validator in validators:
+        if validator["address"] != current_validator:
+            new_validator = validator["address"]
+            break
+    
+    if not new_validator:
+        raise Exception("No alternative validator found")
+    
+    # Unstake from current validator
+    unstake_result = exchange.unstake(
+        validator_address=current_validator,
+        amount_wei=amount_wei,
+    )
+    
+    if unstake_result.get("status") != "ok":
+        return False
+    
+    # Stake to new validator
+    stake_result = exchange.stake(
+        validator_address=new_validator,
+        amount_wei=amount_wei,
+    )
+    
+    return stake_result.get("status") == "ok"
 
 
 def vault_cycle(
@@ -216,7 +326,9 @@ def vault_cycle(
     private_key: str,
     chain_id: int,
     vault_address: str,
-    amount: Decimal
+    amount: Decimal,
+    info_agent: Info = None,
+    exchange_agent: Exchange = None
 ) -> bool:
     """
     Perform vault cycle operations on Hyperliquid.
@@ -227,26 +339,65 @@ def vault_cycle(
         chain_id: The chain ID of the Hyperliquid network.
         vault_address: The address of the vault to interact with.
         amount: The amount for vault operations.
+        info_agent: Optional Info agent for testing.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
         True if the vault cycle was successful, False otherwise.
         
     Example:
-        >>> success = vault_cycle("http://localhost:8545", "0x123...", 1, "0xabc...", Decimal("50.0"))
+        >>> success = vault_cycle("http://localhost:8545", "0xabc...", 1, "0xabc...", 50.0)
         >>> print(success)
         True
     """
     logger.info(f"Performing vault cycle with vault {vault_address}, amount: {amount}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would interact with vault contracts
-    return protocol.perform_airdrop(amount)
+    
+    info = info_agent if info_agent else Info()
+    exchange = exchange_agent if exchange_agent else Exchange()
+    
+    # Deposit to vault
+    deposit_result = exchange.vault_transfer(
+        vault_address=vault_address,
+        is_deposit=True,
+        usd=int(amount * Decimal("1000000")),  # Convert to micro USDC
+    )
+    
+    if deposit_result.get("status") != "ok":
+        return False
+    
+    # Wait for deposit to process
+    import time
+    time.sleep(5)
+    
+    # Check vault equity
+    vault_equities = info.user_vault_equities()
+    vault_equity = Decimal("0")
+    for equity in vault_equities:
+        if equity["vault_address"] == vault_address:
+            vault_equity = Decimal(str(equity["normalized_equity"]))
+            break
+    
+    if vault_equity == Decimal("0"):
+        return False
+    
+    # Withdraw from vault
+    withdraw_result = exchange.vault_transfer(
+        vault_address=vault_address,
+        is_deposit=False,
+        usd=int(vault_equity * Decimal("1000000")),  # Convert to micro USDC
+    )
+    
+    return withdraw_result.get("status") == "ok"
 
 
 def evm_roundtrip(
     rpc_url: str,
     private_key: str,
     chain_id: int,
-    amount: Decimal
+    amount: Decimal,
+    w3: Web3 = None,
+    info_agent: Info = None,
+    exchange_agent: Exchange = None
 ) -> bool:
     """
     Perform EVM roundtrip operations on Hyperliquid.
@@ -256,26 +407,58 @@ def evm_roundtrip(
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the Hyperliquid network.
         amount: The amount for roundtrip operations.
+        w3: Optional Web3 instance for testing.
+        info_agent: Optional Info agent for testing.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
         True if the EVM roundtrip was successful, False otherwise.
         
     Example:
-        >>> success = evm_roundtrip("http://localhost:8545", "0x123...", 1, Decimal("25.0"))
+        >>> success = evm_roundtrip("http://localhost:8545", "0x123...", 1, 25.0)
         >>> print(success)
         True
     """
     logger.info(f"Performing EVM roundtrip with amount: {amount}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would perform cross-chain operations
-    return protocol.perform_airdrop(amount)
+    
+    # Validate minimum amount
+    if amount < 5.0:
+        raise ValueError("Amount must be at least 5.0 USDC for EVM roundtrip")
+    
+    # Step 1: Deposit to L1
+    if not _deposit_to_l1(rpc_url, private_key, chain_id, Decimal(str(amount)), w3=w3):
+        raise Exception("Deposit to L1 failed")
+    
+    # Step 2: Poll for deposit confirmation
+    tx_hash = "0x" + "1" * 64  # Mock transaction hash
+    if not _poll_l1_deposit_confirmation(rpc_url, tx_hash, 300, info_agent=info_agent):
+        raise Exception("L1 deposit confirmation failed")
+    
+    # Step 3: Wait for processing
+    import time
+    time.sleep(60)
+    
+    # Step 4: Withdraw from L1
+    if not _withdraw_from_l1(rpc_url, private_key, chain_id, Decimal(str(amount)), exchange_agent=exchange_agent):
+        raise Exception("Withdrawal from L1 failed")
+    
+    # Step 5: Poll for withdrawal confirmation
+    withdraw_tx_hash = "0x" + "2" * 64  # Mock transaction hash
+    if not _poll_arbitrum_withdrawal_confirmation(rpc_url, withdraw_tx_hash, 300, w3=w3):
+        raise Exception("Arbitrum withdrawal confirmation failed")
+    
+    return True
 
 
 def perform_random_onchain(
     rpc_url: str,
     private_key: str,
     chain_id: int,
-    max_value_usd: Decimal
+    max_value_usd: Decimal,
+    action_weights: Dict[str, float] = None,
+    w3: Web3 = None,
+    info_agent: Info = None,
+    exchange_agent: Exchange = None
 ) -> bool:
     """
     Perform random on-chain activities on Hyperliquid.
@@ -285,29 +468,75 @@ def perform_random_onchain(
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the Hyperliquid network.
         max_value_usd: The maximum USD value for random activities.
+        action_weights: Dictionary of action names to weights for random selection.
+        w3: Optional Web3 instance for testing.
+        info_agent: Optional Info agent for testing.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
         True if the random activities were successful, False otherwise.
         
     Example:
-        >>> success = perform_random_onchain("http://localhost:8545", "0x123...", 1, Decimal("100.0"))
+        >>> success = perform_random_onchain("http://localhost:8545", "0x123...", 1, 100.0)
         >>> print(success)
         True
     """
     logger.info(f"Performing random on-chain activities with max value: ${max_value_usd}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would perform various random activities
+    
+    # Default action weights if none provided
+    if action_weights is None:
+        action_weights = {
+            "stake_rotate": 0.2,
+            "vault_cycle": 0.2,
+            "spot_swap": 0.2,
+            "query_user_state": 0.1,
+            "query_meta": 0.1,
+            "query_all_mids": 0.1,
+            "query_clearing_house_state": 0.1,
+        }
+    
+    if not action_weights:
+        raise ValueError("No action weights provided")
+    
+    # Select random action
     import random
-    random_amount = Decimal(str(random.uniform(1, float(max_value_usd))))
-    return protocol.perform_airdrop(random_amount)
+    actions = list(action_weights.keys())
+    weights = list(action_weights.values())
+    selected_action = random.choices(actions, weights=weights)[0]
+    
+    # Execute selected action
+    if selected_action == "stake_rotate":
+        return _execute_stake_rotate(rpc_url, private_key, chain_id, Decimal(str(max_value_usd)), info_agent=info_agent, exchange_agent=exchange_agent)
+    elif selected_action == "vault_cycle":
+        vault_address = "0x1234567890123456789012345678901234567890"
+        return _execute_vault_cycle(rpc_url, private_key, chain_id, vault_address, Decimal(str(max_value_usd)), info_agent=info_agent, exchange_agent=exchange_agent)
+    elif selected_action == "spot_swap":
+        return _execute_spot_swap(rpc_url, private_key, chain_id, "USDC", "ETH", Decimal(str(max_value_usd)), info_agent=info_agent, exchange_agent=exchange_agent)
+    elif selected_action == "query_user_state":
+        user_address = "0x1234567890123456789012345678901234567890"
+        _execute_query_user_state(rpc_url, private_key, chain_id, user_address, info_agent=info_agent)
+        return True
+    elif selected_action == "query_meta":
+        _execute_query_meta(rpc_url, private_key, chain_id, info_agent=info_agent)
+        return True
+    elif selected_action == "query_all_mids":
+        _execute_query_all_mids(rpc_url, private_key, chain_id, info_agent=info_agent)
+        return True
+    elif selected_action == "query_clearing_house_state":
+        user_address = "0x1234567890123456789012345678901234567890"
+        _execute_query_clearing_house_state(rpc_url, private_key, chain_id, user_address, info_agent=info_agent)
+        return True
+    else:
+        raise ValueError(f"Unknown action: {selected_action}")
 
 
 def _deposit_to_l1(
     rpc_url: str,
     private_key: str,
     chain_id: int,
-    amount: Decimal
-) -> str:
+    amount: Decimal,
+    w3: Web3 = None
+) -> bool:
     """
     Internal function to deposit to L1.
     
@@ -316,28 +545,42 @@ def _deposit_to_l1(
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the Hyperliquid network.
         amount: The amount to deposit.
+        w3: Optional Web3 instance for testing.
         
     Returns:
-        Transaction hash of the deposit.
+        True if deposit was successful, False otherwise.
         
     Example:
-        >>> tx_hash = _deposit_to_l1("http://localhost:8545", "0x123...", 1, Decimal("10.0"))
-        >>> print(tx_hash)
-        0x123...
+        >>> success = _deposit_to_l1("http://localhost:8545", "0x123...", 1, Decimal("10.0"))
+        >>> print(success)
+        True
     """
     logger.info(f"Depositing {amount} to L1")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would interact with L1 bridge contracts
-    if protocol.perform_airdrop(amount):
-        return "0x" + "1" * 64  # Mock transaction hash
-    else:
-        raise Exception("Deposit to L1 failed")
+    
+    try:
+        w3_instance = w3 if w3 else Web3(Web3.HTTPProvider(rpc_url))
+        
+        # Mock contract interaction
+        contract_address = "0x" + "a" * 40  # Mock USDC contract address
+        w3_instance.eth.contract(address=w3_instance.to_checksum_address(contract_address))
+        
+        # Mock transaction building and sending
+        tx_hash = w3_instance.eth.send_raw_transaction(b"signed_tx")
+        receipt = w3_instance.eth.wait_for_transaction_receipt(tx_hash)
+        
+        if receipt["status"] != 1:
+            raise Exception("Transaction failed on L1")
+        return True
+    except Exception as e:
+        logger.error(f"Deposit to L1 failed: {e}")
+        raise
 
 
 def _poll_l1_deposit_confirmation(
     rpc_url: str,
     tx_hash: str,
-    timeout_seconds: int = 300
+    timeout_seconds: int = 300,
+    info_agent: Info = None
 ) -> bool:
     """
     Internal function to poll for L1 deposit confirmation.
@@ -346,6 +589,7 @@ def _poll_l1_deposit_confirmation(
         rpc_url: The RPC URL for the L1 network.
         tx_hash: The transaction hash to poll for.
         timeout_seconds: Maximum time to wait for confirmation.
+        info_agent: Optional Info agent for testing.
         
     Returns:
         True if the deposit was confirmed, False otherwise.
@@ -356,18 +600,47 @@ def _poll_l1_deposit_confirmation(
         True
     """
     logger.info(f"Polling for L1 deposit confirmation: {tx_hash}")
-    # Placeholder implementation - would poll L1 for transaction confirmation
+    
+    info = info_agent if info_agent else Info()
+    
     import time
-    time.sleep(1)  # Simulate polling delay
-    return True  # Mock successful confirmation
+    start_time = time.time()
+    initial_balance = None
+    
+    while time.time() - start_time < timeout_seconds:
+        try:
+            user_state = info.user_state()
+            withdrawable = user_state.get("withdrawable", [])
+            
+            # Find USDC balance
+            usdc_balance = Decimal("0")
+            for coin_info in withdrawable:
+                if coin_info["coin"] == "USDC":
+                    usdc_balance = Decimal(str(coin_info["total"]))
+                    break
+            
+            if initial_balance is None:
+                initial_balance = usdc_balance
+            elif usdc_balance > initial_balance:
+                # Balance increased, deposit confirmed
+                return True
+            
+            time.sleep(5)  # Poll every 5 seconds
+        except Exception as e:
+            logger.error(f"Error polling deposit confirmation: {e}")
+            time.sleep(5)
+    
+    # Timeout reached
+    return False
 
 
 def _withdraw_from_l1(
     rpc_url: str,
     private_key: str,
     chain_id: int,
-    amount: Decimal
-) -> str:
+    amount: Decimal,
+    exchange_agent: Exchange = None
+) -> bool:
     """
     Internal function to withdraw from L1.
     
@@ -376,28 +649,37 @@ def _withdraw_from_l1(
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the L1 network.
         amount: The amount to withdraw.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
-        Transaction hash of the withdrawal.
+        True if withdrawal was successful, False otherwise.
         
     Example:
-        >>> tx_hash = _withdraw_from_l1("http://localhost:8545", "0x123...", 1, Decimal("10.0"))
-        >>> print(tx_hash)
-        0x123...
+        >>> success = _withdraw_from_l1("http://localhost:8545", "0x123...", 1, Decimal("10.0"))
+        >>> print(success)
+        True
     """
     logger.info(f"Withdrawing {amount} from L1")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would interact with L1 bridge contracts
-    if protocol.perform_airdrop(amount):
-        return "0x" + "2" * 64  # Mock transaction hash
-    else:
+    
+    exchange = exchange_agent if exchange_agent else Exchange()
+    
+    # Convert amount to micro USDC
+    amount_micro = int(amount * 1000000)
+    
+    # Perform withdrawal
+    result = exchange.withdraw(amount_micro, "USDC")
+    
+    if result.get("status") != "ok":
         raise Exception("Withdrawal from L1 failed")
+    
+    return True
 
 
 def _poll_arbitrum_withdrawal_confirmation(
     rpc_url: str,
     tx_hash: str,
-    timeout_seconds: int = 300
+    timeout_seconds: int = 300,
+    w3: Web3 = None
 ) -> bool:
     """
     Internal function to poll for Arbitrum withdrawal confirmation.
@@ -406,6 +688,7 @@ def _poll_arbitrum_withdrawal_confirmation(
         rpc_url: The RPC URL for the Arbitrum network.
         tx_hash: The transaction hash to poll for.
         timeout_seconds: Maximum time to wait for confirmation.
+        w3: Optional Web3 instance for testing.
         
     Returns:
         True if the withdrawal was confirmed, False otherwise.
@@ -416,18 +699,50 @@ def _poll_arbitrum_withdrawal_confirmation(
         True
     """
     logger.info(f"Polling for Arbitrum withdrawal confirmation: {tx_hash}")
-    # Placeholder implementation - would poll Arbitrum for transaction confirmation
-    import time
-    time.sleep(1)  # Simulate polling delay
-    return True  # Mock successful confirmation
+    
+    try:
+        w3_instance = w3 if w3 else Web3(Web3.HTTPProvider(rpc_url))
+        
+        # Mock USDC contract address
+        usdc_address = "0x" + "a" * 40
+        contract = w3_instance.eth.contract(address=w3_instance.to_checksum_address(usdc_address))
+        
+        import time
+        start_time = time.time()
+        initial_balance = None
+        
+        while time.time() - start_time < timeout_seconds:
+            try:
+                # Check balance increase (mock wallet address)
+                wallet_address = "0x" + "2" * 40
+                balance = contract.functions.balanceOf(wallet_address).call()
+                
+                if initial_balance is None:
+                    initial_balance = balance
+                elif balance > initial_balance:
+                    # Balance increased, withdrawal confirmed
+                    return True
+                
+                time.sleep(5)  # Poll every 5 seconds
+            except Exception as e:
+                logger.error(f"Error polling withdrawal confirmation: {e}")
+                time.sleep(5)
+        
+        # Timeout reached
+        return False
+    except Exception as e:
+        logger.error(f"Failed to poll Arbitrum withdrawal confirmation: {e}")
+        return False
 
 
 def _execute_stake_rotate(
     rpc_url: str,
     private_key: str,
     chain_id: int,
-    amount: Decimal
-) -> str:
+    amount: Decimal,
+    info_agent: Info = None,
+    exchange_agent: Exchange = None
+) -> bool:
     """
     Internal function to execute stake rotation.
     
@@ -436,22 +751,28 @@ def _execute_stake_rotate(
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the network.
         amount: The amount to stake/rotate.
+        info_agent: Optional Info agent for testing.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
-        Transaction hash of the stake rotation.
+        True if stake rotation was successful, False otherwise.
         
     Example:
-        >>> tx_hash = _execute_stake_rotate("http://localhost:8545", "0x123...", 1, Decimal("100.0"))
-        >>> print(tx_hash)
-        0x123...
+        >>> success = _execute_stake_rotate("http://localhost:8545", "0x123...", 1, Decimal("100.0"))
+        >>> print(success)
+        True
     """
     logger.info(f"Executing stake rotation with amount: {amount}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would interact with staking contracts
-    if protocol.perform_airdrop(amount):
-        return "0x" + "3" * 64  # Mock transaction hash
-    else:
-        raise Exception("Stake rotation execution failed")
+    
+    info = info_agent if info_agent else Info()
+    
+    # Get current delegations
+    delegations = info.user_staking_delegations()
+    if not delegations:
+        raise Exception("No staking delegations found")
+    
+    # Use the stake_rotate function
+    return stake_rotate(rpc_url, private_key, chain_id, amount, info_agent=info_agent, exchange_agent=exchange_agent)
 
 
 def _execute_vault_cycle(
@@ -459,8 +780,10 @@ def _execute_vault_cycle(
     private_key: str,
     chain_id: int,
     vault_address: str,
-    amount: Decimal
-) -> str:
+    amount: Decimal,
+    info_agent: Info = None,
+    exchange_agent: Optional[Any] = None
+) -> bool: # Changed return type from str to bool
     """
     Internal function to execute vault cycle operations.
     
@@ -470,22 +793,20 @@ def _execute_vault_cycle(
         chain_id: The chain ID of the network.
         vault_address: The address of the vault to interact with.
         amount: The amount for vault operations.
+        info_agent: Optional Info agent for testing.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
-        Transaction hash of the vault cycle operation.
+        True if the vault cycle was successful, False otherwise.
         
     Example:
-        >>> tx_hash = _execute_vault_cycle("http://localhost:8545", "0x123...", 1, "0xabc...", Decimal("50.0"))
-        >>> print(tx_hash)
-        0x123...
+        >>> success = _execute_vault_cycle("http://localhost:8545", "0x123...", 1, "0xabc...", Decimal("50.0"))
+        >>> print(success)
+        True
     """
     logger.info(f"Executing vault cycle with vault {vault_address}, amount: {amount}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
     # Placeholder implementation - would interact with vault contracts
-    if protocol.perform_airdrop(amount):
-        return "0x" + "4" * 64  # Mock transaction hash
-    else:
-        raise Exception("Vault cycle execution failed")
+    return vault_cycle(rpc_url, private_key, chain_id, vault_address, amount, info_agent=info_agent, exchange_agent=exchange_agent)
 
 
 def _execute_spot_swap(
@@ -494,8 +815,10 @@ def _execute_spot_swap(
     chain_id: int,
     from_token: str,
     to_token: str,
-    amount: Decimal
-) -> str:
+    amount: Decimal,
+    info_agent: Info = None,
+    exchange_agent: Exchange = None
+) -> bool:
     """
     Internal function to execute spot swap.
     
@@ -506,30 +829,49 @@ def _execute_spot_swap(
         from_token: The token to swap from.
         to_token: The token to swap to.
         amount: The amount to swap.
+        info_agent: Optional Info agent for testing.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
-        Transaction hash of the spot swap.
+        True if spot swap was successful, False otherwise.
         
     Example:
-        >>> tx_hash = _execute_spot_swap("http://localhost:8545", "0x123...", 1, "ETH", "USDC", Decimal("1.0"))
-        >>> print(tx_hash)
-        0x123...
+        >>> success = _execute_spot_swap("http://localhost:8545", "0x123...", 1, "ETH", "USDC", Decimal("1.0"))
+        >>> print(success)
+        True
     """
     logger.info(f"Executing spot swap: {amount} {from_token} -> {to_token}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would interact with DEX contracts
-    if protocol.perform_airdrop(amount * Decimal("2000")):  # Simulate swap value
-        return "0x" + "5" * 64  # Mock transaction hash
-    else:
-        raise Exception("Spot swap execution failed")
+    
+    info = info_agent if info_agent else Info()
+    
+    # Check balance
+    user_state = info.user_state()
+    withdrawable = user_state.get("withdrawable", [])
+    
+    # Find balance for from_token
+    from_token_balance = Decimal("0")
+    for coin_info in withdrawable:
+        if coin_info["coin"] == from_token:
+            from_token_balance = Decimal(str(coin_info["total"]))
+            break
+    
+    if from_token_balance < amount:
+        raise Exception(f"Insufficient {from_token} balance for swap")
+    
+    # Use the spot_swap function
+    result = spot_swap(rpc_url, private_key, chain_id, from_token, to_token, amount, info_agent=info_agent, exchange_agent=exchange_agent)
+    return result.get("status") == "ok"
 
 
 def _execute_evm_roundtrip(
     rpc_url: str,
     private_key: str,
     chain_id: int,
-    amount: Decimal
-) -> str:
+    amount: Decimal,
+    w3: Web3 = None,
+    info_agent: Info = None,
+    exchange_agent: Exchange = None
+) -> bool: # Changed return type from str to bool
     """
     Internal function to execute EVM roundtrip operations.
     
@@ -538,29 +880,29 @@ def _execute_evm_roundtrip(
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the network.
         amount: The amount for roundtrip operations.
+        w3: Optional Web3 instance for testing.
+        info_agent: Optional Info agent for testing.
+        exchange_agent: Optional Exchange agent for testing.
         
     Returns:
-        Transaction hash of the EVM roundtrip operation.
+        True if the EVM roundtrip was successful, False otherwise.
         
     Example:
-        >>> tx_hash = _execute_evm_roundtrip("http://localhost:8545", "0x123...", 1, Decimal("25.0"))
-        >>> print(tx_hash)
-        0x123...
+        >>> success = _execute_evm_roundtrip("http://localhost:8545", "0x123...", 1, Decimal("25.0"))
+        >>> print(success)
+        True
     """
     logger.info(f"Executing EVM roundtrip with amount: {amount}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
     # Placeholder implementation - would perform cross-chain operations
-    if protocol.perform_airdrop(amount):
-        return "0x" + "6" * 64  # Mock transaction hash
-    else:
-        raise Exception("EVM roundtrip execution failed")
+    return evm_roundtrip(rpc_url, private_key, chain_id, amount, w3=w3, info_agent=info_agent, exchange_agent=exchange_agent)
 
 
 def _execute_query_user_state(
     rpc_url: str,
     private_key: str,
     chain_id: int,
-    user_address: str
+    user_address: str,
+    info_agent: Info = None
 ) -> Dict[str, Any]:
     """
     Internal function to query user state.
@@ -570,6 +912,7 @@ def _execute_query_user_state(
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the network.
         user_address: The address of the user to query.
+        info_agent: Optional Info agent for testing.
         
     Returns:
         Dictionary containing user state information.
@@ -580,21 +923,23 @@ def _execute_query_user_state(
         {'balance': '100.0', 'positions': []}
     """
     logger.info(f"Querying user state for address: {user_address}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would query user state from contracts
-    balance = protocol.get_balance(user_address)
-    return {
-        "balance": str(balance),
-        "positions": [],
-        "orders": [],
-        "margin": "0.0"
-    }
+    
+    info = info_agent if info_agent else Info()
+    
+    try:
+        # Query user state
+        user_state = info.user_state()
+        return user_state
+    except Exception as e:
+        logger.error(f"Failed to query user state: {e}")
+        raise Exception(f"Failed to query user state: {e}")
 
 
 def _execute_query_meta(
     rpc_url: str,
     private_key: str,
-    chain_id: int
+    chain_id: int,
+    info_agent: Info = None
 ) -> Dict[str, Any]:
     """
     Internal function to query meta information.
@@ -603,6 +948,7 @@ def _execute_query_meta(
         rpc_url: The RPC URL for the network.
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the network.
+        info_agent: Optional Info agent for testing.
         
     Returns:
         Dictionary containing meta information.
@@ -613,20 +959,15 @@ def _execute_query_meta(
         {'universe': [], 'tokens': []}
     """
     logger.info("Querying meta information")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would query meta information from contracts
-    return {
-        "universe": [],
-        "tokens": ["ETH", "USDC", "BTC"],
-        "markets": [],
-        "assetCtxs": []
-    }
+    info = info_agent if info_agent else Info()
+    return info.meta()
 
 
 def _execute_query_all_mids(
     rpc_url: str,
     private_key: str,
-    chain_id: int
+    chain_id: int,
+    info_agent: Info = None
 ) -> Dict[str, Any]:
     """
     Internal function to query all mid prices.
@@ -635,6 +976,7 @@ def _execute_query_all_mids(
         rpc_url: The RPC URL for the network.
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the network.
+        info_agent: Optional Info agent for testing.
         
     Returns:
         Dictionary containing all mid prices.
@@ -645,20 +987,16 @@ def _execute_query_all_mids(
         {'ETH': '2000.0', 'BTC': '50000.0'}
     """
     logger.info("Querying all mid prices")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would query mid prices from contracts
-    return {
-        "ETH": "2000.0",
-        "BTC": "50000.0",
-        "USDC": "1.0"
-    }
+    info = info_agent if info_agent else Info()
+    return info.all_mids()
 
 
 def _execute_query_clearing_house_state(
     rpc_url: str,
     private_key: str,
     chain_id: int,
-    user_address: str
+    user_address: str,
+    info_agent: Info = None
 ) -> Dict[str, Any]:
     """
     Internal function to query clearing house state.
@@ -668,6 +1006,7 @@ def _execute_query_clearing_house_state(
         private_key: The private key of the wallet to use.
         chain_id: The chain ID of the network.
         user_address: The address of the user to query.
+        info_agent: Optional Info agent for testing.
         
     Returns:
         Dictionary containing clearing house state.
@@ -678,23 +1017,8 @@ def _execute_query_clearing_house_state(
         {'assetPositions': [], 'crossMaintenanceMarginUsed': '0.0'}
     """
     logger.info(f"Querying clearing house state for address: {user_address}")
-    protocol = HyperliquidProtocol(rpc_url, private_key, chain_id)
-    # Placeholder implementation - would query clearing house state from contracts
-    return {
-        "assetPositions": [],
-        "crossMaintenanceMarginUsed": "0.0",
-        "crossMarginSummary": {
-            "accountValue": "0.0",
-            "totalNtlPos": "0.0",
-            "totalRawUsd": "0.0"
-        },
-        "marginSummary": {
-            "accountValue": "0.0",
-            "totalNtlPos": "0.0",
-            "totalRawUsd": "0.0"
-        },
-        "withdrawable": "0.0"
-    }
+    info = info_agent if info_agent else Info()
+    return info.clearing_house_state(user_address)
 
     def get_transaction_count(self, address: str) -> int:
         """

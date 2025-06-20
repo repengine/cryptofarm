@@ -6,7 +6,7 @@ import pytest
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Generator
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from airdrops.analytics.tracker import AirdropTracker, AirdropEvent
 from airdrops.analytics.optimizer import ROIOptimizer
@@ -39,7 +39,7 @@ class TestPortfolioPerformanceAnalyzer:
 
     @pytest.fixture
     def analyzer(
-        self, tracker: AirdropTracker, roi_optimizer: ROIOptimizer
+        self, tracker: AirdropTracker, roi_optimizer: ROIOptimizer, airdrop_tracker_cleanup
     ) -> PortfolioPerformanceAnalyzer:
         """Create a portfolio analyzer instance."""
         return PortfolioPerformanceAnalyzer(tracker, roi_optimizer)
@@ -281,16 +281,14 @@ class TestPortfolioPerformanceAnalyzer:
         for event in sample_events:
             analyzer.tracker.record_airdrop(event)
 
-        # Mock ROI optimizer response - should return list of ROI objects
-        mock_roi_data = [
-            type('ROI', (), {'total_cost_usd': Decimal('50.0')})(),
-            type('ROI', (), {'total_cost_usd': Decimal('50.0')})()
-        ]
-
+        # Mock ROI optimizer response - should return an object with total_capital_deployed
+        mock_roi_metrics = Mock()
+        mock_roi_metrics.total_capital_deployed = Decimal("100.00")
+    
         with patch.object(
             analyzer.roi_optimizer,
-            'calculate_portfolio_roi',
-            return_value=mock_roi_data
+            'analyze_historical_data',
+            return_value=mock_roi_metrics
         ):
             metrics = analyzer.calculate_portfolio_metrics(
                 capital_allocation={

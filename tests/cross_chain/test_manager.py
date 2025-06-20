@@ -8,6 +8,7 @@ system including data models and the CrossChainManager class.
 import pytest
 from decimal import Decimal
 from datetime import datetime
+
 from unittest.mock import Mock
 
 from airdrops.cross_chain.models import Chain, Wallet, RebalancingJob, JobStatus
@@ -18,7 +19,7 @@ from airdrops.cross_chain.bridge_adapter import BridgeAdapter
 class TestChain:
     """Test cases for the Chain data model."""
     
-    def test_chain_creation_valid(self):
+    def test_chain_creation_valid(self) -> None:
         """Test successful creation of a Chain instance."""
         chain = Chain(
             name="Ethereum",
@@ -30,7 +31,7 @@ class TestChain:
         assert chain.chain_id == 1
         assert chain.rpc_url == "https://eth-mainnet.alchemyapi.io/v2/test-key"
     
-    def test_chain_creation_empty_name(self):
+    def test_chain_creation_empty_name(self) -> None:
         """Test Chain creation fails with empty name."""
         with pytest.raises(ValueError, match="Chain name cannot be empty"):
             Chain(
@@ -39,7 +40,7 @@ class TestChain:
                 rpc_url="https://eth-mainnet.alchemyapi.io/v2/test-key"
             )
     
-    def test_chain_creation_invalid_chain_id(self):
+    def test_chain_creation_invalid_chain_id(self) -> None:
         """Test Chain creation fails with invalid chain ID."""
         with pytest.raises(ValueError, match="Chain ID must be positive"):
             Chain(
@@ -48,7 +49,7 @@ class TestChain:
                 rpc_url="https://eth-mainnet.alchemyapi.io/v2/test-key"
             )
     
-    def test_chain_creation_empty_rpc_url(self):
+    def test_chain_creation_empty_rpc_url(self) -> None:
         """Test Chain creation fails with empty RPC URL."""
         with pytest.raises(ValueError, match="RPC URL cannot be empty"):
             Chain(
@@ -61,7 +62,7 @@ class TestChain:
 class TestWallet:
     """Test cases for the Wallet data model."""
     
-    def test_wallet_creation_valid(self):
+    def test_wallet_creation_valid(self) -> None:
         """Test successful creation of a Wallet instance."""
         addresses = {
             "ethereum": "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87",
@@ -73,17 +74,17 @@ class TestWallet:
         assert len(wallet.addresses) == 2
         assert wallet.addresses["ethereum"] == "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
     
-    def test_wallet_creation_empty_name(self):
+    def test_wallet_creation_empty_name(self) -> None:
         """Test Wallet creation fails with empty name."""
         with pytest.raises(ValueError, match="Wallet name cannot be empty"):
             Wallet(name="", addresses={"ethereum": "0x123"})
     
-    def test_wallet_creation_no_addresses(self):
+    def test_wallet_creation_no_addresses(self) -> None:
         """Test Wallet creation fails with no addresses."""
         with pytest.raises(ValueError, match="Wallet must have at least one address"):
             Wallet(name="Test Wallet", addresses={})
     
-    def test_wallet_get_address_existing(self):
+    def test_wallet_get_address_existing(self) -> None:
         """Test getting an existing address from wallet."""
         wallet = Wallet(
             name="Test",
@@ -93,7 +94,7 @@ class TestWallet:
         address = wallet.get_address("ethereum")
         assert address == "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
     
-    def test_wallet_get_address_case_insensitive(self):
+    def test_wallet_get_address_case_insensitive(self) -> None:
         """Test getting address is case insensitive."""
         wallet = Wallet(
             name="Test",
@@ -103,7 +104,7 @@ class TestWallet:
         address = wallet.get_address("ETHEREUM")
         assert address == "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
     
-    def test_wallet_get_address_nonexistent(self):
+    def test_wallet_get_address_nonexistent(self) -> None:
         """Test getting a non-existent address returns None."""
         wallet = Wallet(
             name="Test",
@@ -117,7 +118,7 @@ class TestWallet:
 class TestRebalancingJob:
     """Test cases for the RebalancingJob data model."""
     
-    def test_rebalancing_job_creation_valid(self):
+    def test_rebalancing_job_creation_valid(self) -> None:
         """Test successful creation of a RebalancingJob instance."""
         job = RebalancingJob(
             source_chain="ethereum",
@@ -136,7 +137,7 @@ class TestRebalancingJob:
         assert isinstance(job.created_at, datetime)
         assert isinstance(job.updated_at, datetime)
     
-    def test_rebalancing_job_empty_source_chain(self):
+    def test_rebalancing_job_empty_source_chain(self) -> None:
         """Test RebalancingJob creation fails with empty source chain."""
         with pytest.raises(ValueError, match="Source chain cannot be empty"):
             RebalancingJob(
@@ -146,7 +147,7 @@ class TestRebalancingJob:
                 amount=Decimal("1000.00")
             )
     
-    def test_rebalancing_job_empty_destination_chain(self):
+    def test_rebalancing_job_empty_destination_chain(self) -> None:
         """Test RebalancingJob creation fails with empty destination chain."""
         with pytest.raises(ValueError, match="Destination chain cannot be empty"):
             RebalancingJob(
@@ -156,7 +157,7 @@ class TestRebalancingJob:
                 amount=Decimal("1000.00")
             )
     
-    def test_rebalancing_job_empty_asset(self):
+    def test_rebalancing_job_empty_asset(self) -> None:
         """Test RebalancingJob creation fails with empty asset."""
         with pytest.raises(ValueError, match="Asset cannot be empty"):
             RebalancingJob(
@@ -166,7 +167,7 @@ class TestRebalancingJob:
                 amount=Decimal("1000.00")
             )
     
-    def test_rebalancing_job_negative_amount(self):
+    def test_rebalancing_job_negative_amount(self) -> None:
         """Test RebalancingJob creation fails with negative amount."""
         with pytest.raises(ValueError, match="Amount must be positive"):
             RebalancingJob(
@@ -176,7 +177,7 @@ class TestRebalancingJob:
                 amount=Decimal("-100.00")
             )
     
-    def test_rebalancing_job_same_chains(self):
+    def test_rebalancing_job_same_chains(self) -> None:
         """Test RebalancingJob creation fails with same source and destination."""
         with pytest.raises(ValueError, match="Source and destination chains must be different"):
             RebalancingJob(
@@ -186,7 +187,7 @@ class TestRebalancingJob:
                 amount=Decimal("1000.00")
             )
     
-    def test_rebalancing_job_update_status(self):
+    def test_rebalancing_job_update_status(self) -> None:
         """Test updating job status updates timestamp."""
         job = RebalancingJob(
             source_chain="ethereum",
@@ -205,7 +206,7 @@ class TestRebalancingJob:
 class TestCrossChainManager:
     """Test cases for the CrossChainManager class."""
     
-    def test_manager_initialization_no_adapters(self):
+    def test_manager_initialization_no_adapters(self) -> None:
         """Test successful initialization of CrossChainManager without adapters."""
         manager = CrossChainManager()
         
@@ -220,7 +221,7 @@ class TestCrossChainManager:
         assert len(manager._active_jobs) == 0
         assert len(manager._bridge_adapters) == 0
     
-    def test_manager_initialization_with_adapters(self):
+    def test_manager_initialization_with_adapters(self) -> None:
         """Test successful initialization of CrossChainManager with adapters."""
         mock_adapter = Mock(spec=BridgeAdapter)
         manager = CrossChainManager([mock_adapter])
@@ -228,7 +229,7 @@ class TestCrossChainManager:
         assert len(manager._bridge_adapters) == 1
         assert manager._bridge_adapters[0] == mock_adapter
     
-    def test_add_chain_valid(self):
+    def test_add_chain_valid(self) -> None:
         """Test adding a valid chain to the manager."""
         manager = CrossChainManager()
         chain = Chain("Ethereum", 1, "https://eth-mainnet.alchemyapi.io/v2/test-key")
@@ -238,14 +239,14 @@ class TestCrossChainManager:
         assert "ethereum" in manager._chains
         assert manager._chains["ethereum"] == chain
     
-    def test_add_chain_invalid_type(self):
+    def test_add_chain_invalid_type(self) -> None:
         """Test adding invalid chain type raises TypeError."""
         manager = CrossChainManager()
         
         with pytest.raises(TypeError, match="Expected Chain instance"):
-            manager.add_chain("not a chain")
+            manager.add_chain("not a chain")  # type: ignore
     
-    def test_add_wallet_valid(self):
+    def test_add_wallet_valid(self) -> None:
         """Test adding a valid wallet to the manager."""
         manager = CrossChainManager()
         wallet = Wallet("Main", {"ethereum": "0x123"})
@@ -255,14 +256,14 @@ class TestCrossChainManager:
         assert "main" in manager._wallets
         assert manager._wallets["main"] == wallet
     
-    def test_add_wallet_invalid_type(self):
+    def test_add_wallet_invalid_type(self) -> None:
         """Test adding invalid wallet type raises TypeError."""
         manager = CrossChainManager()
         
         with pytest.raises(TypeError, match="Expected Wallet instance"):
-            manager.add_wallet("not a wallet")
+            manager.add_wallet("not a wallet")  # type: ignore
     
-    def test_set_liquidity_thresholds_valid(self):
+    def test_set_liquidity_thresholds_valid(self) -> None:
         """Test setting valid liquidity thresholds."""
         manager = CrossChainManager()
         thresholds = {
@@ -276,28 +277,28 @@ class TestCrossChainManager:
         assert manager._liquidity_thresholds["ethereum"] == Decimal("1000")
         assert manager._liquidity_thresholds["polygon"] == Decimal("500")
     
-    def test_set_liquidity_thresholds_invalid_type(self):
+    def test_set_liquidity_thresholds_invalid_type(self) -> None:
         """Test setting invalid threshold type raises TypeError."""
         manager = CrossChainManager()
         
         with pytest.raises(TypeError, match="Expected dictionary of thresholds"):
-            manager.set_liquidity_thresholds("not a dict")
+            manager.set_liquidity_thresholds("not a dict")  # type: ignore
     
-    def test_set_liquidity_thresholds_invalid_threshold_type(self):
+    def test_set_liquidity_thresholds_invalid_threshold_type(self) -> None:
         """Test setting threshold with invalid value type raises TypeError."""
         manager = CrossChainManager()
         
         with pytest.raises(TypeError, match="Threshold for ethereum must be Decimal"):
-            manager.set_liquidity_thresholds({"ethereum": 1000})
+            manager.set_liquidity_thresholds({"ethereum": 1000})  # type: ignore
     
-    def test_set_liquidity_thresholds_negative_value(self):
+    def test_set_liquidity_thresholds_negative_value(self) -> None:
         """Test setting negative threshold raises ValueError."""
         manager = CrossChainManager()
         
         with pytest.raises(ValueError, match="Threshold for ethereum must be non-negative"):
             manager.set_liquidity_thresholds({"ethereum": Decimal("-100")})
     
-    def test_check_liquidity_thresholds(self):
+    def test_check_liquidity_thresholds(self) -> None:
         """Test checking liquidity thresholds returns boolean."""
         manager = CrossChainManager()
         
@@ -306,7 +307,7 @@ class TestCrossChainManager:
         assert isinstance(result, bool)
         assert result is False  # Placeholder implementation returns False
     
-    def test_initiate_rebalancing_no_adapters(self):
+    def test_initiate_rebalancing_no_adapters(self) -> None:
         """Test initiating rebalancing with no adapters fails."""
         manager = CrossChainManager()
         
@@ -316,28 +317,28 @@ class TestCrossChainManager:
                 "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
             )
     
-    def test_initiate_rebalancing_empty_source_chain(self):
+    def test_initiate_rebalancing_empty_source_chain(self) -> None:
         """Test initiating rebalancing with empty source chain fails."""
         manager = CrossChainManager()
         
         with pytest.raises(ValueError, match="Source and destination chains must be specified"):
             manager.initiate_rebalancing("", "arbitrum", "USDC", Decimal("1000"))
     
-    def test_initiate_rebalancing_empty_asset(self):
+    def test_initiate_rebalancing_empty_asset(self) -> None:
         """Test initiating rebalancing with empty asset fails."""
         manager = CrossChainManager()
         
         with pytest.raises(ValueError, match="Asset must be specified"):
             manager.initiate_rebalancing("ethereum", "arbitrum", "", Decimal("1000"))
     
-    def test_initiate_rebalancing_negative_amount(self):
+    def test_initiate_rebalancing_negative_amount(self) -> None:
         """Test initiating rebalancing with negative amount fails."""
         manager = CrossChainManager()
         
         with pytest.raises(ValueError, match="Amount must be positive"):
             manager.initiate_rebalancing("ethereum", "arbitrum", "USDC", Decimal("-100"))
     
-    def test_get_rebalancing_status_existing_job(self):
+    def test_get_rebalancing_status_existing_job(self) -> None:
         """Test getting status of existing rebalancing job."""
         # Create a mock adapter for this test
         mock_adapter = Mock(spec=BridgeAdapter)
@@ -357,7 +358,7 @@ class TestCrossChainManager:
         
         assert status == JobStatus.COMPLETED
     
-    def test_get_rebalancing_status_nonexistent_job(self):
+    def test_get_rebalancing_status_nonexistent_job(self) -> None:
         """Test getting status of non-existent job returns None."""
         manager = CrossChainManager()
         
@@ -365,14 +366,14 @@ class TestCrossChainManager:
         
         assert status is None
     
-    def test_get_rebalancing_status_empty_job_id(self):
+    def test_get_rebalancing_status_empty_job_id(self) -> None:
         """Test getting status with empty job ID raises ValueError."""
         manager = CrossChainManager()
         
         with pytest.raises(ValueError, match="Job ID must be specified"):
             manager.get_rebalancing_status("")
     
-    def test_get_active_jobs_empty(self):
+    def test_get_active_jobs_empty(self) -> None:
         """Test getting active jobs when none exist."""
         manager = CrossChainManager()
         
@@ -384,7 +385,7 @@ class TestCrossChainManager:
 class TestCrossChainManagerBridgeAdapterIntegration:
     """Test cases for CrossChainManager integration with BridgeAdapter framework."""
     
-    def create_mock_layerzero_adapter(self):
+    def create_mock_layerzero_adapter(self) -> Mock:
         """Create a mock LayerZero adapter for testing."""
         adapter = Mock(spec=BridgeAdapter)
         adapter.get_supported_chains.return_value = ["ethereum", "arbitrum", "optimism"]
@@ -392,7 +393,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         adapter.bridge_assets.return_value = "0x123abc456def789"
         return adapter
     
-    def create_mock_zksync_adapter(self):
+    def create_mock_zksync_adapter(self) -> Mock:
         """Create a mock ZkSync adapter for testing."""
         adapter = Mock(spec=BridgeAdapter)
         adapter.get_supported_chains.return_value = ["ethereum", "zksync"]
@@ -400,7 +401,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         adapter.bridge_assets.return_value = "0xabc123def456789"
         return adapter
     
-    def create_mock_scroll_adapter(self):
+    def create_mock_scroll_adapter(self) -> Mock:
         """Create a mock Scroll adapter for testing."""
         adapter = Mock(spec=BridgeAdapter)
         adapter.get_supported_chains.return_value = ["ethereum", "scroll"]
@@ -408,7 +409,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         adapter.bridge_assets.return_value = "0xdef456abc123789"
         return adapter
     
-    def test_get_adapter_for_job_layerzero_success(self):
+    def test_get_adapter_for_job_layerzero_success(self) -> None:
         """Test manager correctly selects LayerZero adapter for LayerZero job."""
         layerzero_adapter = self.create_mock_layerzero_adapter()
         zksync_adapter = self.create_mock_zksync_adapter()
@@ -422,7 +423,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         layerzero_adapter.get_supported_chains.assert_called_once()
         layerzero_adapter.get_supported_assets.assert_called()
     
-    def test_get_adapter_for_job_zksync_success(self):
+    def test_get_adapter_for_job_zksync_success(self) -> None:
         """Test manager correctly selects ZkSync adapter for ZkSync job."""
         layerzero_adapter = self.create_mock_layerzero_adapter()
         zksync_adapter = self.create_mock_zksync_adapter()
@@ -436,7 +437,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         zksync_adapter.get_supported_chains.assert_called_once()
         zksync_adapter.get_supported_assets.assert_called()
     
-    def test_get_adapter_for_job_scroll_success(self):
+    def test_get_adapter_for_job_scroll_success(self) -> None:
         """Test manager correctly selects Scroll adapter for Scroll job."""
         layerzero_adapter = self.create_mock_layerzero_adapter()
         scroll_adapter = self.create_mock_scroll_adapter()
@@ -450,7 +451,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         scroll_adapter.get_supported_chains.assert_called_once()
         scroll_adapter.get_supported_assets.assert_called()
     
-    def test_get_adapter_for_job_no_suitable_adapter(self):
+    def test_get_adapter_for_job_no_suitable_adapter(self) -> None:
         """Test manager raises error when no suitable adapter can be found."""
         layerzero_adapter = self.create_mock_layerzero_adapter()
         
@@ -460,7 +461,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         with pytest.raises(ValueError, match="No suitable bridge adapter found"):
             manager._get_adapter_for_job(job)
     
-    def test_get_adapter_for_job_unsupported_asset(self):
+    def test_get_adapter_for_job_unsupported_asset(self) -> None:
         """Test manager raises error when adapter doesn't support the asset."""
         adapter = Mock(spec=BridgeAdapter)
         adapter.get_supported_chains.return_value = ["ethereum", "arbitrum"]
@@ -472,7 +473,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         with pytest.raises(ValueError, match="No suitable bridge adapter found"):
             manager._get_adapter_for_job(job)
     
-    def test_get_adapter_for_job_adapter_exception(self):
+    def test_get_adapter_for_job_adapter_exception(self) -> None:
         """Test manager handles adapter exceptions gracefully."""
         adapter1 = Mock(spec=BridgeAdapter)
         adapter1.get_supported_chains.side_effect = Exception("Network error")
@@ -486,7 +487,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         adapter = manager._get_adapter_for_job(job)
         assert adapter == adapter2
     
-    def test_initiate_rebalancing_with_layerzero_adapter(self):
+    def test_initiate_rebalancing_with_layerzero_adapter(self) -> None:
         """Test successful rebalancing with LayerZero adapter."""
         layerzero_adapter = self.create_mock_layerzero_adapter()
         
@@ -516,7 +517,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
             recipient_address="0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
         )
     
-    def test_initiate_rebalancing_with_zksync_adapter(self):
+    def test_initiate_rebalancing_with_zksync_adapter(self) -> None:
         """Test successful rebalancing with ZkSync adapter."""
         zksync_adapter = self.create_mock_zksync_adapter()
         
@@ -542,7 +543,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
             recipient_address="0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
         )
     
-    def test_initiate_rebalancing_with_scroll_adapter(self):
+    def test_initiate_rebalancing_with_scroll_adapter(self) -> None:
         """Test successful rebalancing with Scroll adapter."""
         scroll_adapter = self.create_mock_scroll_adapter()
         
@@ -568,7 +569,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
             recipient_address="0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
         )
     
-    def test_initiate_rebalancing_no_recipient_address_no_wallet(self):
+    def test_initiate_rebalancing_no_recipient_address_no_wallet(self) -> None:
         """Test rebalancing fails when no recipient address and no wallet configured."""
         layerzero_adapter = self.create_mock_layerzero_adapter()
         
@@ -579,7 +580,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
                 "ethereum", "arbitrum", "USDC", Decimal("1000")
             )
     
-    def test_initiate_rebalancing_bridge_failure(self):
+    def test_initiate_rebalancing_bridge_failure(self) -> None:
         """Test rebalancing handles bridge adapter failures."""
         adapter = Mock(spec=BridgeAdapter)
         adapter.get_supported_chains.return_value = ["ethereum", "arbitrum"]
@@ -599,7 +600,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
         assert len(jobs) == 1
         assert jobs[0].status == JobStatus.FAILED
     
-    def test_initiate_rebalancing_multiple_adapters_selection(self):
+    def test_initiate_rebalancing_multiple_adapters_selection(self) -> None:
         """Test manager selects correct adapter when multiple are available."""
         layerzero_adapter = self.create_mock_layerzero_adapter()
         zksync_adapter = self.create_mock_zksync_adapter()
@@ -635,7 +636,7 @@ class TestCrossChainManagerBridgeAdapterIntegration:
 class TestCrossChainManagerRiskAndAlertingIntegration:
     """Test cases for CrossChainManager integration with RiskManager and Alerter."""
     
-    def create_mock_risk_manager(self, risk_level: str = "low", circuit_breaker_active: bool = False):
+    def create_mock_risk_manager(self, risk_level: str = "low", circuit_breaker_active: bool = False) -> Mock:
         """Create a mock RiskManager for testing."""
         risk_manager = Mock()
         
@@ -647,7 +648,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         risk_manager.get_overall_risk_assessment.return_value = risk_assessment
         return risk_manager
     
-    def create_mock_alerter(self):
+    def create_mock_alerter(self) -> Mock:
         """Create a mock Alerter for testing."""
         alerter = Mock()
         
@@ -658,7 +659,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         
         return alerter
     
-    def create_mock_adapter(self):
+    def create_mock_adapter(self) -> Mock:
         """Create a mock bridge adapter for testing."""
         adapter = Mock(spec=BridgeAdapter)
         adapter.get_supported_chains.return_value = ["ethereum", "arbitrum"]
@@ -666,7 +667,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         adapter.bridge_assets.return_value = "0x123abc456def789"
         return adapter
     
-    def test_manager_initialization_with_risk_manager_and_alerter(self):
+    def test_manager_initialization_with_risk_manager_and_alerter(self) -> None:
         """Test CrossChainManager initialization with RiskManager and Alerter."""
         risk_manager = self.create_mock_risk_manager()
         alerter = self.create_mock_alerter()
@@ -678,7 +679,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         assert manager._alerter == alerter
         assert len(manager._bridge_adapters) == 1
     
-    def test_manager_initialization_without_risk_manager_and_alerter(self):
+    def test_manager_initialization_without_risk_manager_and_alerter(self) -> None:
         """Test CrossChainManager initialization without RiskManager and Alerter."""
         adapter = self.create_mock_adapter()
         
@@ -688,7 +689,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         assert manager._alerter is None
         assert len(manager._bridge_adapters) == 1
     
-    def test_rebalancing_postponed_due_to_high_risk(self):
+    def test_rebalancing_postponed_due_to_high_risk(self) -> None:
         """Test rebalancing is postponed when risk level is high."""
         risk_manager = self.create_mock_risk_manager(risk_level="high")
         alerter = self.create_mock_alerter()
@@ -712,7 +713,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         # Verify bridge was not called
         adapter.bridge_assets.assert_not_called()
     
-    def test_rebalancing_postponed_due_to_extreme_risk(self):
+    def test_rebalancing_postponed_due_to_extreme_risk(self) -> None:
         """Test rebalancing is postponed when risk level is extreme."""
         risk_manager = self.create_mock_risk_manager(risk_level="extreme", circuit_breaker_active=True)
         alerter = self.create_mock_alerter()
@@ -736,7 +737,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         # Verify bridge was not called
         adapter.bridge_assets.assert_not_called()
     
-    def test_rebalancing_proceeds_with_low_risk(self):
+    def test_rebalancing_proceeds_with_low_risk(self) -> None:
         """Test rebalancing proceeds when risk level is low."""
         risk_manager = self.create_mock_risk_manager(risk_level="low")
         alerter = self.create_mock_alerter()
@@ -763,7 +764,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         # Verify bridge was called
         adapter.bridge_assets.assert_called_once()
     
-    def test_rebalancing_proceeds_with_medium_risk(self):
+    def test_rebalancing_proceeds_with_medium_risk(self) -> None:
         """Test rebalancing proceeds when risk level is medium."""
         risk_manager = self.create_mock_risk_manager(risk_level="medium")
         alerter = self.create_mock_alerter()
@@ -790,7 +791,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         # Verify bridge was called
         adapter.bridge_assets.assert_called_once()
     
-    def test_success_alert_sent_on_successful_rebalancing(self):
+    def test_success_alert_sent_on_successful_rebalancing(self) -> None:
         """Test success alert is sent when rebalancing completes successfully."""
         risk_manager = self.create_mock_risk_manager(risk_level="low")
         alerter = self.create_mock_alerter()
@@ -820,7 +821,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         # Verify notification was sent
         alerter.send_notifications.assert_called_once()
     
-    def test_failure_alert_sent_on_failed_rebalancing(self):
+    def test_failure_alert_sent_on_failed_rebalancing(self) -> None:
         """Test failure alert is sent when rebalancing fails."""
         risk_manager = self.create_mock_risk_manager(risk_level="low")
         alerter = self.create_mock_alerter()
@@ -854,7 +855,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         # Verify notification was sent
         alerter.send_notifications.assert_called_once()
     
-    def test_warning_alert_sent_on_postponed_rebalancing(self):
+    def test_warning_alert_sent_on_postponed_rebalancing(self) -> None:
         """Test warning alert is sent when rebalancing is postponed due to high risk."""
         risk_manager = self.create_mock_risk_manager(risk_level="high")
         alerter = self.create_mock_alerter()
@@ -885,7 +886,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         # Verify notification was sent
         alerter.send_notifications.assert_called_once()
     
-    def test_rebalancing_continues_when_risk_assessment_fails(self):
+    def test_rebalancing_continues_when_risk_assessment_fails(self) -> None:
         """Test rebalancing continues when risk assessment fails (fail-open approach)."""
         risk_manager = Mock()
         risk_manager.get_overall_risk_assessment.side_effect = Exception("Risk assessment failed")
@@ -910,7 +911,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         # Verify bridge was called
         adapter.bridge_assets.assert_called_once()
     
-    def test_rebalancing_without_risk_manager(self):
+    def test_rebalancing_without_risk_manager(self) -> None:
         """Test rebalancing works when no risk manager is provided."""
         alerter = self.create_mock_alerter()
         adapter = self.create_mock_adapter()
@@ -933,7 +934,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         alerter.create_alert.assert_called_once()
         alerter.send_notifications.assert_called_once()
     
-    def test_rebalancing_without_alerter(self):
+    def test_rebalancing_without_alerter(self) -> None:
         """Test rebalancing works when no alerter is provided."""
         risk_manager = self.create_mock_risk_manager(risk_level="low")
         adapter = self.create_mock_adapter()
@@ -955,7 +956,7 @@ class TestCrossChainManagerRiskAndAlertingIntegration:
         # Verify bridge was called
         adapter.bridge_assets.assert_called_once()
     
-    def test_alert_sending_handles_exceptions_gracefully(self):
+    def test_alert_sending_handles_exceptions_gracefully(self) -> None:
         """Test that alert sending exceptions don't break rebalancing operations."""
         risk_manager = self.create_mock_risk_manager(risk_level="low")
         alerter = Mock()

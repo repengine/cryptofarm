@@ -68,7 +68,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Compound",
@@ -76,7 +79,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("50"),
                 estimated_value_usd=Decimal("300"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc)
+                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -100,7 +106,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -154,7 +163,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -190,7 +202,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -214,7 +229,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -244,7 +262,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Uniswap",
@@ -252,7 +273,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("50"),
                 estimated_value_usd=Decimal("250"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc)
+                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -292,7 +316,7 @@ class TestAirdropReporter:
         mock_report = Mock()
         
         with pytest.raises(ValueError, match="Unsupported format"):
-            self.reporter.export_report(mock_report, "test.txt", "INVALID")
+            self.reporter.export_report(mock_report, "test.txt", "INVALID")  # type: ignore
 
     def test_export_report_io_error(self) -> None:
         """Test export report with IO error."""
@@ -304,7 +328,7 @@ class TestAirdropReporter:
 
     @patch('builtins.open', new_callable=mock_open)
     @patch('json.dump')
-    def test_export_json(self, mock_json_dump, mock_file) -> None:
+    def test_export_json(self, mock_json_dump: Mock, mock_file: Mock) -> None:
         """Test JSON export functionality."""
         mock_report = AirdropReport(
             report_generated_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
@@ -329,7 +353,7 @@ class TestAirdropReporter:
 
     @patch('builtins.open', new_callable=mock_open)
     @patch('csv.writer')
-    def test_export_csv(self, mock_csv_writer, mock_file) -> None:
+    def test_export_csv(self, mock_csv_writer: Mock, mock_file: Mock) -> None:
         """Test CSV export functionality."""
         mock_writer = Mock()
         mock_csv_writer.return_value = mock_writer
@@ -367,7 +391,7 @@ class TestAirdropReporter:
             tmp_path.unlink(missing_ok=True)
 
     @patch('builtins.print')
-    def test_export_console(self, mock_print) -> None:
+    def test_export_console(self, mock_print: Mock) -> None:
         """Test console export functionality."""
         protocol_summary = ProtocolSummary(
             protocol_name="Uniswap",
@@ -454,7 +478,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Uniswap",
@@ -462,7 +489,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("200"),
                 estimated_value_usd=Decimal("200"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc)
+                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -525,7 +555,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Compound",
@@ -533,7 +566,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("50"),
                 estimated_value_usd=Decimal("300"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 25, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 25, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Aave",
@@ -541,7 +577,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("25"),
                 estimated_value_usd=Decimal("200"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc)
+                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -564,7 +603,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Uniswap",
@@ -572,7 +614,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("50"),
                 estimated_value_usd=Decimal("250"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 25, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 25, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Compound",
@@ -580,7 +625,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("25"),
                 estimated_value_usd=Decimal("200"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc)
+                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -614,7 +662,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("100"),
                 estimated_value_usd=Decimal("500"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc)
+                event_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             ),
             AirdropEvent(
                 protocol_name="Compound",
@@ -622,7 +673,10 @@ class TestAirdropReporter:
                 amount_received=Decimal("50"),
                 estimated_value_usd=Decimal("300"),
                 wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc)
+                event_date=datetime(2024, 2, 10, tzinfo=timezone.utc),
+                transaction_hash=None,
+                block_number=None,
+                notes=None
             )
         ]
         
@@ -637,7 +691,7 @@ class TestAirdropReporter:
 
     @patch('builtins.open', new_callable=mock_open)
     @patch('json.dump')
-    def test_export_json_conversion(self, mock_json_dump, mock_file) -> None:
+    def test_export_json_conversion(self, mock_json_dump: Mock, mock_file: Mock) -> None:
         """Test JSON export with Decimal and datetime conversion."""
         mock_report = AirdropReport(
             report_generated_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),

@@ -22,8 +22,6 @@ from airdrops.shared.transaction_utils import (
     TransactionError,
 )
 from .exceptions import (
-    RestakeError,
-    WithdrawalError,
     ClaimError,
 )
 
@@ -65,7 +63,89 @@ class EigenLayerProtocol:
         self.eigenlayer_contract_address = "0xMockEigenLayerContractAddress"
         self.eigenlayer_contract_abi: list[dict[str, Any]] = []  # Placeholder ABI
 
-    def perform_airdrop(self, value_usd: Decimal) -> bool:
+    def perform_airdrop(
+        self,
+        web3: Web3,
+        private_key: str,
+        amount: Decimal,
+        recipient: str
+    ) -> str:
+        """Perform an airdrop operation using EigenLayer.
+        
+        Args:
+            web3: Web3 instance for blockchain interaction.
+            private_key: Private key for signing transactions.
+            amount: Amount to airdrop as a Decimal.
+            recipient: Address of the airdrop recipient.
+            
+        Returns:
+            Transaction hash of the airdrop operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            RuntimeError: If the airdrop transaction fails.
+        """
+        # For now, delegate to the existing implementation
+        # This would need to be implemented based on the actual airdrop functionality
+        raise NotImplementedError("Airdrop functionality not yet implemented in EigenLayerProtocol")
+    
+    def restake_lst(
+        self,
+        web3: Web3,
+        private_key: str,
+        lst_token: str,
+        amount: Decimal,
+        strategy_address: str
+    ) -> str:
+        """Restake liquid staking tokens (LST) into EigenLayer.
+        
+        Args:
+            web3: Web3 instance for blockchain interaction.
+            private_key: Private key for signing transactions.
+            lst_token: Address of the LST token contract.
+            amount: Amount of LST to restake.
+            strategy_address: Address of the EigenLayer strategy contract.
+            
+        Returns:
+            Transaction hash of the restaking operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            RuntimeError: If the restaking transaction fails.
+        """
+        # For now, delegate to the existing implementation
+        # This would need to be implemented based on the actual restaking functionality
+        raise NotImplementedError("Restaking functionality not yet implemented in EigenLayerProtocol")
+    
+    def withdraw_lst(
+        self,
+        web3: Web3,
+        private_key: str,
+        strategy_address: str,
+        shares: Decimal,
+        withdrawer: str
+    ) -> str:
+        """Withdraw LST from EigenLayer restaking.
+        
+        Args:
+            web3: Web3 instance for blockchain interaction.
+            private_key: Private key for signing transactions.
+            strategy_address: Address of the EigenLayer strategy contract.
+            shares: Amount of strategy shares to withdraw.
+            withdrawer: Address that will receive the withdrawn tokens.
+            
+        Returns:
+            Transaction hash of the withdrawal operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            RuntimeError: If the withdrawal transaction fails.
+        """
+        # For now, delegate to the existing implementation
+        # This would need to be implemented based on the actual withdrawal functionality
+        raise NotImplementedError("Withdrawal functionality not yet implemented in EigenLayerProtocol")
+
+    def perform_airdrop_legacy(self, value_usd: Decimal) -> bool:
         """
         Simulate performing an airdrop-like transaction on EigenLayer.
         This is a placeholder for actual restaking/farming logic.
@@ -127,53 +207,6 @@ class EigenLayerProtocol:
             logger.error(f"Failed to perform EigenLayer airdrop: {e}")
             return False
 
-    def restake_lst(self, lst_address: str, amount: Decimal) -> bool:
-        """
-        Simulate restaking a Liquid Staking Token (LST) on EigenLayer.
-
-        Args:
-                lst_address: The address of the LST contract.
-                amount: The amount of LST to restake.
-
-        Returns:
-                True if restaking was successful, False otherwise.
-        """
-        logger.info(f"Attempting to restake {amount} of LST {lst_address} on EigenLayer.")
-        try:
-            # This would involve interacting with the EigenLayer deposit contract
-            # For now, simulate a successful transaction
-            # You would need to:
-            # 1. Approve the EigenLayer contract to spend your LST
-            # 2. Call the deposit function on the EigenLayer contract
-            logger.debug("Simulating LST restaking transaction...")
-            time.sleep(2)  # Simulate network delay
-            logger.info(f"Successfully simulated restaking {amount} LST.")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to restake LST {lst_address}: {e}")
-            raise RestakeError(f"Failed to restake LST: {e}")
-
-    def withdraw_lst(self, lst_address: str, amount: Decimal) -> bool:
-        """
-        Simulate withdrawing a Liquid Staking Token (LST) from EigenLayer.
-
-        Args:
-                lst_address: The address of the LST contract.
-                amount: The amount of LST to withdraw.
-
-        Returns:
-                True if withdrawal was successful, False otherwise.
-        """
-        logger.info(f"Attempting to withdraw {amount} of LST {lst_address} from EigenLayer.")
-        try:
-            # This would involve interacting with the EigenLayer withdrawal contract
-            logger.debug("Simulating LST withdrawal transaction...")
-            time.sleep(2)  # Simulate network delay
-            logger.info(f"Successfully simulated withdrawing {amount} LST.")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to withdraw LST {lst_address}: {e}")
-            raise WithdrawalError(f"Failed to withdraw LST: {e}")
 
     def claim_rewards(self) -> bool:
         """

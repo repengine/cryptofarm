@@ -7,6 +7,7 @@ and robust error handling with retry logic.
 """
 
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Callable, Set, Tuple, List, TYPE_CHECKING
@@ -17,9 +18,15 @@ import importlib
 import sys
 
 from airdrops.monitoring.alerter import Alert, AlertSeverity, AlertStatus
+from airdrops.protocols.scroll.interfaces import IScrollProtocol
+from airdrops.protocols.zksync.interfaces import IZkSyncProtocol
+from airdrops.protocols.layerzero.interfaces import ILayerZeroProtocol
+from airdrops.protocols.eigenlayer.interfaces import IEigenLayerProtocol
+from airdrops.capital_allocation.interfaces import ICapitalAllocator
+from airdrops.risk_management.interfaces import IRiskManager
 
 if TYPE_CHECKING:
-    from airdrops.cross_chain.manager import CrossChainManager
+    pass
 
 # APScheduler imports - will be added to dependencies
 try:
@@ -121,21 +128,59 @@ class AirdropSchedulerBot:
     def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
-        cross_chain_manager: Optional["CrossChainManager"] = None
+        capital_allocator: Optional[ICapitalAllocator] = None,
+        risk_manager: Optional[IRiskManager] = None,
+        metrics_collector: Optional[Any] = None,
+        cross_chain_manager: Optional[Any] = None,
+        scroll_client: Optional[IScrollProtocol] = None,
+        zksync_client: Optional[IZkSyncProtocol] = None,
+        layerzero_client: Optional[ILayerZeroProtocol] = None,
+        eigenlayer_client: Optional[IEigenLayerProtocol] = None
     ):
         """
         Initialize the Airdrop Scheduler Bot.
 
         Args:
             config: Optional configuration dictionary
+            capital_allocator: Optional CapitalAllocator instance for capital management
+            risk_manager: Optional RiskManager instance for risk assessment
+            metrics_collector: Optional MetricsCollector instance for metrics collection
             cross_chain_manager: Optional CrossChainManager instance for automated rebalancing
+            scroll_client: Optional Scroll protocol client for dependency injection
+            zksync_client: Optional ZkSync protocol client for dependency injection
+            layerzero_client: Optional LayerZero protocol client for dependency injection
+            eigenlayer_client: Optional EigenLayer protocol client for dependency injection
+
+        Example:
+            >>> from airdrops.capital_allocation.engine import CapitalAllocator
+            >>> from airdrops.risk_management.core import RiskManager
+            >>> from airdrops.protocols.scroll.scroll import ScrollProtocol
+            >>> capital_allocator = CapitalAllocator()
+            >>> risk_manager = RiskManager()
+            >>> scroll_client = ScrollProtocol(l1_rpc_url="...", l2_rpc_url="...", private_key="...")
+            >>> scheduler = AirdropSchedulerBot(
+            ...     capital_allocator=capital_allocator,
+            ...     risk_manager=risk_manager,
+            ...     scroll_client=scroll_client
+            ... )
         """
         self.config = config or {}
         self._scheduler: Optional[BlockingScheduler] = None
         self._task_definitions: Dict[str, TaskDefinition] = {}
         self._task_executions: Dict[str, TaskExecution] = {}
         self._running = False
+        
+        # Dependency injection for core components
+        self._capital_allocator = capital_allocator
+        self._risk_manager = risk_manager
+        self._metrics_collector = metrics_collector
         self._cross_chain_manager = cross_chain_manager
+        
+        # Protocol clients for dependency injection
+        self.scroll_client: Optional[IScrollProtocol] = scroll_client
+        self.zksync_client: Optional[IZkSyncProtocol] = zksync_client
+        self.layerzero_client: Optional[ILayerZeroProtocol] = layerzero_client
+        self.eigenlayer_client: Optional[IEigenLayerProtocol] = eigenlayer_client
 
         # Configuration with defaults
         self.max_retries = self.config.get("scheduler", {}).get("max_retries", 3)
@@ -149,12 +194,39 @@ class AirdropSchedulerBot:
 
         # Initialize alerter as None - will be set up when needed
         self.alerter: Optional[Any] = None
+        
+        # Initialize fallback implementations if no dependencies provided
+        if not any([capital_allocator, risk_manager, scroll_client, zksync_client, layerzero_client, eigenlayer_client]):
+            self._initialize_default_dependencies()
 
         logger.info(
-            "AirdropSchedulerBot initialized with config: %s, cross_chain_manager: %s",
+            "AirdropSchedulerBot initialized with config: %s, capital_allocator: %s, risk_manager: %s, metrics_collector: %s, cross_chain_manager: %s",
             self.config,
+            "enabled" if capital_allocator else "disabled",
+            "enabled" if risk_manager else "disabled",
+            "enabled" if metrics_collector else "disabled",
             "enabled" if cross_chain_manager else "disabled"
         )
+
+    @property
+    def capital_allocator(self) -> Optional[Any]:
+        """Get the capital allocator instance."""
+        return self._capital_allocator
+
+    @capital_allocator.setter
+    def capital_allocator(self, value: Optional[Any]) -> None:
+        """Set the capital allocator instance."""
+        self._capital_allocator = value
+
+    @property
+    def metrics_collector(self) -> Optional[Any]:
+        """Get the metrics collector instance."""
+        return self._metrics_collector
+
+    @metrics_collector.setter
+    def metrics_collector(self, value: Optional[Any]) -> None:
+        """Set the metrics collector instance."""
+        self._metrics_collector = value
 
     def add_job(
         self,
@@ -589,20 +661,28 @@ class AirdropSchedulerBot:
 
     def _validate_dependencies(self, task_def: TaskDefinition) -> None:
         """Validate task dependencies to prevent cycles."""
-        # Simple cycle detection - can be enhanced for complex DAGs
-        visited = set()
-
+        # Proper cycle detection using DFS with three states:
+        # WHITE (0): unvisited, GRAY (1): visiting, BLACK (2): visited
+        color = {}
+        
         def has_cycle(task_id: str) -> bool:
-            if task_id in visited:
+            if task_id not in color:
+                color[task_id] = 0  # WHITE
+            
+            if color[task_id] == 1:  # GRAY - currently being visited
                 return True
-            visited.add(task_id)
-
+            if color[task_id] == 2:  # BLACK - already processed
+                return False
+                
+            color[task_id] = 1  # GRAY - mark as visiting
+            
             task = self._task_definitions.get(task_id)
             if task:
                 for dep in (task.dependencies or set()):
                     if has_cycle(dep):
                         return True
-            visited.remove(task_id)
+                        
+            color[task_id] = 2  # BLACK - mark as visited
             return False
 
         if has_cycle(task_def.task_id):
@@ -850,6 +930,59 @@ class AirdropSchedulerBot:
                     })
         return daily_tasks
 
+    def _initialize_default_dependencies(self) -> None:
+        """Initialize default dependency implementations when none are provided."""
+        try:
+            # Import concrete implementations only when needed
+            from airdrops.capital_allocation.engine import CapitalAllocator
+            from airdrops.risk_management.core import RiskManager
+            from airdrops.protocols.scroll.scroll import ScrollProtocol
+            from airdrops.protocols.zksync.zksync import ZkSyncProtocol
+            from airdrops.protocols.layerzero.layerzero import LayerZeroProtocol
+            from airdrops.protocols.eigenlayer.eigenlayer import EigenLayerProtocol
+            
+            # Initialize core components if not provided
+            if not self._capital_allocator:
+                from typing import cast
+                self._capital_allocator = cast(ICapitalAllocator, CapitalAllocator(config=self.config))
+                
+            if not self._risk_manager:
+                self._risk_manager = cast(IRiskManager, RiskManager(config=self.config))
+                
+            # Initialize protocol clients with environment variables or config
+            if not self.scroll_client:
+                scroll_l1_rpc = os.getenv("ETH_RPC_URL")
+                scroll_l2_rpc = os.getenv("SCROLL_L2_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if scroll_l1_rpc and scroll_l2_rpc and private_key:
+                    self.scroll_client = ScrollProtocol(scroll_l1_rpc, scroll_l2_rpc, private_key)
+                    
+            if not self.zksync_client:
+                zksync_l1_rpc = os.getenv("ETH_RPC_URL")
+                zksync_l2_rpc = os.getenv("ZKSYNC_L2_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if zksync_l1_rpc and zksync_l2_rpc and private_key:
+                    self.zksync_client = ZkSyncProtocol(zksync_l1_rpc, zksync_l2_rpc, private_key)
+                    
+            if not self.layerzero_client:
+                eth_rpc = os.getenv("ETH_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if eth_rpc and private_key:
+                    self.layerzero_client = LayerZeroProtocol(eth_rpc, private_key, 1)  # Ethereum mainnet
+                    
+            if not self.eigenlayer_client:
+                eth_rpc = os.getenv("ETH_RPC_URL")
+                private_key = os.getenv("PRIVATE_KEY")
+                if eth_rpc and private_key:
+                    self.eigenlayer_client = EigenLayerProtocol(eth_rpc, private_key, 1)  # Ethereum mainnet
+                    
+            logger.debug("Default dependencies initialized for AirdropSchedulerBot")
+            
+        except ImportError as e:
+            logger.warning(f"Could not import dependency implementations: {e}")
+        except Exception as e:
+            logger.error(f"Failed to initialize default dependencies: {e}")
+
 
 def main() -> None:
     """Main entry point for the scheduler bot."""
@@ -867,18 +1000,21 @@ def main() -> None:
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    scheduler = AirdropSchedulerBot() # Instantiate the scheduler here
+    try:
+        scheduler = AirdropSchedulerBot() # Instantiate the scheduler here
 
-    if args.dry_run:
-        logger.info("Dry run mode - scheduler initialized but not started")
-        return
+        if args.dry_run:
+            logger.info("Dry run mode - scheduler initialized but not started")
+            return
 
-    scheduler.start()
+        scheduler.start()
 
-    if args.once:
-        logger.info("Running once and exiting")
-        scheduler.stop()
-    else:
+        if args.once:
+            logger.info("Running once and exiting")
+            scheduler.stop()
+            return
+
+        # Only run the infinite loop if not in once mode
         logger.info("Scheduler running. Press Ctrl+C to stop.")
         try:
             while True:
@@ -887,9 +1023,9 @@ def main() -> None:
             logger.info("Shutdown signal received")
             scheduler.stop()
 
-        except Exception as error:
-            logger.error("Scheduler failed: %s", error)
-            sys.exit(1)
+    except Exception as e:
+        logger.error(f"Scheduler encountered a critical error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

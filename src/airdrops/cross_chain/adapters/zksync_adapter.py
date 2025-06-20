@@ -115,7 +115,8 @@ class ZkSyncBridgeAdapter(BridgeAdapter):
             raise ValueError(f"Chain '{chain}' is not supported by ZkSync")
 
         # ZkSync supports ETH natively plus the configured ERC20 tokens
-        supported_assets = ['ETH'] + list(ZKSYNC_TOKEN_ADDRESSES.keys())
+        all_assets = ['ETH'] + list(ZKSYNC_TOKEN_ADDRESSES.keys())
+        supported_assets = list(dict.fromkeys(all_assets))
         logger.debug(
             f"ZkSync supports {len(supported_assets)} assets on {chain}: "
             f"{supported_assets}"

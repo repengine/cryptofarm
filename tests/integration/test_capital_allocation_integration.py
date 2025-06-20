@@ -5,7 +5,10 @@ Integration tests for the capital allocation module.
 import pytest
 from decimal import Decimal
 
-from airdrops.capital_allocation.engine import CapitalAllocator  # type: ignore
+from airdrops.capital_allocation.engine import (
+    CapitalAllocator,
+    AllocationStrategy,
+)
 
 
 @pytest.fixture
@@ -28,36 +31,40 @@ def test_equal_weight_allocation_integration(capital_allocator):
     """
     total_capital = Decimal("10000")
     protocols = ["protocol_a", "protocol_b", "protocol_c"]
-    portfolio = {p: Decimal("1") for p in protocols}  # Initial equal weights
+    risk_constraints = {"max_protocol_exposure_pct": Decimal("100")}
 
+    # 1. Get the allocation percentages from the optimizer
+    portfolio_allocations = capital_allocator.optimize_portfolio(
+        protocols, risk_constraints
+    )
+
+    # 2. Allocate capital based on the optimized percentages
     risk_metrics = {"volatility_state": "low"}
-
     allocations = capital_allocator.allocate_risk_adjusted_capital(
-        total_capital, portfolio, risk_metrics
+        total_capital, portfolio_allocations, risk_metrics
     )
 
     # Assertions
     assert isinstance(allocations, dict)
     assert len(allocations) == len(protocols)
+    expected_allocation = total_capital / Decimal(str(len(protocols)))
     for protocol in protocols:
         assert protocol in allocations
         # Each should get roughly 1/3 of total capital
-        expected_allocation = total_capital / Decimal(str(len(protocols)))
-        assert abs(allocations[protocol] - expected_allocation) < Decimal("0.01")
-        assert allocations[protocol] >= capital_allocator.min_allocation * total_capital
-        assert allocations[protocol] <= capital_allocator.max_allocation * total_capital
+        assert allocations[protocol] == pytest.approx(expected_allocation)
 
     # Sum of allocations should be close to total capital
-    assert abs(sum(allocations.values()) - total_capital) < Decimal("0.01")
+    assert sum(allocations.values()) == pytest.approx(total_capital)
 
 
 def test_risk_parity_allocation_integration(capital_allocator):
     """
     Test risk parity allocation strategy with varying risk scores.
     """
-    capital_allocator.config["capital_allocation"]["strategy"] = "risk_parity"
+    capital_allocator.allocation_strategy = AllocationStrategy.RISK_PARITY
     total_capital = Decimal("10000")
     protocols = ["protocol_x", "protocol_y", "protocol_z"]
+    risk_constraints = {"max_protocol_exposure_pct": Decimal("100")}
 
     # Protocol X is lowest risk, Protocol Z is highest risk
     risk_scores = {
@@ -65,12 +72,14 @@ def test_risk_parity_allocation_integration(capital_allocator):
         "protocol_y": Decimal("0.5"),
         "protocol_z": Decimal("0.9"),
     }
-    portfolio = {p: Decimal("1") for p in protocols}  # Initial equal weights
 
-    risk_metrics = {"volatility_state": "high", "protocol_risks": risk_scores}
+    portfolio_allocations = capital_allocator.optimize_portfolio(
+        protocols, risk_constraints, risk_scores=risk_scores
+    )
 
+    risk_metrics = {"volatility_state": "low"}  # Use low vol to not affect amounts
     allocations = capital_allocator.allocate_risk_adjusted_capital(
-        total_capital, portfolio, risk_metrics
+        total_capital, portfolio_allocations, risk_metrics
     )
 
     # Assertions
@@ -85,7 +94,7 @@ def test_risk_parity_allocation_integration(capital_allocator):
     assert all(alloc > Decimal("0") for alloc in allocations.values())
 
     # Sum of allocations should be close to total capital
-    assert abs(sum(allocations.values()) - total_capital) < Decimal("0.01")
+    assert sum(allocations.values()) == pytest.approx(total_capital)
 
 
 def test_rebalancing_logic_integration(capital_allocator):
@@ -119,25 +128,30 @@ def test_min_max_allocation_constraints_integration(capital_allocator):
     """
     Test that min/max allocation constraints are respected.
     """
-    capital_allocator.config["capital_allocation"]["min_protocol_allocation"] = Decimal("0.2")
-    capital_allocator.config["capital_allocation"]["max_protocol_allocation"] = Decimal("0.4")
+    capital_allocator.min_allocation = Decimal("0.2")
+    capital_allocator.max_allocation = Decimal("0.4")
+    capital_allocator.allocation_strategy = AllocationStrategy.RISK_PARITY
 
     total_capital = Decimal("10000")
-    protocols = ["p1", "p2", "p3"]
-    portfolio = {p: Decimal("1") for p in protocols}
+    protocols = ["p1", "p2", "p3", "p4", "p5"]  # Use more protocols to see constraints
+    risk_constraints = {"max_protocol_exposure_pct": Decimal("40")}
+    risk_scores = {p: Decimal(str(i * 0.1 + 0.1)) for i, p in enumerate(protocols)}
+
+    portfolio_allocations = capital_allocator.optimize_portfolio(
+        protocols, risk_constraints, risk_scores=risk_scores
+    )
 
     risk_metrics = {"volatility_state": "low"}
-
     allocations = capital_allocator.allocate_risk_adjusted_capital(
-        total_capital, portfolio, risk_metrics
+        total_capital, portfolio_allocations, risk_metrics
     )
 
     # Assertions: all allocations should be within min/max bounds
-    for protocol, alloc_amount in allocations.items():
-        assert alloc_amount >= capital_allocator.min_allocation * total_capital
-        assert alloc_amount <= capital_allocator.max_allocation * total_capital
+    for alloc_pct in portfolio_allocations.values():
+        assert alloc_pct >= capital_allocator.min_allocation
+        assert alloc_pct <= capital_allocator.max_allocation
 
-    assert abs(sum(allocations.values()) - total_capital) < Decimal("0.01")
+    assert sum(allocations.values()) == pytest.approx(total_capital)
 
 
 def test_edge_case_single_protocol(capital_allocator):
@@ -168,9 +182,7 @@ def test_edge_case_zero_total_capital(capital_allocator):
 
     risk_metrics = {"volatility_state": "low"}
 
-    allocations = capital_allocator.allocate_risk_adjusted_capital(
-        total_capital, portfolio, risk_metrics
-    )
-
-    assert len(allocations) == 2
-    assert all(alloc == Decimal("0") for alloc in allocations.values())
+    with pytest.raises(ValueError, match="Total capital must be positive"):
+        capital_allocator.allocate_risk_adjusted_capital(
+            total_capital, portfolio, risk_metrics
+        )

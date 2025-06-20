@@ -112,6 +112,15 @@ class AirdropTracker:
         self._create_tables()
         logger.info(f"AirdropTracker initialized with database: {self.db_path}")
 
+    def close_engine(self) -> None:
+        """
+        Dispose of the SQLAlchemy engine, closing all connections.
+        This is crucial for in-memory databases in tests to prevent resource leaks.
+        """
+        if self.engine:
+            self.engine.dispose()
+            logger.info(f"AirdropTracker engine disposed for database: {self.db_path}")
+
     def _create_engine(self) -> Engine:
         """Create SQLAlchemy engine for SQLite database."""
         # Create engine
@@ -243,10 +252,13 @@ class AirdropTracker:
         """
         try:
             with self.SessionLocal() as session:
-                db_events = session.query(AirdropEventModel).filter(
-                    AirdropEventModel.event_date >= start_date,
-                    AirdropEventModel.event_date <= end_date
-                ).order_by(AirdropEventModel.event_date.desc()).all()
+                query = session.query(AirdropEventModel)
+                if start_date:
+                    query = query.filter(AirdropEventModel.event_date >= start_date)
+                if end_date:
+                    query = query.filter(AirdropEventModel.event_date <= end_date)
+                
+                db_events = query.order_by(AirdropEventModel.event_date.desc()).all()
 
                 return [self._db_event_to_pydantic(event) for event in db_events]
 

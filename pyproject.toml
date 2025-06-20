@@ -8,8 +8,9 @@ packages = [{include = "airdrops", from = "src"}]
 [tool.poetry.dependencies]
 python = "^3.12"
 web3 = "7.12.0"
+eth-abi = ">=5.0.0,<6.0.0"
 hyperliquid-python-sdk = "0.15.0"
-solana = "0.36.6"
+solana = "^0.36.7"
 python-dotenv = "1.1.0"
 requests = "2.32.3"
 pendulum = "3.1.0"
@@ -42,6 +43,11 @@ pytest-cov = "^4.0.0"
 hypothesis = "^6.135.2"
 types-psutil = "^7.0.0.20250601"
 types-pyyaml = "^6.0.12.20250516"
+web3 = "^7.12.0"
+eth-account = "^0.13.7"
+pendulum = "^3.1.0"
+eth-abi = "^5.2.0"
+solana = "^0.36.7"
 
 [build-system]
 requires = ["poetry-core"]
@@ -49,6 +55,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+testpaths = ["tests"]
 addopts = "--cov=src/airdrops --cov-report=html --cov-report=term-missing --cov-report=xml"
 
 [tool.coverage.run]

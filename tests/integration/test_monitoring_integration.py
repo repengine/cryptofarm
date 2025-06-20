@@ -4,6 +4,8 @@ Integration tests for the monitoring module.
 
 import pytest
 from decimal import Decimal
+import time
+from unittest.mock import MagicMock
 
 from airdrops.monitoring.collector import MetricsCollector  # type: ignore
 from airdrops.monitoring.aggregator import MetricsAggregator  # type: ignore
@@ -18,9 +20,9 @@ def metrics_collector():
 
 
 @pytest.fixture
-def metrics_aggregator():
+def metrics_aggregator(metrics_collector):
     """Fixture for a MetricsAggregator instance."""
-    return MetricsAggregator()
+    return MetricsAggregator(collector=metrics_collector)
 
 
 @pytest.fixture
@@ -106,23 +108,55 @@ def test_end_to_end_monitoring_flow(
     )
 
     # --- Step 2: Aggregate Metrics ---
-    all_raw_metrics = metrics_collector.get_all_metrics()
-    aggregated_metrics = metrics_aggregator.aggregate_metrics(all_raw_metrics)
+    aggregated_metrics_list = metrics_aggregator.aggregate_time_window(0, time.time())
 
-    assert "scroll" in aggregated_metrics
-    assert "zksync" in aggregated_metrics
-    assert aggregated_metrics["scroll"]["total_transactions"] == 2
-    assert aggregated_metrics["scroll"]["successful_transactions"] == 2
-    assert aggregated_metrics["zksync"]["total_transactions"] == 3
-    assert aggregated_metrics["zksync"]["failed_transactions"] == 3
-    assert aggregated_metrics["zksync"]["failure_rate"] == Decimal("1.0")
+    scroll_success = 0
+    scroll_fail = 0
+    zksync_success = 0
+    zksync_fail = 0
+
+    # Debug: Print all metrics to understand the structure
+    print(f"Total aggregated metrics: {len(aggregated_metrics_list)}")
+    for metric in aggregated_metrics_list:
+        print(f"Metric: name={metric.metric_name}, value={metric.value}, labels={metric.labels}")
+        
+        # The aggregator transforms task_execution_status_total into protocol_status_transactions_count
+        if metric.metric_name == "scroll_success_transactions_count":
+            scroll_success = int(metric.value)
+        elif metric.metric_name == "scroll_failure_transactions_count":
+            scroll_fail = int(metric.value)
+        elif metric.metric_name == "zksync_success_transactions_count":
+            zksync_success = int(metric.value)
+        elif metric.metric_name == "zksync_failure_transactions_count":
+            zksync_fail = int(metric.value)
+
+    assert scroll_success == 2
+    assert scroll_fail == 0
+    assert zksync_success == 0
+    assert zksync_fail == 3
+
+    # Create a dictionary for the alerter (which expects a different format)
+    aggregated_metrics_dict = {
+        "scroll": {
+            "successful_transactions": scroll_success,
+            "failed_transactions": scroll_fail,
+            "total_transactions": scroll_success + scroll_fail,
+            "failure_rate": Decimal(scroll_fail) / Decimal(scroll_success + scroll_fail) if (scroll_success + scroll_fail) > 0 else Decimal(0)
+        },
+        "zksync": {
+            "successful_transactions": zksync_success,
+            "failed_transactions": zksync_fail,
+            "total_transactions": zksync_success + zksync_fail,
+            "failure_rate": Decimal(zksync_fail) / Decimal(zksync_success + zksync_fail) if (zksync_success + zksync_fail) > 0 else Decimal(0)
+        }
+    }
 
     # --- Step 3: Alerting ---
     # Mock the send_alert method to capture calls
-    alerter.send_alert = pytest.mock.MagicMock()
+    alerter.send_alert = MagicMock()
 
     # Check for alerts based on aggregated metrics
-    alerts_triggered = alerter.check_and_send_alerts(aggregated_metrics)
+    alerts_triggered = alerter.check_and_send_alerts(aggregated_metrics_dict)
 
     # ZkSync should trigger a failure rate alert (100% failure > 10% threshold)
     assert alerts_triggered is True
@@ -132,8 +166,8 @@ def test_end_to_end_monitoring_flow(
     assert "100.00%" in call_args
 
     # --- Step 4: Health Check ---
-    # Update health checker with current metrics
-    health_checker.update_protocol_health(aggregated_metrics)
+    # Update health checker with current metrics (uses the list from aggregator)
+    health_checker.update_protocol_health(aggregated_metrics_list)
 
     # Check overall system health
     overall_health = health_checker.check_overall_health()
@@ -158,8 +192,7 @@ def test_end_to_end_monitoring_flow(
         value_usd=Decimal("10"),
         tx_hash="0xabc6",
     )
-    all_raw_metrics_2 = metrics_collector.get_all_metrics()
-    aggregated_metrics_2 = metrics_aggregator.aggregate_metrics(all_raw_metrics_2)
+    aggregated_metrics_2 = metrics_aggregator.aggregate_time_window(0, time.time())
     health_checker.update_protocol_health(aggregated_metrics_2)
 
     zksync_health_after_more_fails = health_checker.get_protocol_health("zksync")

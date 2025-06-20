@@ -23,6 +23,8 @@ from airdrops.risk_management.core import RiskManager, RiskLevel
 import sys
 
 
+
+
 class TestFailureRecovery:
     """Test suite for failure recovery mechanisms."""
 
@@ -70,7 +72,7 @@ class TestFailureRecovery:
             },
         }
 
-    def test_network_failure_recovery(self, mock_config):
+    def test_network_failure_recovery(self, mock_config: Dict[str, Any]) -> None:
         """Test recovery from network connection failures.
 
         Verifies:
@@ -81,13 +83,13 @@ class TestFailureRecovery:
         print("\n=== NETWORK FAILURE RECOVERY TEST ===")
 
         class MockWeb3(Web3):
-            def __init__(self, is_connected_val, *args, **kwargs):
+            def __init__(self, is_connected_val: bool, *args: Any, **kwargs: Any) -> None:
                 super().__init__(*args, **kwargs)
                 self._is_connected = is_connected_val
                 self.eth = Mock()
                 self.eth.get_block.return_value = {"number": 1000000}
 
-            def is_connected(self):
+            def is_connected(self) -> bool:
                 return self._is_connected
 
         # Setup primary RPC to fail
@@ -115,7 +117,7 @@ class TestFailureRecovery:
         with pytest.raises(ConnectionError):
             conn_manager.get_web3("scroll", max_retries=2)
 
-    def test_transaction_failure_recovery(self, mock_config):
+    def test_transaction_failure_recovery(self, mock_config: Dict[str, Any]) -> None:
         """Test recovery from transaction failures.
 
         Verifies:
@@ -161,7 +163,7 @@ class TestFailureRecovery:
         # Second call succeeds with increased gas
         call_count = 0
 
-        def build_transaction_side_effect(current_tx_params):
+        def build_transaction_side_effect(current_tx_params: Dict[str, Any]) -> Dict[str, Any]:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -185,7 +187,7 @@ class TestFailureRecovery:
         retry_call = mock_function.build_transaction.call_args_list[1]
         assert retry_call[0][0]["gas"] > original_gas
 
-    def test_state_recovery_after_crash(self, mock_config):
+    def test_state_recovery_after_crash(self, mock_config: Dict[str, Any]) -> None:
         """Test recovery of system state after unexpected shutdown.
 
         Verifies:
@@ -259,8 +261,7 @@ class TestFailureRecovery:
         # Cleanup
         os.remove(state_file)
 
-    @patch("airdrops.protocols.zksync.zksync._get_web3_instance")
-    def test_gas_estimation_failure_recovery(self, mock_get_web3, mock_config):
+    def test_gas_estimation_failure_recovery(self, mock_config):
         """Test recovery from gas estimation failures.
 
         Verifies:
@@ -272,9 +273,9 @@ class TestFailureRecovery:
 
         # Setup mock
         mock_web3 = Mock()
-        mock_web3.eth.get_transaction_count.return_value = 10
-        mock_web3.to_checksum_address = Web3.to_checksum_address
-        mock_get_web3.return_value = mock_web3
+        # The GasManager mock (MockComponents.GasManager) does not directly use a web3 instance
+        # passed from the test. It expects a 'func' with an 'estimate_gas' method.
+        # We will ensure the mock_function passed to it behaves as expected.
 
         # Gas estimation fails
         mock_function = Mock()
@@ -305,7 +306,7 @@ class TestFailureRecovery:
         assert safe_gas_price <= 100000000000  # Capped at max
 
     @patch("airdrops.monitoring.alerter.Alerter.send_notifications")
-    def test_monitoring_failure_recovery(self, mock_send_notifications, mock_config):
+    def test_monitoring_failure_recovery(self, mock_send_notifications: Mock, mock_config: Dict[str, Any]) -> None:
         """Test recovery when monitoring systems fail.
 
         Verifies:
@@ -329,7 +330,7 @@ class TestFailureRecovery:
                 wallet="0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775",
                 success=True,
                 gas_used=150000,
-                value_usd=500.0,
+                value_usd=Decimal("500.0"),  # Fix: Use Decimal instead of float
                 tx_hash="0x" + "b" * 64
             )
 
@@ -454,8 +455,8 @@ class TestFailureRecovery:
 
     @patch("airdrops.capital_allocation.engine.CapitalAllocator")
     def test_capital_preservation_during_failures(
-        self, mock_allocator_class, mock_config
-    ):
+        self, mock_allocator_class: Mock, mock_config: Dict[str, Any]
+    ) -> None:
         """Test capital preservation mechanisms during system failures.
 
         Verifies:
@@ -488,7 +489,7 @@ class TestFailureRecovery:
             # Ensure risk_manager uses the mocked Web3 instance for its providers
             risk_manager.web3_providers = {"ethereum": mock_web3_instance}
             # Mock _get_eth_price_usd as it's called in monitor_positions
-            risk_manager._get_eth_price_usd = Mock(return_value=Decimal("2000"))
+            risk_manager._get_eth_price_usd = Mock(return_value=Decimal("2000"))  # type: ignore[method-assign]
 
         # Simulate high failure rate
         failure_events = [
@@ -501,7 +502,7 @@ class TestFailureRecovery:
         ]
 
         for event in failure_events:
-            risk_manager.record_risk_event(event_type=event["type"], details=event)
+            risk_manager.record_risk_event(event_type=str(event["type"]), details=event)  # Fix: Cast to str
 
         # Should trigger capital preservation
         # Use a valid-looking mock address to avoid Web3.to_checksum_address ValueError
@@ -765,35 +766,35 @@ class MockComponents:
 # Mock the shared modules if they don't exist
 if "airdrops.shared.recovery_manager" not in sys.modules:
     sys.modules["airdrops.shared.recovery_manager"] = MagicMock()
-    sys.modules["airdrops.shared.recovery_manager"].TransactionRecovery = (
+    sys.modules["airdrops.shared.recovery_manager"].TransactionRecovery = (  # type: ignore[attr-defined]
         MockComponents.TransactionRecovery
     )
 
 if "airdrops.shared.state_manager" not in sys.modules:
     sys.modules["airdrops.shared.state_manager"] = MagicMock()
-    sys.modules[
+    sys.modules[  # type: ignore[attr-defined]
         "airdrops.shared.state_manager"
     ].StateManager = MockComponents.StateManager
 
 if "airdrops.shared.gas_manager" not in sys.modules:
     sys.modules["airdrops.shared.gas_manager"] = MagicMock()
-    sys.modules["airdrops.shared.gas_manager"].GasManager = MockComponents.GasManager
+    sys.modules["airdrops.shared.gas_manager"].GasManager = MockComponents.GasManager  # type: ignore[attr-defined]
 
 if "airdrops.shared.protocol_manager" not in sys.modules:
     sys.modules["airdrops.shared.protocol_manager"] = MagicMock()
-    sys.modules["airdrops.shared.protocol_manager"].ProtocolManager = (
+    sys.modules["airdrops.shared.protocol_manager"].ProtocolManager = (  # type: ignore[attr-defined]
         MockComponents.ProtocolManager
     )
 
 if "airdrops.shared.circuit_breaker" not in sys.modules:
     sys.modules["airdrops.shared.circuit_breaker"] = MagicMock()
-    sys.modules["airdrops.shared.circuit_breaker"].CircuitBreaker = (
+    sys.modules["airdrops.shared.circuit_breaker"].CircuitBreaker = (  # type: ignore[attr-defined]
         MockComponents.CircuitBreaker
     )
 
 if "airdrops.shared.system_coordinator" not in sys.modules:
     sys.modules["airdrops.shared.system_coordinator"] = MagicMock()
-    sys.modules["airdrops.shared.system_coordinator"].SystemCoordinator = (
+    sys.modules["airdrops.shared.system_coordinator"].SystemCoordinator = (  # type: ignore[attr-defined]
         MockComponents.SystemCoordinator
     )
 

@@ -17,6 +17,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 import uvicorn
 
+from airdrops.monitoring.aggregator import AggregatedMetric
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -96,6 +98,10 @@ class HealthChecker:
         self.memory_critical_threshold = float(
             os.getenv("HEALTH_MEMORY_CRITICAL_THRESHOLD", "95.0")
         )
+        
+        # Protocol health tracking
+        self.protocol_health: Dict[str, bool] = {}
+        self.protocol_consecutive_failures: Dict[str, int] = {}
 
     def _setup_routes(self) -> None:
         """Setup FastAPI routes for health check endpoints."""
@@ -657,6 +663,127 @@ class HealthChecker:
             return HealthStatus.WARNING
         else:
             return HealthStatus.OK
+
+    def update_protocol_health(self, aggregated_metrics: List[AggregatedMetric]) -> None:
+        """Update protocol health status based on aggregated metrics.
+        
+        Args:
+            aggregated_metrics: List of AggregatedMetric objects from the metrics aggregator
+            
+        Example:
+            >>> health_checker = HealthChecker()
+            >>> metrics = [AggregatedMetric(metric_name="scroll_success_transactions_count", value=100, labels={})]
+            >>> health_checker.update_protocol_health(metrics)
+        """
+        try:
+            # Reset protocol health
+            self.protocol_health.clear()
+            
+            # Process aggregated metrics to extract protocol health data
+            protocol_stats: Dict[str, Dict[str, int]] = {}
+            
+            for metric in aggregated_metrics:
+                # Extract protocol name from metric name
+                # Expected format: {protocol}_{status}_transactions_count
+                if "_transactions_count" in metric.metric_name:
+                    parts = metric.metric_name.split("_")
+                    if len(parts) >= 3:
+                        protocol = parts[0]
+                        status = parts[1]  # "success" or "failure"
+                        
+                        if protocol not in protocol_stats:
+                            protocol_stats[protocol] = {"success": 0, "failure": 0}
+                        
+                        if status == "success":
+                            protocol_stats[protocol]["success"] = int(metric.value)
+                        elif status == "failure":
+                            protocol_stats[protocol]["failure"] = int(metric.value)
+            
+            # Calculate health status for each protocol
+            for protocol, stats in protocol_stats.items():
+                total_transactions = stats["success"] + stats["failure"]
+                if total_transactions > 0:
+                    failure_rate = stats["failure"] / total_transactions
+                    # Protocol is healthy if failure rate is below 10%
+                    is_healthy = failure_rate < 0.1
+                    self.protocol_health[protocol] = is_healthy
+                    
+                    # Update consecutive failures tracking
+                    if not is_healthy:
+                        # Protocol is unhealthy, set consecutive failures to the failure count
+                        # (since all transactions in this window are failures when failure rate >= 10%)
+                        self.protocol_consecutive_failures[protocol] = stats["failure"]
+                    else:
+                        # Protocol is healthy, reset consecutive failures
+                        self.protocol_consecutive_failures[protocol] = 0
+                else:
+                    # No transactions means healthy by default
+                    self.protocol_health[protocol] = True
+                    self.protocol_consecutive_failures[protocol] = 0
+                    
+            logger.info(f"Updated protocol health: {self.protocol_health}")
+            logger.info(f"Protocol consecutive failures: {self.protocol_consecutive_failures}")
+            
+        except Exception as e:
+            logger.error(f"Error updating protocol health: {e}")
+            raise
+    
+    def check_overall_health(self) -> bool:
+        """Check overall system health based on protocol health status.
+        
+        Returns:
+            bool: True if all protocols are healthy, False otherwise
+            
+        Example:
+            >>> health_checker = HealthChecker()
+            >>> health_checker.protocol_health = {"scroll": True, "zksync": False}
+            >>> health_checker.check_overall_health()
+            False
+        """
+        try:
+            if not self.protocol_health:
+                # No protocol data means healthy
+                return True
+                
+            # System is healthy if all protocols are healthy
+            overall_healthy = all(self.protocol_health.values())
+            logger.info(f"Overall health check: {overall_healthy}, protocol status: {self.protocol_health}")
+            return overall_healthy
+            
+        except Exception as e:
+            logger.error(f"Error checking overall health: {e}")
+            return False
+
+    def get_protocol_health(self, protocol: str) -> Dict[str, Any]:
+        """Get health status for a specific protocol.
+        
+        Args:
+            protocol: Name of the protocol to check
+            
+        Returns:
+            Dictionary containing protocol health information
+            
+        Example:
+            >>> health_checker = HealthChecker()
+            >>> health_checker.protocol_health = {"zksync": False}
+            >>> health_checker.get_protocol_health("zksync")
+            {"is_healthy": False, "consecutive_failures": 3}
+        """
+        try:
+            is_healthy = self.protocol_health.get(protocol, True)
+            consecutive_failures = self.protocol_consecutive_failures.get(protocol, 0)
+            
+            return {
+                "is_healthy": is_healthy,
+                "consecutive_failures": consecutive_failures
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting protocol health for {protocol}: {e}")
+            return {
+                "is_healthy": False,
+                "consecutive_failures": 0
+            }
 
     def start_server(self, host: str = "0.0.0.0") -> None:
         """

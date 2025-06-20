@@ -1,4 +1,4 @@
-# airdrops/src/airdrops/shared/config.py
+# src/airdrops/shared/config.py
 """
 Shared configuration for the airdrops project.
 """

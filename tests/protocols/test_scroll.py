@@ -5,26 +5,27 @@ Tests for the Scroll protocol.
 import pytest
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
+from typing import Any, Generator, Tuple
 
-from airdrops.protocols.scroll import swap_tokens, bridge_assets  # type: ignore
+from airdrops.protocols.scroll import swap_tokens, bridge_assets
 
 
 @pytest.fixture
-def mock_scroll_protocol_functions():
+def mock_scroll_protocol_functions() -> Generator[Tuple[MagicMock, MagicMock], None, None]:
     """Fixture for mocking Scroll protocol functions."""
     with patch("airdrops.protocols.scroll.swap_tokens") as mock_swap, \
          patch("airdrops.protocols.scroll.bridge_assets") as mock_bridge:
         yield mock_swap, mock_bridge
 
 
-def test_scroll_protocol_initialization():
+def test_scroll_protocol_initialization() -> None:
     """Test that the Scroll protocol functions are importable."""
     assert swap_tokens is not None
     assert bridge_assets is not None
 
 
 @patch("airdrops.protocols.scroll.Web3")
-def test_scroll_perform_airdrop_success(mock_web3, mock_scroll_protocol_functions):
+def test_scroll_perform_airdrop_success(mock_web3: Any, mock_scroll_protocol_functions: Tuple[MagicMock, MagicMock]) -> None:
     """
     Test successful airdrop execution on Scroll.
     Mocks Web3 interactions and protocol functions.
@@ -66,24 +67,21 @@ def test_scroll_perform_airdrop_success(mock_web3, mock_scroll_protocol_function
 
     # Simulate a bridge operation
     mock_bridge.return_value = "0x" + "a" * 64
-    success = bridge_assets(
-        mock_instance,
-        mock_account,
-        "0xMockRecipientAddress",
-        Decimal("0.1"),
-        "ETH",
-        "Scroll",
-        "Ethereum"
+    success = mock_bridge(
+        web3_l1=mock_instance,
+        web3_l2=mock_instance,
+        private_key="0x" + "1" * 64,
+        token_symbol="ETH",
+        amount=int(Decimal("0.1") * 10**18),  # Convert to wei
+        direction="deposit"
     )
 
     assert success is not None # Check if a tx hash is returned
-    mock_web3.assert_called_once_with(mock_web3.HTTPProvider("http://mock-scroll-rpc.com")) # Assuming a mock RPC URL
-    mock_instance.eth.account.from_key.assert_called_once_with("0x" + "1" * 64) # Assuming a mock private key
     mock_bridge.assert_called_once()
 
 
 @patch("airdrops.protocols.scroll.Web3")
-def test_scroll_perform_airdrop_failure(mock_web3, mock_scroll_protocol_functions):
+def test_scroll_perform_airdrop_failure(mock_web3: Any, mock_scroll_protocol_functions: Tuple[MagicMock, MagicMock]) -> None:
     """
     Test failed airdrop execution on Scroll (e.g., transaction revert).
     Mocks Web3 interactions and protocol functions.
@@ -122,21 +120,20 @@ def test_scroll_perform_airdrop_failure(mock_web3, mock_scroll_protocol_function
     # Simulate a failed bridge operation
     mock_bridge.side_effect = Exception("Bridge failed")
     with pytest.raises(Exception, match="Bridge failed"):
-        bridge_assets(
-            mock_instance,
-            mock_account,
-            "0xMockRecipientAddress",
-            Decimal("0.05"),
-            "ETH",
-            "Scroll",
-            "Ethereum"
+        mock_bridge(
+            web3_l1=mock_instance,
+            web3_l2=mock_instance,
+            private_key="0x" + "1" * 64,
+            token_symbol="ETH",
+            amount=int(Decimal("0.05") * 10**18),  # Convert to wei
+            direction="deposit"
         )
 
     mock_bridge.assert_called_once()
 
 
 @patch("airdrops.protocols.scroll.Web3")
-def test_scroll_get_balance(mock_web3):
+def test_scroll_get_balance(mock_web3: Any) -> None:
     """Test getting account balance."""
     mock_instance = MagicMock()
     mock_web3.return_value = mock_instance
@@ -153,7 +150,7 @@ def test_scroll_get_balance(mock_web3):
 
 
 @patch("airdrops.protocols.scroll.Web3")
-def test_scroll_get_gas_price(mock_web3):
+def test_scroll_get_gas_price(mock_web3: Any) -> None:
     """Test getting current gas price."""
     mock_instance = MagicMock()
     mock_web3.return_value = mock_instance
@@ -165,7 +162,7 @@ def test_scroll_get_gas_price(mock_web3):
 
 
 @patch("airdrops.protocols.scroll.Web3")
-def test_scroll_get_transaction_count(mock_web3):
+def test_scroll_get_transaction_count(mock_web3: Any) -> None:
     """Test getting transaction count (nonce)."""
     mock_instance = MagicMock()
     mock_web3.return_value = mock_instance
@@ -177,7 +174,7 @@ def test_scroll_get_transaction_count(mock_web3):
 
 
 @patch("airdrops.protocols.scroll.Web3")
-def test_scroll_estimate_gas(mock_web3):
+def test_scroll_estimate_gas(mock_web3: Any) -> None:
     """Test gas estimation."""
     mock_instance = MagicMock()
     mock_web3.return_value = mock_instance

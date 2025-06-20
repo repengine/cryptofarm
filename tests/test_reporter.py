@@ -5,49 +5,61 @@ Tests for the airdrops.analytics.reporter module.
 import json
 import pytest
 from decimal import Decimal
-from enum import Enum
+from datetime import datetime
 from unittest.mock import MagicMock
 
-from airdrops.analytics.reporter import AirdropReporter, ReportFormat  # type: ignore
-from airdrops.analytics.tracker import AirdropTracker  # type: ignore
+from airdrops.analytics.reporter import AirdropReporter, ReportFormat, AirdropReport, ProtocolSummary
+from airdrops.analytics.tracker import AirdropTracker, AirdropEvent
 
 
 @pytest.fixture
-def mock_tracker():
+def sample_events():
+    """Sample airdrop events for testing."""
+    return [
+        AirdropEvent(
+            protocol_name="Scroll",
+            token_symbol="ETH",
+            amount_received=Decimal("0.1"),
+            estimated_value_usd=Decimal("200"),
+            wallet_address="0x1000000000000000000000000000000000000001",
+            event_date=datetime(2023, 1, 1),
+        ),
+        AirdropEvent(
+            protocol_name="Zksync",
+            token_symbol="USDC",
+            amount_received=Decimal("100"),
+            estimated_value_usd=Decimal("100"),
+            wallet_address="0x1000000000000000000000000000000000000001",
+            event_date=datetime(2023, 1, 15),
+        ),
+        AirdropEvent(
+            protocol_name="Scroll",
+            token_symbol="USDT",
+            amount_received=Decimal("50"),
+            estimated_value_usd=Decimal("50"),
+            wallet_address="0x2000000000000000000000000000000000000002",
+            event_date=datetime(2023, 2, 1),
+        ),
+    ]
+
+
+@pytest.fixture
+def mock_tracker(sample_events):
     """Fixture for a mock AirdropTracker instance."""
     tracker = MagicMock(spec=AirdropTracker)
-    tracker.total_airdrops_tracked = 5
-    tracker.total_value_tracked = Decimal("1500")
-    tracker.protocol_metrics = {
-        "scroll": {
-            "total_airdrops": 3,
-            "successful_airdrops": 2,
-            "failed_airdrops": 1,
-            "total_value_usd": Decimal("1000"),
-        },
-        "zksync": {
-            "total_airdrops": 2,
-            "successful_airdrops": 1,
-            "failed_airdrops": 1,
-            "total_value_usd": Decimal("500"),
-        },
-    }
-    tracker.wallet_metrics = {
-        "0x1": {
-            "total_airdrops": 3,
-            "successful_airdrops": 2,
-            "failed_airdrops": 1,
-            "total_value_usd": Decimal("1200"),
-        },
-        "0x2": {
-            "total_airdrops": 2,
-            "successful_airdrops": 1,
-            "failed_airdrops": 1,
-            "total_value_usd": Decimal("300"),
-        },
-    }
-    tracker.get_protocol_summary.return_value = tracker.protocol_metrics
-    tracker.get_wallet_summary.return_value = tracker.wallet_metrics
+
+    def get_by_date_range(start_date, end_date):
+        return [
+            e for e in sample_events
+            if (start_date is None or e.event_date >= start_date) and
+               (end_date is None or e.event_date <= end_date)
+        ]
+
+    def get_by_protocol(protocol_name):
+        return [e for e in sample_events if e.protocol_name.lower() == protocol_name.lower()]
+
+    tracker.get_airdrops_by_date_range.side_effect = get_by_date_range
+    tracker.get_airdrops_by_protocol.side_effect = get_by_protocol
     return tracker
 
 
@@ -57,127 +69,89 @@ def reporter(mock_tracker):
     return AirdropReporter(mock_tracker)
 
 
-def test_generate_summary_report_text(reporter):
-    """Test generating a summary report in text format."""
-    report = reporter.generate_summary_report(ReportFormat.TEXT)
-    assert isinstance(report, str)
-    assert "Airdrop Performance Summary" in report
-    assert "Total Airdrops Tracked: 5" in report
-    assert "Total Value Tracked: $1,500.00" in report
-    assert "Protocol Metrics:" in report
-    assert "Scroll: Total=3, Successful=2, Failed=1, Value=$1,000.00" in report
-    assert "ZkSync: Total=2, Successful=1, Failed=1, Value=$500.00" in report
-    assert "Wallet Metrics:" in report
-    assert "0x1: Total=3, Successful=2, Failed=1, Value=$1,200.00" in report
-    assert "0x2: Total=2, Successful=1, Failed=1, Value=$300.00" in report
+def test_generate_comprehensive_report(reporter: AirdropReporter):
+    """Test generating a comprehensive report."""
+    report = reporter.generate_comprehensive_report()
+
+    assert isinstance(report, AirdropReport)
+    assert report.total_airdrops == 3
+    assert report.total_protocols == 2
+    assert report.total_estimated_value_usd == Decimal("350")
+    assert len(report.protocol_summaries) == 2
+
+    scroll_summary = next(s for s in report.protocol_summaries if s.protocol_name == "Scroll")
+    assert scroll_summary.total_events == 2
+    assert scroll_summary.total_estimated_value_usd == Decimal("250")
+
+    zksync_summary = next(s for s in report.protocol_summaries if s.protocol_name == "Zksync")
+    assert zksync_summary.total_events == 1
+    assert zksync_summary.total_estimated_value_usd == Decimal("100")
 
 
-def test_generate_summary_report_json(reporter):
-    """Test generating a summary report in JSON format."""
-    report = reporter.generate_summary_report(ReportFormat.JSON)
-    assert isinstance(report, str)
-    report_json = json.loads(report)
-    assert report_json["total_airdrops_tracked"] == 5
-    assert report_json["total_value_tracked"] == "1500.00"  # Stored as string in JSON
-    assert report_json["protocol_metrics"]["scroll"]["total_airdrops"] == 3
-    assert report_json["wallet_metrics"]["0x1"]["total_value_usd"] == "1200.00"
+def test_generate_protocol_report(reporter: AirdropReporter):
+    """Test generating a protocol-specific report."""
+    report = reporter.generate_protocol_report("Scroll")
+
+    assert isinstance(report, ProtocolSummary)
+    assert report.protocol_name == "Scroll"
+    assert report.total_events == 2
+    assert report.total_estimated_value_usd == Decimal("250")
+    assert set(report.unique_tokens) == {"ETH", "USDT"}
 
 
-def test_generate_summary_report_markdown(reporter):
-    """Test generating a summary report in Markdown format."""
-    report = reporter.generate_summary_report(ReportFormat.MARKDOWN)
-    assert isinstance(report, str)
-    assert "# Airdrop Performance Summary" in report
-    assert "**Total Airdrops Tracked:** 5" in report
-    assert "**Total Value Tracked:** $1,500.00" in report
-    assert "## Protocol Metrics" in report
-    assert "| Protocol | Total | Successful | Failed | Value (USD) |" in report
-    assert "|----------|-------|------------|--------|-------------|" in report
-    assert "| scroll   | 3     | 2          | 1      | 1000.00     |" in report
-    assert "## Wallet Metrics" in report
-    assert "| Wallet | Total | Successful | Failed | Value (USD) |" in report
-
-
-def test_generate_protocol_report_text(reporter):
-    """Test generating a protocol-specific report in text format."""
-    report = reporter.generate_protocol_report("scroll", ReportFormat.TEXT)
-    assert isinstance(report, str)
-    assert "Protocol Performance Report: scroll" in report
-    assert "Total Airdrops: 3" in report
-    assert "Successful Airdrops: 2" in report
-    assert "Failed Airdrops: 1" in report
-    assert "Total Value (USD): $1,000.00" in report
-
-
-def test_generate_protocol_report_json(reporter):
-    """Test generating a protocol-specific report in JSON format."""
-    report = reporter.generate_protocol_report("zksync", ReportFormat.JSON)
-    assert isinstance(report, str)
-    report_json = json.loads(report)
-    assert report_json["protocol"] == "zksync"
-    assert report_json["total_airdrops"] == 2
-    assert report_json["successful_airdrops"] == 1
-    assert report_json["total_value_usd"] == "500.00"
-
-
-def test_generate_protocol_report_markdown(reporter):
-    """Test generating a protocol-specific report in Markdown format."""
-    report = reporter.generate_protocol_report("scroll", ReportFormat.MARKDOWN)
-    assert isinstance(report, str)
-    assert "# Protocol Performance Report: scroll" in report
-    assert "**Total Airdrops:** 3" in report
-    assert "**Successful Airdrops:** 2" in report
-    assert "**Total Value (USD):** $1,000.00" in report
-
-
-def test_generate_wallet_report_text(reporter):
-    """Test generating a wallet-specific report in text format."""
-    report = reporter.generate_wallet_report("0x1", ReportFormat.TEXT)
-    assert isinstance(report, str)
-    assert "Wallet Performance Report: 0x1" in report
-    assert "Total Airdrops: 3" in report
-    assert "Successful Airdrops: 2" in report
-    assert "Failed Airdrops: 1" in report
-    assert "Total Value (USD): $1,200.00" in report
-
-
-def test_generate_wallet_report_json(reporter):
-    """Test generating a wallet-specific report in JSON format."""
-    report = reporter.generate_wallet_report("0x2", ReportFormat.JSON)
-    assert isinstance(report, str)
-    report_json = json.loads(report)
-    assert report_json["wallet"] == "0x2"
-    assert report_json["total_airdrops"] == 2
-    assert report_json["successful_airdrops"] == 1
-    assert report_json["total_value_usd"] == "300.00"
-
-
-def test_generate_wallet_report_markdown(reporter):
-    """Test generating a wallet-specific report in Markdown format."""
-    report = reporter.generate_wallet_report("0x1", ReportFormat.MARKDOWN)
-    assert isinstance(report, str)
-    assert "# Wallet Performance Report: 0x1" in report
-    assert "**Total Airdrops:** 3" in report
-    assert "**Successful Airdrops:** 2" in report
-    assert "**Total Value (USD):** $1,200.00" in report
-
-
-def test_unsupported_report_format(reporter):
-    """Test that an unsupported report format raises an error."""
-    class UnsupportedFormat(Enum):
-        UNSUPPORTED = "unsupported"
-
-    with pytest.raises(ValueError, match="Unsupported report format"):
-        reporter.generate_summary_report(UnsupportedFormat.UNSUPPORTED)  # type: ignore
-
-
-def test_non_existent_protocol_report(reporter):
+def test_generate_protocol_report_not_found(reporter: AirdropReporter):
     """Test generating a report for a non-existent protocol."""
-    report = reporter.generate_protocol_report("non_existent", ReportFormat.TEXT)
-    assert "No data available for protocol: non_existent" in report
+    report = reporter.generate_protocol_report("non_existent")
+    assert report.total_events == 0
 
 
-def test_non_existent_wallet_report(reporter):
-    """Test generating a report for a non-existent wallet."""
-    report = reporter.generate_wallet_report("0xnon_existent", ReportFormat.TEXT)
-    assert "No data available for wallet: 0xnon_existent" in report
+def test_export_report_json(reporter: AirdropReporter, tmp_path):
+    """Test exporting a report to JSON."""
+    report = reporter.generate_comprehensive_report()
+    output_file = tmp_path / "report.json"
+
+    reporter.export_report(report, str(output_file), ReportFormat.JSON)
+
+    assert output_file.exists()
+    with open(output_file, 'r') as f:
+        data = json.load(f)
+    assert data["total_airdrops"] == 3
+    assert data["protocol_summaries"][0]["protocol_name"] == "Scroll"
+    assert data["protocol_summaries"][0]["total_estimated_value_usd"] == "250"
+
+
+def test_export_report_csv(reporter: AirdropReporter, tmp_path):
+    """Test exporting a report to CSV."""
+    report = reporter.generate_comprehensive_report()
+    output_file = tmp_path / "report.csv"
+
+    reporter.export_report(report, str(output_file), ReportFormat.CSV)
+
+    assert output_file.exists()
+    with open(output_file, 'r') as f:
+        lines = f.readlines()
+    assert len(lines) == 3  # Header + 2 protocols
+    assert "Protocol Name,Total Events" in lines[0]
+    assert "Scroll,2" in lines[1]
+    assert "Zksync,1" in lines[2]
+
+
+def test_export_report_console(reporter: AirdropReporter, capsys):
+    """Test exporting a report to the console."""
+    report = reporter.generate_comprehensive_report()
+
+    reporter.export_report(report, "", ReportFormat.CONSOLE)
+
+    captured = capsys.readouterr()
+    assert "AIRDROP ANALYTICS REPORT" in captured.out
+    assert "Total Airdrops: 3" in captured.out
+    assert "Total Estimated Value: $350.00" in captured.out
+    assert "Scroll:" in captured.out
+    assert "Value: $250.00" in captured.out
+
+
+def test_unsupported_report_format(reporter: AirdropReporter):
+    """Test that an unsupported report format raises an error."""
+    report = reporter.generate_comprehensive_report()
+    with pytest.raises(ValueError, match="Unsupported format"):
+        reporter.export_report(report, "file.txt", "unsupported_format")

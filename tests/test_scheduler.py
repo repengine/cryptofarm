@@ -26,8 +26,12 @@ class TestAirdropSchedulerBot:
 
     config: Dict[str, Any]
 
-    def setup_method(self) -> None:
+    @patch('airdrops.scheduler.bot.BlockingScheduler')
+    def setup_method(self, method: Any, mock_blocking_scheduler_class: Mock) -> None:
         """Set up test fixtures."""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"TestAirdropSchedulerBot.setup_method called for test: {method.__name__}")
         self.config = {
             "scheduler": {
                 "max_concurrent_tasks": 3,
@@ -36,7 +40,32 @@ class TestAirdropSchedulerBot:
             },
             "max_gas_price": 80,
         }
+        # Create a mock instance for BlockingScheduler
+        self.mock_scheduler_instance = Mock()
+        mock_blocking_scheduler_class.return_value = self.mock_scheduler_instance
         self.scheduler = AirdropSchedulerBot(self.config)
+        # Ensure the scheduler's internal _scheduler points to our mock
+        self.scheduler._scheduler = self.mock_scheduler_instance
+        logger.info("AirdropSchedulerBot initialized with mock scheduler.")
+
+    def teardown_method(self) -> None:
+        """Tear down test fixtures."""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("TestAirdropSchedulerBot.teardown_method called.")
+        if self.scheduler._scheduler:
+            logger.info("Attempting to shut down mock scheduler.")
+            # Explicitly shut down the scheduler mock
+            self.scheduler._scheduler.shutdown(wait=True)
+            logger.info("Mock scheduler shutdown called.")
+        self.scheduler._scheduler = None
+        # Clear internal dictionaries to release references
+        self.scheduler._task_definitions.clear()
+        self.scheduler._task_executions.clear()
+        # Reset the mock instance itself
+        if hasattr(self, 'mock_scheduler_instance'):
+            self.mock_scheduler_instance.reset_mock()
+        logger.info("TestAirdropSchedulerBot.teardown_method completed.")
 
     def test_init_default_config(self) -> None:
         """Test scheduler initialization with default configuration."""
@@ -141,8 +170,11 @@ class TestAirdropSchedulerBot:
         def dummy_func() -> str:
             return "test"
 
+        # Create a new instance of AirdropSchedulerBot without initializing the scheduler
+        # to ensure the RuntimeError is raised.
+        bot_instance = AirdropSchedulerBot(config=self.config)
         with pytest.raises(RuntimeError, match="Scheduler not initialized"):
-            self.scheduler.add_job("test_task", dummy_func)
+            bot_instance.add_job("test_task", dummy_func)
 
     def test_add_job_duplicate_task(self) -> None:
         """Test adding duplicate task."""
@@ -1292,9 +1324,12 @@ class TestCrossChainManagerIntegration:
             
             # Verify initialization log includes cross-chain manager status
             mock_logger.info.assert_called_with(
-                "AirdropSchedulerBot initialized with config: %s, cross_chain_manager: %s",
+                "AirdropSchedulerBot initialized with config: %s, capital_allocator: %s, risk_manager: %s, metrics_collector: %s, cross_chain_manager: %s",
                 self.config,
-                "enabled"
+                "disabled",
+                "disabled",
+                "disabled",
+                "enabled",
             )
 
             # Test scheduling logging

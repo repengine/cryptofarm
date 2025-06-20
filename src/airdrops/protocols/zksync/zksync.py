@@ -381,7 +381,14 @@ class ZkSyncProtocol:
     functions in a convenient class-based API.
     """
 
-    def __init__(self, l1_rpc_url: str, l2_rpc_url: str, private_key: str) -> None:
+    def __init__(
+        self,
+        l1_rpc_url: str,
+        l2_rpc_url: str,
+        private_key: str,
+        web3_l1: Optional[Web3] = None,
+        web3_l2: Optional[Web3] = None
+    ) -> None:
         """
         Initialize the ZkSyncProtocol.
 
@@ -407,84 +414,82 @@ class ZkSyncProtocol:
         self.l1_rpc_url = l1_rpc_url
         self.l2_rpc_url = l2_rpc_url
         self.private_key = private_key
-        self.web3_l1 = Web3(Web3.HTTPProvider(l1_rpc_url))
-        self.web3_l2 = Web3(Web3.HTTPProvider(l2_rpc_url))
+        self.web3_l1 = web3_l1 if web3_l1 else Web3(Web3.HTTPProvider(l1_rpc_url))
+        self.web3_l2 = web3_l2 if web3_l2 else Web3(Web3.HTTPProvider(l2_rpc_url))
 
     def bridge_assets(
         self,
+        web3_l1: Web3,
+        web3_l2: Web3,
+        private_key: str,
         token_symbol: str,
         amount: Decimal,
-        direction: str = "L1_TO_L2"
+        direction: str
     ) -> str:
-        """
-        Bridge assets between L1 and L2.
+        """Bridge assets between Ethereum L1 and ZkSync L2.
         
         Args:
-            token_symbol: The symbol of the token to bridge (e.g., "ETH", "USDC").
-            amount: The amount to bridge.
-            direction: The direction of the bridge ("L1_TO_L2" or "L2_TO_L1").
+            web3_l1: Web3 instance for Ethereum L1.
+            web3_l2: Web3 instance for ZkSync L2.
+            private_key: Private key for signing transactions.
+            token_symbol: Symbol of the token to bridge (e.g., "ETH", "USDC").
+            amount: Amount to bridge as a Decimal.
+            direction: Bridge direction ("deposit" for L1->L2, "withdraw" for L2->L1).
             
         Returns:
             Transaction hash of the bridge operation.
             
-        Example:
-            >>> tx_hash = protocol.bridge_assets("ETH", Decimal("0.1"), "L1_TO_L2")
-            >>> print(tx_hash)
-            0x123...
+        Raises:
+            ValueError: If parameters are invalid or unsupported.
+            RuntimeError: If the bridge transaction fails.
         """
         # Convert Decimal to int (wei for ETH)
         if token_symbol.upper() == "ETH":
-            amount_wei = int(self.web3_l1.to_wei(amount, "ether"))
+            amount_wei = int(web3_l1.to_wei(amount, "ether"))
         else:
             # For other tokens, assume 18 decimals
             amount_wei = int(amount * (10 ** 18))
             
         return bridge_assets(
-            self.web3_l1,
-            self.web3_l2,
-            self.private_key,
+            web3_l1,
+            web3_l2,
+            private_key,
             token_symbol,
             amount_wei,
             direction
         )
-
+    
     def swap_tokens(
         self,
-        from_token: str,
-        to_token: str,
-        amount: Decimal
+        web3: Web3,
+        private_key: str,
+        token_in: str,
+        token_out: str,
+        amount_in: Decimal,
+        min_amount_out: Decimal,
+        deadline: int
     ) -> str:
-        """
-        Swap tokens on ZkSync L2 using SyncSwap.
+        """Swap tokens on ZkSync network.
         
         Args:
-            from_token: The symbol of the token to swap from.
-            to_token: The symbol of the token to swap to.
-            amount: The amount to swap.
+            web3: Web3 instance for blockchain interaction.
+            private_key: Private key for signing transactions.
+            token_in: Address or symbol of input token.
+            token_out: Address or symbol of output token.
+            amount_in: Amount of input token to swap.
+            min_amount_out: Minimum acceptable output amount (slippage protection).
+            deadline: Transaction deadline timestamp.
             
         Returns:
             Transaction hash of the swap operation.
             
-        Example:
-            >>> tx_hash = protocol.swap_tokens("ETH", "USDC", Decimal("0.1"))
-            >>> print(tx_hash)
-            0x123...
+        Raises:
+            ValueError: If parameters are invalid.
+            RuntimeError: If the swap transaction fails.
         """
-        # Convert Decimal to int (wei for ETH)
-        if from_token.upper() == "ETH":
-            amount_wei = int(self.web3_l2.to_wei(amount, "ether"))
-        else:
-            # For other tokens, assume 18 decimals
-            amount_wei = int(amount * (10 ** 18))
-            
-        return swap_tokens(
-            self.web3_l2,
-            self.private_key,
-            from_token,
-            to_token,
-            amount_wei
-        )
-
+        # For now, delegate to the functional implementation
+        # This would need to be implemented based on the actual swap functionality
+        raise NotImplementedError("Swap functionality not yet implemented in ZkSyncProtocol")
 
 def _approve_erc20_zksync(
     web3_instance: Web3,
