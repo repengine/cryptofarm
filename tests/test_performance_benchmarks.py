@@ -25,7 +25,7 @@ from airdrops.scheduler.bot import TaskPriority
 class PerformanceBenchmark:
     """Base class for performance benchmarks."""
 
-    def __init__(self, name: str, target_ms: float):
+    def __init__(self, name: str, target_ms: float) -> None:
         """Initialize benchmark.
 
         Args:
@@ -36,7 +36,7 @@ class PerformanceBenchmark:
         self.target_ms = target_ms
         self.results: List[float] = []
 
-    def run(self, func: Callable, iterations: int = 100) -> Dict[str, float]:
+    def run(self, func: Callable[[], Any], iterations: int = 100) -> Dict[str, Any]:
         """Run benchmark and collect statistics.
 
         Args:
@@ -105,7 +105,7 @@ class TestCapitalAllocationPerformance:
             }
         }
 
-    def test_portfolio_optimization_performance(self, mock_config):
+    def test_portfolio_optimization_performance(self, mock_config: Any) -> None:
         """Benchmark portfolio optimization with various protocol counts.
 
         Target: <100ms for up to 10 protocols
@@ -130,13 +130,14 @@ class TestCapitalAllocationPerformance:
                 for p in protocols
             }
 
-            def optimize():
-                return allocator.optimize_portfolio(
+            def optimize() -> Any:  # Change return type to Any
+                result = allocator.optimize_portfolio(
                     protocols,
                     risk_constraints,
                     expected_returns=expected_returns,
                     risk_scores=risk_scores
                 )
+                return result
 
             benchmark = PerformanceBenchmark(
                 f"portfolio_optimization_{count}_protocols",
@@ -152,7 +153,7 @@ class TestCapitalAllocationPerformance:
 
         # Assert performance targets
         for result in results:
-            if "10_protocols" in result["name"]:
+            if "10_protocols" in result["name"]:  # This line is correct, the error was misleading
                 assert result["mean_ms"] < 100, (
                     f"Portfolio optimization too slow: {result['mean_ms']}ms"
                 )
@@ -160,7 +161,7 @@ class TestCapitalAllocationPerformance:
                 f"Portfolio optimization P95 too high: {result['p95_ms']}ms"
             )
 
-    def test_rebalancing_check_performance(self, mock_config):
+    def test_rebalancing_check_performance(self, mock_config: Any) -> None:
         """Benchmark rebalancing check operations.
 
         Target: <10ms for checking rebalancing needs
@@ -174,7 +175,7 @@ class TestCapitalAllocationPerformance:
         # Test various drift scenarios
         drift_levels = [0.05, 0.10, 0.15, 0.20]
 
-        def check_rebalance():
+        def check_rebalance() -> Any:
             # Create slightly drifted current allocation
             drift = random.choice(drift_levels)
             current_allocation = {}
@@ -188,9 +189,10 @@ class TestCapitalAllocationPerformance:
                     )
                     current_allocation[p] = target_allocation[p] - adjustment
 
-            return allocator.check_rebalance_needed(
+            result = allocator.check_rebalance_needed(
                 target_allocation, current_allocation
             )
+            return result
 
         benchmark = PerformanceBenchmark("rebalancing_check", target_ms=10.0)
         result = benchmark.run(check_rebalance, iterations=1000)
@@ -210,7 +212,7 @@ class TestCapitalAllocationPerformance:
 class TestMonitoringPerformance:
     """Performance benchmarks for monitoring operations."""
 
-    def test_metrics_collection_performance(self):
+    def test_metrics_collection_performance(self) -> None:
         """Benchmark metrics collection rate.
 
         Target: >10,000 transactions/second
@@ -222,7 +224,7 @@ class TestMonitoringPerformance:
         actions = ["swap", "bridge", "liquidity", "lending"]
         wallets = [f"0x{'0' * 39}{i}" for i in range(100)]
 
-        def record_batch():
+        def record_batch() -> None:
             for _ in range(100):
                 collector.record_transaction(
                     protocol=random.choice(protocols),
@@ -230,7 +232,7 @@ class TestMonitoringPerformance:
                     wallet=random.choice(wallets),
                     success=random.random() > 0.1,
                     gas_used=random.randint(100000, 500000),
-                    value_usd=random.uniform(10, 10000),
+                    value_usd=Decimal(str(random.uniform(10, 10000))),
                     tx_hash=f"0x{''.join(random.choices('0123456789abcdef', k=64))}"
                 )
 
@@ -248,7 +250,7 @@ class TestMonitoringPerformance:
             f"Metrics collection too slow: {transactions_per_second} tx/s"
         )
 
-    def test_aggregation_performance(self):
+    def test_aggregation_performance(self) -> None:
         """Benchmark metrics aggregation performance.
 
         Target: <500ms for aggregating 100k transactions
@@ -271,11 +273,11 @@ class TestMonitoringPerformance:
                 wallet=f"0x{'0' * 39}{i % 1000}",
                 success=random.random() > 0.1,
                 gas_used=random.randint(100000, 500000),
-                value_usd=random.uniform(10, 10000),
+                value_usd=Decimal(str(random.uniform(10, 10000))),
                 tx_hash=f"0x{i:064x}"
             )
 
-        def aggregate():
+        def aggregate() -> None:
             # The MetricsAggregator.process_metrics method expects raw metrics,
             # not a time window. For this test, we'll simulate adding the
             # collected metrics to the aggregator's buffer and then explicitly
@@ -299,7 +301,8 @@ class TestMonitoringPerformance:
             # Now process the metrics. The aggregation logic is internal to
             # process_metrics based on its window_size_seconds. For this test,
             # we assume it processes the buffered metrics when called.
-            return aggregator.process_metrics(mock_raw_metrics)
+            aggregator.process_metrics(mock_raw_metrics)
+            # No explicit return needed for benchmark function
 
         benchmark = PerformanceBenchmark(
             "metrics_aggregation_100k", target_ms=500.0
@@ -336,7 +339,7 @@ class TestSchedulerPerformance:
             }
         }
 
-    def test_task_scheduling_performance(self, mock_config):
+    def test_task_scheduling_performance(self, mock_config: Any) -> None:
         """Benchmark task scheduling performance.
 
         Target: <10ms to schedule a task
@@ -356,12 +359,12 @@ class TestSchedulerPerformance:
         # Create test tasks
         priorities = [TaskPriority.LOW, TaskPriority.NORMAL, TaskPriority.HIGH]
 
-        def dummy_func():
+        def dummy_func() -> None:
             pass
 
         task_counter = 0
 
-        def schedule_task():
+        def schedule_task() -> None:
             nonlocal task_counter
             task_id = f"perf_task_{task_counter}"
             task_counter += 1
@@ -387,7 +390,7 @@ class TestSchedulerPerformance:
             f"Task scheduling P99 too high: {result['p99_ms']}ms"
         )
 
-    def test_dependency_resolution_performance(self, mock_config):
+    def test_dependency_resolution_performance(self, mock_config: Any) -> None:
         """Benchmark task dependency resolution.
 
         Target: <100ms for 100 tasks with complex dependencies
@@ -396,7 +399,7 @@ class TestSchedulerPerformance:
 
         def create_task_graph(num_tasks: int) -> Dict[str, Any]:
             """Create a task graph with dependencies."""
-            tasks = {}
+            tasks: Dict[str, Any] = {}
 
             # Create layers of tasks
             layers = 5
@@ -423,9 +426,12 @@ class TestSchedulerPerformance:
 
             return tasks
 
-        def resolve_dependencies():
+        def resolve_dependencies() -> Any: # Changed return type to Any
             task_graph = create_task_graph(100)
-            return scheduler._resolve_dependencies(task_graph)
+            # The function is meant to be benchmarked, so it doesn't need to return a value.
+            # The actual dependency resolution logic would be here.
+            result = scheduler._resolve_dependencies(task_graph)
+            return result
 
         benchmark = PerformanceBenchmark(
             "dependency_resolution_100_tasks", target_ms=100.0
@@ -446,7 +452,7 @@ class TestProtocolPerformance:
 
     @patch("web3.Web3")
     @patch("web3.contract.Contract")
-    def test_transaction_building_performance(self, mock_contract, mock_web3):
+    def test_transaction_building_performance(self, mock_contract: Any, mock_web3: Any) -> None:
         """Benchmark transaction building performance.
 
         Target: <50ms to build a transaction
@@ -462,7 +468,7 @@ class TestProtocolPerformance:
         mock_contract_instance.functions = Mock()
         mock_contract.return_value = mock_contract_instance
 
-        def build_transaction():
+        def build_transaction() -> Dict[str, Any]:
             # Simulate building a swap transaction
             user_address = "0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47283775"
             token_in = "0x0000000000000000000000000000000000000000"
@@ -476,7 +482,7 @@ class TestProtocolPerformance:
                 "gasPrice": mock_web3_instance.eth.gas_price,
                 "value": amount_in if token_in == "0x" + "0" * 40 else 0,
             }
-
+ 
             return tx_params
 
         benchmark = PerformanceBenchmark("transaction_building", target_ms=50.0)
@@ -494,14 +500,14 @@ class TestProtocolPerformance:
 class TestConcurrencyPerformance:
     """Performance benchmarks for concurrent operations."""
 
-    def test_concurrent_metrics_collection(self):
+    def test_concurrent_metrics_collection(self) -> None:
         """Benchmark concurrent metrics collection.
 
         Target: Linear scaling up to 10 threads
         """
         collector = MetricsCollector()
 
-        def record_transactions(thread_id: int, count: int):
+        def record_transactions(thread_id: int, count: int) -> None:
             """Record transactions from a single thread."""
             for i in range(count):
                 collector.record_transaction(
@@ -510,14 +516,14 @@ class TestConcurrencyPerformance:
                     wallet=f"0x{'0' * 38}{thread_id:02d}",
                     success=True,
                     gas_used=150000,
-                    value_usd=100.0,
+                    value_usd=Decimal("100.0"),
                     tx_hash=f"0x{thread_id:02d}{'0' * 60}{i:02d}"
                 )
 
         # Test with different thread counts
         thread_counts = [1, 2, 4, 8, 10]
         transactions_per_thread = 10000
-        results = []
+        results: List[Dict[str, Any]] = []
 
         for num_threads in thread_counts:
             start = time.perf_counter()
@@ -570,7 +576,7 @@ class TestConcurrencyPerformance:
 class TestMemoryPerformance:
     """Memory usage benchmarks."""
 
-    def test_metrics_memory_usage(self):
+    def test_metrics_memory_usage(self) -> None:
         """Test memory usage for large numbers of metrics.
 
         Target: <100MB for 1M transactions
@@ -598,7 +604,7 @@ class TestMemoryPerformance:
                 wallet=f"0x{'0' * 39}{i % 1000}",
                 success=i % 10 != 0,
                 gas_used=150000 + (i % 100000),
-                value_usd=float(i % 10000),
+                value_usd=Decimal(str(float(i % 10000))),
                 tx_hash=f"0x{i:064x}"
             )
 
@@ -617,7 +623,7 @@ class TestMemoryPerformance:
         assert memory_used_mb < 1000, f"Excessive memory usage: {memory_used_mb}MB"
 
 
-def run_all_benchmarks():
+def run_all_benchmarks() -> None:
     """Run all performance benchmarks and generate report."""
     print("=" * 80)
     print("PERFORMANCE BENCHMARK REPORT")
@@ -645,7 +651,7 @@ def run_all_benchmarks():
                 try:
                     # Create fixtures if needed
                     if "mock_config" in method.__code__.co_varnames:
-                        mock_config = benchmark_class.mock_config()
+                        mock_config = benchmark_class.mock_config()  # type: ignore[attr-defined]
                         method(mock_config)
                     else:
                         method()

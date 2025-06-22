@@ -21,6 +21,9 @@ class TestLayerZeroBridgeAdapter:
         """Create a mock LayerZeroProtocol instance."""
         mock = Mock(spec=LayerZeroProtocol)
         mock.send_message.return_value = "0x123abc456def789"
+        # Mock the attributes that the adapter accesses
+        mock.w3 = Mock()
+        mock.private_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
         return mock
     
     @pytest.fixture
@@ -121,8 +124,7 @@ class TestLayerZeroBridgeAdapter:
         # Verify the call arguments
         call_args = mock_protocol.send_message.call_args
         assert call_args[1]["destination_chain_id"] == 42161  # Arbitrum chain ID
-        assert call_args[1]["recipient_address"] == "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
-        assert call_args[1]["value"] == int(100 * 10**18)  # Amount in Wei
+        assert call_args[1]["destination_address"] == "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87"
     
     def test_bridge_assets_invalid_source_chain(self, adapter: LayerZeroBridgeAdapter) -> None:
         """Test bridge assets with invalid source chain."""

@@ -1,5 +1,6 @@
 import pytest
 from decimal import Decimal
+from typing import Generator, Any
 from unittest.mock import Mock, patch
 from airdrops.protocols.hyperliquid import (
     spot_swap,
@@ -27,7 +28,7 @@ logging.basicConfig(level=logging.CRITICAL)
 
 # Mock the HyperliquidProtocol class to prevent connection errors
 @pytest.fixture(autouse=True)
-def mock_hyperliquid_protocol():
+def mock_hyperliquid_protocol() -> Generator[Mock, None, None]:
     """Auto-use fixture to mock HyperliquidProtocol class."""
     with patch('airdrops.protocols.hyperliquid.HyperliquidProtocol') as mock_protocol_class:
         mock_protocol = Mock()
@@ -41,7 +42,7 @@ def mock_hyperliquid_protocol():
 # Removed problematic mock_hyperliquid_imports fixture
 
 @pytest.fixture
-def mock_exchange_agent():
+def mock_exchange_agent() -> Mock:
     """Mock Hyperliquid Exchange agent."""
     mock_exchange = Mock()
     mock_exchange.order.return_value = {
@@ -68,7 +69,7 @@ def mock_exchange_agent():
     return mock_exchange
 
 @pytest.fixture
-def mock_info_agent():
+def mock_info_agent() -> Mock:
     """Mock Hyperliquid Info agent."""
     mock_info = Mock()
     mock_info.meta.return_value = {
@@ -110,7 +111,7 @@ def mock_info_agent():
     return mock_info
 
 @pytest.fixture
-def mock_web3():
+def mock_web3() -> Mock:
     """Mock Web3 instance."""
     mock_w3 = Mock()
     mock_w3.eth.get_transaction_count.return_value = 1
@@ -137,7 +138,7 @@ def mock_web3():
     return mock_w3
 
 
-def test_spot_swap_sell_eth_market(mock_exchange_agent, mock_info_agent):
+def test_spot_swap_sell_eth_market(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test selling ETH for USDC with a market order."""
     from_token = "ETH"
     to_token = "USDC"
@@ -154,7 +155,7 @@ def test_spot_swap_sell_eth_market(mock_exchange_agent, mock_info_agent):
     }
 
 
-def test_spot_swap_buy_btc_limit(mock_exchange_agent, mock_info_agent):
+def test_spot_swap_buy_btc_limit(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test buying BTC with USDC with a limit order."""
     from_token = "USDC"
     to_token = "BTC"
@@ -170,7 +171,7 @@ def test_spot_swap_buy_btc_limit(mock_exchange_agent, mock_info_agent):
     }
 
 
-def test_spot_swap_unsupported_pair(mock_exchange_agent, mock_info_agent):
+def test_spot_swap_unsupported_pair(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test swap between two non-USDC tokens (unsupported)."""
     from_token = "ETH"
     to_token = "BTC"
@@ -183,7 +184,7 @@ def test_spot_swap_unsupported_pair(mock_exchange_agent, mock_info_agent):
     mock_exchange_agent.order.assert_not_called()
 
 
-def test_spot_swap_invalid_from_token(mock_exchange_agent, mock_info_agent):
+def test_spot_swap_invalid_from_token(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test swap with an invalid from_token."""
     from_token = "XYZ"
     to_token = "USDC"
@@ -196,7 +197,7 @@ def test_spot_swap_invalid_from_token(mock_exchange_agent, mock_info_agent):
     mock_exchange_agent.order.assert_not_called()
 
 
-def test_spot_swap_invalid_to_token(mock_exchange_agent, mock_info_agent):
+def test_spot_swap_invalid_to_token(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test swap with an invalid to_token."""
     from_token = "USDC"
     to_token = "XYZ"
@@ -209,7 +210,7 @@ def test_spot_swap_invalid_to_token(mock_exchange_agent, mock_info_agent):
     mock_exchange_agent.order.assert_not_called()
 
 
-def test_spot_swap_exchange_exception(mock_exchange_agent, mock_info_agent):
+def test_spot_swap_exchange_exception(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test spot swap when exchange.order() raises an exception."""
     from_token = "ETH"
     to_token = "USDC"
@@ -225,7 +226,7 @@ def test_spot_swap_exchange_exception(mock_exchange_agent, mock_info_agent):
         )
 
 
-def test_stake_rotate_success(mock_exchange_agent, mock_info_agent):
+def test_stake_rotate_success(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test successful stake rotation."""
     result = stake_rotate(
         "http://localhost:8545", "0x" + "a"*64, 1, Decimal("100.0"),
@@ -243,7 +244,7 @@ def test_stake_rotate_success(mock_exchange_agent, mock_info_agent):
     )
 
 
-def test_stake_rotate_unstake_failure(mock_exchange_agent, mock_info_agent):
+def test_stake_rotate_unstake_failure(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test stake rotation when unstake fails."""
     mock_exchange_agent.unstake.return_value = {"status": "error"}
     
@@ -255,7 +256,7 @@ def test_stake_rotate_unstake_failure(mock_exchange_agent, mock_info_agent):
     assert result is False
 
 
-def test_stake_rotate_stake_failure(mock_exchange_agent, mock_info_agent):
+def test_stake_rotate_stake_failure(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test stake rotation when stake fails."""
     mock_exchange_agent.stake.return_value = {"status": "error"}
     
@@ -267,7 +268,7 @@ def test_stake_rotate_stake_failure(mock_exchange_agent, mock_info_agent):
     assert result is False
 
 
-def test_stake_rotate_exception(mock_exchange_agent, mock_info_agent):
+def test_stake_rotate_exception(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test stake rotation when exception occurs."""
     mock_info_agent.user_staking_delegations.side_effect = Exception("API error")
     
@@ -278,7 +279,7 @@ def test_stake_rotate_exception(mock_exchange_agent, mock_info_agent):
         )
 
 @patch('time.sleep')
-def test_vault_cycle_success(mock_sleep, mock_exchange_agent, mock_info_agent):
+def test_vault_cycle_success(mock_sleep: Any, mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test successful vault cycle."""
     result = vault_cycle(
         "http://localhost:8545", "0x" + "a"*64, 1, "0x1234567890123456789012345678901234567890", Decimal("50.0"),
@@ -291,9 +292,7 @@ def test_vault_cycle_success(mock_sleep, mock_exchange_agent, mock_info_agent):
     mock_sleep.assert_called_once()
 
 @patch('time.sleep')
-def test_vault_cycle_deposit_failure(
-    mock_sleep, mock_exchange_agent, mock_info_agent
-):
+def test_vault_cycle_deposit_failure(mock_sleep: Any, mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test vault cycle when deposit fails."""
     mock_exchange_agent.vault_transfer.return_value = {"status": "error"}
     
@@ -305,7 +304,7 @@ def test_vault_cycle_deposit_failure(
     assert result is False
 
 @patch('time.sleep')
-def test_vault_cycle_no_equity(mock_sleep, mock_exchange_agent, mock_info_agent):
+def test_vault_cycle_no_equity(mock_sleep: Any, mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test vault cycle when no equity found."""
     mock_info_agent.user_vault_equities.return_value = []
     
@@ -317,9 +316,7 @@ def test_vault_cycle_no_equity(mock_sleep, mock_exchange_agent, mock_info_agent)
     assert result is False
 
 @patch('time.sleep')
-def test_vault_cycle_zero_equity(
-    mock_sleep, mock_exchange_agent, mock_info_agent
-):
+def test_vault_cycle_zero_equity(mock_sleep: Any, mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test vault cycle when equity is zero."""
     mock_info_agent.user_vault_equities.return_value = [
         {
@@ -340,10 +337,7 @@ def test_vault_cycle_zero_equity(
 @patch('time.sleep')
 @patch('airdrops.protocols.hyperliquid._poll_l1_deposit_confirmation')
 @patch('airdrops.protocols.hyperliquid._deposit_to_l1')
-def test_evm_roundtrip_success(
-    mock_deposit, mock_poll_deposit, mock_sleep, mock_withdraw,
-    mock_poll_withdraw, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_evm_roundtrip_success(mock_deposit: Any, mock_poll_deposit: Any, mock_sleep: Any, mock_withdraw: Any, mock_poll_withdraw: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test successful EVM roundtrip."""
     mock_deposit.return_value = True
     mock_poll_deposit.return_value = True
@@ -363,9 +357,7 @@ def test_evm_roundtrip_success(
     mock_poll_withdraw.assert_called_once()
 
 
-def test_evm_roundtrip_amount_too_low(
-    mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_evm_roundtrip_amount_too_low(mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test EVM roundtrip with amount below minimum."""
     with pytest.raises(ValueError):
         evm_roundtrip(
@@ -374,9 +366,7 @@ def test_evm_roundtrip_amount_too_low(
         )
 
 @patch('airdrops.protocols.hyperliquid._deposit_to_l1')
-def test_evm_roundtrip_deposit_failure(
-    mock_deposit, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_evm_roundtrip_deposit_failure(mock_deposit: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test EVM roundtrip when deposit fails."""
     mock_deposit.return_value = False
 
@@ -387,7 +377,7 @@ def test_evm_roundtrip_deposit_failure(
         )
 
 
-def test_deposit_to_l1_success(mock_web3):
+def test_deposit_to_l1_success(mock_web3: Any) -> None:
     """Test successful deposit to L1."""
     result = _deposit_to_l1(
         "http://localhost:8545", "0x" + "a"*64, 1, Decimal("25.0"), w3=mock_web3
@@ -398,7 +388,7 @@ def test_deposit_to_l1_success(mock_web3):
     mock_web3.eth.send_raw_transaction.assert_called_once()
 
 
-def test_deposit_to_l1_transaction_failure(mock_web3):
+def test_deposit_to_l1_transaction_failure(mock_web3: Any) -> None:
     """Test deposit to L1 when transaction fails."""
     mock_web3.eth.wait_for_transaction_receipt.return_value = {"status": 0}
 
@@ -408,7 +398,7 @@ def test_deposit_to_l1_transaction_failure(mock_web3):
         )
 
 
-def test_deposit_to_l1_exception(mock_web3):
+def test_deposit_to_l1_exception(mock_web3: Any) -> None:
     """Test deposit to L1 when exception occurs."""
     mock_web3.eth.contract.side_effect = Exception("Web3 error")
 
@@ -419,9 +409,7 @@ def test_deposit_to_l1_exception(mock_web3):
 
 @patch('time.sleep')
 @patch('time.time')
-def test_poll_l1_deposit_confirmation_success(
-    mock_time, mock_sleep, mock_info_agent
-):
+def test_poll_l1_deposit_confirmation_success(mock_time: Any, mock_sleep: Any, mock_info_agent: Any) -> None:
     """Test successful L1 deposit confirmation."""
     mock_time.side_effect = iter([0, 5, 10, 15, 20]) # Provide more values for polling
     mock_info_agent.user_state.side_effect = [
@@ -438,9 +426,7 @@ def test_poll_l1_deposit_confirmation_success(
 
 @patch('time.sleep')
 @patch('time.time')
-def test_poll_l1_deposit_confirmation_timeout(
-    mock_time, mock_sleep, mock_info_agent
-):
+def test_poll_l1_deposit_confirmation_timeout(mock_time: Any, mock_sleep: Any, mock_info_agent: Any) -> None:
     """Test L1 deposit confirmation timeout."""
     # Mock time to simulate timeout - start at 0, then exceed timeout
     mock_time.side_effect = iter([0, 11, 22]) # Simulate timeout (10 seconds)
@@ -455,7 +441,7 @@ def test_poll_l1_deposit_confirmation_timeout(
     assert result is False
 
 
-def test_withdraw_from_l1_success(mock_exchange_agent):
+def test_withdraw_from_l1_success(mock_exchange_agent: Any) -> None:
     """Test successful withdrawal from L1."""
     result = _withdraw_from_l1("http://localhost:8545", "0x" + "a"*64, 1, Decimal("25.0"), exchange_agent=mock_exchange_agent)
 
@@ -463,7 +449,7 @@ def test_withdraw_from_l1_success(mock_exchange_agent):
     mock_exchange_agent.withdraw.assert_called_once_with(25000000, "USDC")
 
 
-def test_withdraw_from_l1_failure(mock_exchange_agent):
+def test_withdraw_from_l1_failure(mock_exchange_agent: Any) -> None:
     """Test withdrawal from L1 failure."""
     mock_exchange_agent.withdraw.return_value = {"status": "error"}
     
@@ -471,7 +457,7 @@ def test_withdraw_from_l1_failure(mock_exchange_agent):
         _withdraw_from_l1("http://localhost:8545", "0x" + "a"*64, 1, Decimal("25.0"), exchange_agent=mock_exchange_agent)
 
 
-def test_withdraw_from_l1_exception(mock_exchange_agent):
+def test_withdraw_from_l1_exception(mock_exchange_agent: Any) -> None:
     """Test withdrawal from L1 when exception occurs."""
     mock_exchange_agent.withdraw.side_effect = Exception("API error")
     
@@ -480,9 +466,7 @@ def test_withdraw_from_l1_exception(mock_exchange_agent):
 
 @patch('time.sleep')
 @patch('time.time')
-def test_poll_arbitrum_withdrawal_confirmation_success(
-    mock_time, mock_sleep, mock_web3
-):
+def test_poll_arbitrum_withdrawal_confirmation_success(mock_time: Any, mock_sleep: Any, mock_web3: Any) -> None:
     """Test successful Arbitrum withdrawal confirmation."""
     mock_time.side_effect = iter([0, 5, 10, 15, 20]) # Provide more values for polling
     mock_web3.eth.contract.return_value.functions.balanceOf.return_value.call.side_effect = [
@@ -499,9 +483,7 @@ def test_poll_arbitrum_withdrawal_confirmation_success(
 
 @patch('time.sleep')
 @patch('time.time')
-def test_poll_arbitrum_withdrawal_confirmation_timeout(
-    mock_time, mock_sleep, mock_web3
-):
+def test_poll_arbitrum_withdrawal_confirmation_timeout(mock_time: Any, mock_sleep: Any, mock_web3: Any) -> None:
     """Test Arbitrum withdrawal confirmation timeout."""
     mock_time.side_effect = iter([0, 11, 22]) # Simulate timeout (10 seconds)
     mock_web3.eth.contract.return_value.functions.balanceOf.return_value.call.return_value = 100000000
@@ -514,9 +496,7 @@ def test_poll_arbitrum_withdrawal_confirmation_timeout(
 
 
 @patch('random.choices')
-def test_perform_random_onchain_stake_rotate(
-    mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_perform_random_onchain_stake_rotate(mock_choices: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test perform_random_onchain with stake_rotate action."""
     mock_choices.return_value = ["stake_rotate"]
 
@@ -529,9 +509,7 @@ def test_perform_random_onchain_stake_rotate(
     assert success is True
 
 @patch('random.choices')
-def test_perform_random_onchain_vault_cycle(
-    mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_perform_random_onchain_vault_cycle(mock_choices: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test perform_random_onchain with vault_cycle action."""
     mock_choices.return_value = ["vault_cycle"]
 
@@ -544,9 +522,7 @@ def test_perform_random_onchain_vault_cycle(
     assert success is True
 
 @patch('random.choices')
-def test_perform_random_onchain_spot_swap(
-    mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_perform_random_onchain_spot_swap(mock_choices: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test perform_random_onchain with spot_swap action."""
     mock_choices.return_value = ["spot_swap"]
 
@@ -559,9 +535,7 @@ def test_perform_random_onchain_spot_swap(
     assert success is True
 
 @patch('random.choices')
-def test_perform_random_onchain_query_user_state(
-    mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_perform_random_onchain_query_user_state(mock_choices: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test perform_random_onchain with query_user_state action."""
     mock_choices.return_value = ["query_user_state"]
 
@@ -573,9 +547,7 @@ def test_perform_random_onchain_query_user_state(
     assert success is True
 
 @patch('random.choices')
-def test_perform_random_onchain_query_meta(
-    mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_perform_random_onchain_query_meta(mock_choices: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test perform_random_onchain with query_meta action."""
     mock_choices.return_value = ["query_meta"]
 
@@ -587,9 +559,7 @@ def test_perform_random_onchain_query_meta(
     assert success is True
 
 @patch('random.choices')
-def test_perform_random_onchain_query_all_mids(
-    mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_perform_random_onchain_query_all_mids(mock_choices: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test perform_random_onchain with query_all_mids action."""
     mock_choices.return_value = ["query_all_mids"]
 
@@ -601,9 +571,7 @@ def test_perform_random_onchain_query_all_mids(
     assert success is True
 
 @patch('random.choices')
-def test_perform_random_onchain_query_clearing_house_state(
-    mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_perform_random_onchain_query_clearing_house_state(mock_choices: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test perform_random_onchain with query_clearing_house_state action."""
     mock_choices.return_value = ["query_clearing_house_state"]
 
@@ -615,9 +583,7 @@ def test_perform_random_onchain_query_clearing_house_state(
     assert success is True
 
 
-def test_perform_random_onchain_no_weights(
-    mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_perform_random_onchain_no_weights(mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test perform_random_onchain with no action weights."""
     with pytest.raises(ValueError, match="No action weights provided"):
         perform_random_onchain(
@@ -627,9 +593,7 @@ def test_perform_random_onchain_no_weights(
         )
 
 @patch('random.choices')
-def test_perform_random_onchain_unknown_action(
-    mock_choices, mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_perform_random_onchain_unknown_action(mock_choices: Any, mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test perform_random_onchain with unknown action."""
     mock_choices.return_value = ["unknown_action"]
 
@@ -640,9 +604,7 @@ def test_perform_random_onchain_unknown_action(
         )
 
 
-def test_execute_stake_rotate_no_delegations(
-    mock_exchange_agent, mock_info_agent
-):
+def test_execute_stake_rotate_no_delegations(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test _execute_stake_rotate with no delegations."""
     mock_info_agent.user_staking_delegations.return_value = []
 
@@ -653,7 +615,7 @@ def test_execute_stake_rotate_no_delegations(
         )
 
 
-def test_execute_vault_cycle_success(mock_exchange_agent, mock_info_agent):
+def test_execute_vault_cycle_success(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test _execute_vault_cycle success."""
 
     with patch('time.sleep'):
@@ -663,9 +625,7 @@ def test_execute_vault_cycle_success(mock_exchange_agent, mock_info_agent):
         )
 
 
-def test_execute_spot_swap_insufficient_balance(
-    mock_exchange_agent, mock_info_agent
-):
+def test_execute_spot_swap_insufficient_balance(mock_exchange_agent: Any, mock_info_agent: Any) -> None:
     """Test _execute_spot_swap with insufficient balance."""
     mock_info_agent.user_state.return_value = {
         "withdrawable": [{"coin": "USDC", "total": "0.0"}]
@@ -679,9 +639,7 @@ def test_execute_spot_swap_insufficient_balance(
         )
 
 
-def test_execute_evm_roundtrip_success(
-    mock_exchange_agent, mock_info_agent, mock_web3
-):
+def test_execute_evm_roundtrip_success(mock_exchange_agent: Any, mock_info_agent: Any, mock_web3: Any) -> None:
     """Test _execute_evm_roundtrip success."""
 
     with patch('airdrops.protocols.hyperliquid.evm_roundtrip', return_value=True):
@@ -691,7 +649,7 @@ def test_execute_evm_roundtrip_success(
         )
 
 
-def test_execute_query_user_state_success(mock_info_agent):
+def test_execute_query_user_state_success(mock_info_agent: Any) -> None:
     """Test _execute_query_user_state success."""
     _execute_query_user_state(
         "http://localhost:8545", "0x" + "a"*64, 1, "0x1234567890123456789012345678901234567890",
@@ -699,7 +657,7 @@ def test_execute_query_user_state_success(mock_info_agent):
     )
 
 
-def test_execute_query_meta_success(mock_info_agent):
+def test_execute_query_meta_success(mock_info_agent: Any) -> None:
     """Test _execute_query_meta success."""
     result = _execute_query_meta("http://localhost:8545", "0x" + "a"*64, 1, info_agent=mock_info_agent)
 
@@ -707,7 +665,7 @@ def test_execute_query_meta_success(mock_info_agent):
     assert "tokens" in result
 
 
-def test_execute_query_all_mids_success(mock_info_agent):
+def test_execute_query_all_mids_success(mock_info_agent: Any) -> None:
     """Test _execute_query_all_mids success."""
     result = _execute_query_all_mids("http://localhost:8545", "0x" + "a"*64, 1, info_agent=mock_info_agent)
 
@@ -715,7 +673,7 @@ def test_execute_query_all_mids_success(mock_info_agent):
     assert "ETH" in result
 
 
-def test_execute_query_clearing_house_state_success(mock_info_agent):
+def test_execute_query_clearing_house_state_success(mock_info_agent: Any) -> None:
     """Test _execute_query_clearing_house_state success."""
     result = _execute_query_clearing_house_state("http://localhost:8545", "0x" + "a"*64, 1, "0x1234567890123456789012345678901234567890", info_agent=mock_info_agent)
 
@@ -723,7 +681,7 @@ def test_execute_query_clearing_house_state_success(mock_info_agent):
     assert "assetPositions" in result
 
 
-def test_execute_query_user_state_exception(mock_info_agent):
+def test_execute_query_user_state_exception(mock_info_agent: Any) -> None:
     """Test _execute_query_user_state with exception."""
     mock_info_agent.user_state.side_effect = Exception("API error")
 
@@ -734,7 +692,7 @@ def test_execute_query_user_state_exception(mock_info_agent):
         )
 
 
-def test_execute_query_meta_exception(mock_info_agent):
+def test_execute_query_meta_exception(mock_info_agent: Any) -> None:
     """Test _execute_query_meta with exception."""
     # These functions don't actually use the protocol, they return static data
     # So we'll test that they return the expected structure even with mock exceptions
@@ -743,7 +701,7 @@ def test_execute_query_meta_exception(mock_info_agent):
     assert "tokens" in result
 
 
-def test_execute_query_all_mids_exception(mock_info_agent):
+def test_execute_query_all_mids_exception(mock_info_agent: Any) -> None:
     """Test _execute_query_all_mids with exception."""
     # These functions don't actually use the protocol, they return static data
     result = _execute_query_all_mids("http://localhost:8545", "0x" + "a"*64, 1, info_agent=mock_info_agent)
@@ -751,7 +709,7 @@ def test_execute_query_all_mids_exception(mock_info_agent):
     assert "ETH" in result
 
 
-def test_execute_query_clearing_house_state_exception(mock_info_agent):
+def test_execute_query_clearing_house_state_exception(mock_info_agent: Any) -> None:
     """Test _execute_query_clearing_house_state with exception."""
     # These functions don't actually use the protocol, they return static data
     result = _execute_query_clearing_house_state("http://localhost:8545", "0x" + "a"*64, 1, "0x1234567890123456789012345678901234567890", info_agent=mock_info_agent)

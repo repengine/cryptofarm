@@ -4,6 +4,7 @@ Global pytest configuration for the cryptofarm project.
 This file ensures that all test modules can properly import from the tests.mocks package
 regardless of their location in the directory structure.
 """
+from typing import Iterator
 import logging
 import pytest
 
@@ -11,14 +12,14 @@ import pytest
 logging.basicConfig(level=logging.INFO)
 
 @pytest.fixture(autouse=True)
-def setup_logging():
+def setup_logging() -> None:
     """Fixture to ensure logging is configured for tests."""
     # This fixture ensures logging is set up before each test
     # The basicConfig call above already sets the root logger level
     pass
 
 @pytest.fixture(autouse=True)
-def clear_prometheus_registry():
+def clear_prometheus_registry() -> None:
     """
     Fixture to automatically clear the Prometheus registry before each test.
     
@@ -41,7 +42,7 @@ def clear_prometheus_registry():
     prometheus_client.REGISTRY._names_to_collectors.clear()
 
 @pytest.fixture
-def airdrop_tracker_cleanup():
+def airdrop_tracker_cleanup() -> Iterator[None]:
     """
     Fixture to clean up AirdropTracker resources after tests.
     Ensures that the SQLAlchemy engine is properly disposed for in-memory databases.

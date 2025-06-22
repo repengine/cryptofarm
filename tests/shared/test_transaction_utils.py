@@ -5,7 +5,7 @@ Tests for the airdrops.shared.transaction_utils module.
 import pytest
 from unittest.mock import MagicMock, patch
 
-from airdrops.shared.transaction_utils import (  # type: ignore
+from airdrops.shared.transaction_utils import (
     build_and_send_transaction,
     wait_for_transaction_receipt,
     TransactionError,
@@ -14,7 +14,7 @@ from web3.exceptions import TransactionNotFound, ContractLogicError
 
 
 @pytest.fixture
-def mock_web3():
+def mock_web3() -> MagicMock:
     """Fixture for a mock Web3 instance."""
     mock = MagicMock()
     # Configure the eth attribute properly
@@ -24,7 +24,7 @@ def mock_web3():
 
 
 @pytest.fixture
-def mock_account():
+def mock_account() -> MagicMock:
     """Fixture for a mock Web3 account."""
     mock_acc = MagicMock()
     mock_acc.address = "0xMockSenderAddress"
@@ -32,7 +32,7 @@ def mock_account():
 
 
 @patch("airdrops.shared.transaction_utils.Account")
-def test_build_and_send_transaction_success(mock_account_class):
+def test_build_and_send_transaction_success(mock_account_class: MagicMock) -> None:
     """Test successful building and sending of a transaction."""
     mock_web3 = MagicMock()
     mock_web3.eth.wait_for_transaction_receipt.return_value = {"status": 1, "gasUsed": 21000}
@@ -62,11 +62,12 @@ def test_build_and_send_transaction_success(mock_account_class):
     mock_account_class.from_key.assert_called_once_with(private_key)
     mock_account.sign_transaction.assert_called_once_with(transaction)
     mock_web3.eth.send_raw_transaction.assert_called_once_with(b"raw_tx_bytes")
-    assert receipt == {"status": 1, "gasUsed": 21000}
+    assert receipt["status"] == 1
+    assert receipt["gasUsed"] == 21000
 
 
 @patch("airdrops.shared.transaction_utils.Account")
-def test_build_and_send_transaction_failure(mock_account_class):
+def test_build_and_send_transaction_failure(mock_account_class: MagicMock) -> None:
     """Test failure during building or sending of a transaction."""
     mock_web3 = MagicMock()
 
@@ -92,7 +93,7 @@ def test_build_and_send_transaction_failure(mock_account_class):
     mock_web3.eth.send_raw_transaction.assert_not_called()
 
 
-def test_wait_for_transaction_receipt_success(mock_web3):
+def test_wait_for_transaction_receipt_success(mock_web3: MagicMock) -> None:
     """Test successful waiting for transaction receipt."""
     mock_receipt = {"status": 1, "gasUsed": 21000}
     mock_web3.eth.wait_for_transaction_receipt.return_value = mock_receipt
@@ -101,10 +102,10 @@ def test_wait_for_transaction_receipt_success(mock_web3):
     receipt = wait_for_transaction_receipt(mock_web3, tx_hash)
 
     mock_web3.eth.wait_for_transaction_receipt.assert_called_once_with(tx_hash, timeout=300)
-    assert receipt == mock_receipt
+    assert receipt == mock_receipt  # type: ignore[comparison-overlap]
 
 
-def test_wait_for_transaction_receipt_failure_status_0(mock_web3):
+def test_wait_for_transaction_receipt_failure_status_0(mock_web3: MagicMock) -> None:
     """Test transaction failure (status 0) in receipt."""
     mock_receipt = {"status": 0, "gasUsed": 50000, "revertReason": "Out of gas"}
     mock_web3.eth.wait_for_transaction_receipt.return_value = mock_receipt
@@ -114,7 +115,7 @@ def test_wait_for_transaction_receipt_failure_status_0(mock_web3):
         wait_for_transaction_receipt(mock_web3, tx_hash)
 
 
-def test_wait_for_transaction_receipt_not_found(mock_web3):
+def test_wait_for_transaction_receipt_not_found(mock_web3: MagicMock) -> None:
     """Test transaction not found error."""
     mock_web3.eth.wait_for_transaction_receipt.side_effect = TransactionNotFound("Tx not found")
 
@@ -123,7 +124,7 @@ def test_wait_for_transaction_receipt_not_found(mock_web3):
         wait_for_transaction_receipt(mock_web3, tx_hash)
 
 
-def test_wait_for_transaction_receipt_contract_logic_error(mock_web3):
+def test_wait_for_transaction_receipt_contract_logic_error(mock_web3: MagicMock) -> None:
     """Test contract logic error during receipt waiting."""
     mock_web3.eth.wait_for_transaction_receipt.side_effect = ContractLogicError("Invalid input")
 
@@ -132,7 +133,7 @@ def test_wait_for_transaction_receipt_contract_logic_error(mock_web3):
         wait_for_transaction_receipt(mock_web3, tx_hash)
 
 
-def test_wait_for_transaction_receipt_generic_exception(mock_web3):
+def test_wait_for_transaction_receipt_generic_exception(mock_web3: MagicMock) -> None:
     """Test generic exception during receipt waiting."""
     mock_web3.eth.wait_for_transaction_receipt.side_effect = Exception("Network error")
 

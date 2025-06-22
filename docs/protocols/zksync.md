@@ -133,6 +133,97 @@ tx_hash = swap_tokens(
 print(f"Swap transaction hash: {tx_hash}")
 ```
 
+### `perform_random_activity(user_address, private_key, config, web3_l1, web3_l2)`
+
+Performs a random on-chain activity based on weighted configuration for the zkSync protocol.
+
+This function selects an activity (e.g., swap, bridge), generates random parameters for it, executes the corresponding function, and returns a detailed log of the actions taken. It includes fallback logic to try alternative activities upon failure.
+
+**Parameters:**
+- `user_address` (str): The public address of the user's wallet
+- `private_key` (str): The private key for signing transactions
+- `config` (Dict[str, Any]): The configuration dictionary for this protocol's random activity, containing weights, parameter ranges, and retry options
+- `web3_l1` (Optional[Web3]): Web3 instance for L1. Required for bridging
+- `web3_l2` (Optional[Web3]): Web3 instance for the protocol's L2 network
+
+**Returns:**
+- `List[Dict[str, Any]]`: A list of dictionaries, where each dictionary represents an attempted activity and its outcome
+
+**Configuration Structure:**
+```python
+config = {
+    "random_activity": {
+        "zksync": {
+            "action_weights": [
+                {"name": "swap", "weight": 50},
+                {"name": "bridge", "weight": 30}
+            ],
+            "max_retries": 3,
+            "amount_ranges": {
+                "swap": {"min": "0.01", "max": "0.1", "decimals": 4},
+                "bridge": {"min": "0.005", "max": "0.05", "decimals": 4}
+            },
+            "token_config": {
+                "ETH": {},
+                "USDC": {},
+                "WETH": {}
+            }
+        }
+    }
+}
+```
+
+**Example:**
+```python
+from web3 import Web3
+from airdrops.protocols.zksync import perform_random_activity
+
+# Initialize Web3 connections
+w3_l1 = Web3(Web3.HTTPProvider("https://mainnet.infura.io/v3/YOUR_KEY"))
+w3_l2 = Web3(Web3.HTTPProvider("https://mainnet.era.zksync.io"))
+
+# Configuration for random activities
+config = {
+    "random_activity": {
+        "zksync": {
+            "action_weights": [
+                {"name": "swap", "weight": 60},
+                {"name": "bridge", "weight": 40}
+            ],
+            "max_retries": 3,
+            "amount_ranges": {
+                "swap": {"min": "0.01", "max": "0.1", "decimals": 4},
+                "bridge": {"min": "0.005", "max": "0.05", "decimals": 4}
+            },
+            "token_config": {
+                "ETH": {},
+                "USDC": {},
+                "WETH": {}
+            }
+        }
+    }
+}
+
+# Perform random activity
+results = perform_random_activity(
+    user_address="0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47",
+    private_key="0x...",
+    config=config,
+    web3_l1=w3_l1,
+    web3_l2=w3_l2
+)
+
+# Check results
+for result in results:
+    print(f"Attempt {result['attempt']}: {result['activity']} - {result['status']}")
+    if result['status'] == 'success':
+        print(f"Transaction hash: {result['tx_hash']}")
+```
+
+**Supported Activities:**
+- **swap**: Token swapping on SyncSwap DEX
+- **bridge**: Asset bridging between L1 and L2
+
 ## Error Handling
 
 The module defines comprehensive custom exceptions for different error scenarios:

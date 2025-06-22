@@ -4,15 +4,16 @@ Integration tests for the ZkSync protocol.
 
 import pytest
 from decimal import Decimal
+from typing import Any
 from unittest.mock import MagicMock, patch, PropertyMock # Import PropertyMock
 from web3 import Web3 # Import Web3
 
-from airdrops.protocols.zksync import ZkSyncProtocol  # type: ignore
+from airdrops.protocols.zksync import ZkSyncProtocol
 from airdrops.protocols.zksync.exceptions import TransactionRevertedError
 
 
 @pytest.fixture
-def zksync_protocol():
+def zksync_protocol() -> ZkSyncProtocol:
     """Fixture for a ZkSyncProtocol instance with mocked Web3."""
     mock_web3_l1 = MagicMock(spec=Web3)
     mock_web3_l2 = MagicMock(spec=Web3)
@@ -51,7 +52,7 @@ def zksync_protocol():
     return protocol
 
 
-def test_zksync_protocol_initialization(zksync_protocol):
+def test_zksync_protocol_initialization(zksync_protocol: Any) -> None:
     """Test that the ZkSyncProtocol initializes correctly."""
     assert zksync_protocol.l1_rpc_url == "http://mock-l1-rpc.com"
     assert zksync_protocol.l2_rpc_url == "http://mock-zksync-rpc.com"
@@ -62,7 +63,7 @@ def test_zksync_protocol_initialization(zksync_protocol):
     assert isinstance(zksync_protocol.web3_l2, MagicMock)
 
 
-def test_zksync_perform_airdrop_success(zksync_protocol):
+def test_zksync_perform_airdrop_success(zksync_protocol: Any) -> None:
     """
     Test successful airdrop execution on ZkSync.
     Uses injected mocked Web3 instances.
@@ -105,7 +106,7 @@ def test_zksync_perform_airdrop_success(zksync_protocol):
     mock_send.assert_called_once()
 
 
-def test_zksync_perform_airdrop_failure(zksync_protocol):
+def test_zksync_perform_airdrop_failure(zksync_protocol: Any) -> None:
     """
     Test failed airdrop execution on ZkSync (e.g., transaction revert).
     Uses injected mocked Web3 instances.
@@ -141,28 +142,28 @@ def test_zksync_perform_airdrop_failure(zksync_protocol):
     mock_send_tx.assert_called_once()
 
 
-def test_zksync_get_balance(zksync_protocol):
+def test_zksync_get_balance(zksync_protocol: Any) -> None:
     """Test getting account balance."""
     balance = zksync_protocol.web3_l2.eth.get_balance("0xMockAddress")
     assert balance == 5 * (10**18)  # Balance is in wei
     zksync_protocol.web3_l2.eth.get_balance.assert_called_once_with("0xMockAddress")
 
 
-def test_zksync_get_gas_price(zksync_protocol):
+def test_zksync_get_gas_price(zksync_protocol: Any) -> None:
     """Test getting current gas price."""
     gas_price = zksync_protocol.web3_l2.eth.gas_price
     assert gas_price == 20 * (10**9)  # Gas price is in wei
     # No assert_called_once_with for properties like gas_price
 
 
-def test_zksync_get_transaction_count(zksync_protocol):
+def test_zksync_get_transaction_count(zksync_protocol: Any) -> None:
     """Test getting transaction count (nonce)."""
     nonce = zksync_protocol.web3_l2.eth.get_transaction_count("0xMockAddress")
     assert nonce == 15
     zksync_protocol.web3_l2.eth.get_transaction_count.assert_called_once_with("0xMockAddress")
 
 
-def test_zksync_estimate_gas(zksync_protocol):
+def test_zksync_estimate_gas(zksync_protocol: Any) -> None:
     """Test gas estimation."""
     tx_params = {
         "from": "0xSender",

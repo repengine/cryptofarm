@@ -256,10 +256,12 @@ class LayerZeroBridgeAdapter(BridgeAdapter):
 
             # Use the LayerZero protocol's send_message method
             tx_hash = self._protocol.send_message(
+                web3=self._protocol.w3,
+                private_key=self._protocol.private_key,
                 destination_chain_id=destination_chain_id,
-                recipient_address=recipient_address,
+                destination_address=recipient_address,
                 payload=message_payload,
-                value=int(float(amount) * 10**18)  # Convert to Wei
+                adapter_params=b""
             )
 
             logger.info(f"LayerZero bridge transaction initiated: {tx_hash}")

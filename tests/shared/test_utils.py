@@ -4,8 +4,9 @@ Tests for the airdrops.shared.utils module.
 
 import pytest
 from decimal import Decimal
+from pathlib import Path
 
-from airdrops.shared.utils import (  # type: ignore
+from airdrops.shared.utils import (
     get_current_timestamp,
     convert_to_decimal,
     format_currency,
@@ -17,28 +18,28 @@ from airdrops.shared.utils import (  # type: ignore
 import json
 
 
-def test_get_current_timestamp():
+def test_get_current_timestamp() -> None:
     """Test that get_current_timestamp returns a valid timestamp."""
     timestamp = get_current_timestamp()
     assert isinstance(timestamp, int)
     assert timestamp > 0  # Should be a positive integer
 
 
-def test_convert_to_decimal_from_float():
+def test_convert_to_decimal_from_float() -> None:
     """Test converting a float to Decimal."""
     assert convert_to_decimal(123.45) == Decimal("123.45")
     assert convert_to_decimal(0.0) == Decimal("0")
     assert convert_to_decimal(-10.5) == Decimal("-10.5")
 
 
-def test_convert_to_decimal_from_int():
+def test_convert_to_decimal_from_int() -> None:
     """Test converting an integer to Decimal."""
     assert convert_to_decimal(100) == Decimal("100")
     assert convert_to_decimal(0) == Decimal("0")
     assert convert_to_decimal(-5) == Decimal("-5")
 
 
-def test_convert_to_decimal_from_str():
+def test_convert_to_decimal_from_str() -> None:
     """Test converting a string to Decimal."""
     assert convert_to_decimal("123.45") == Decimal("123.45")
     assert convert_to_decimal("0") == Decimal("0")
@@ -46,13 +47,13 @@ def test_convert_to_decimal_from_str():
     assert convert_to_decimal("1.23456789") == Decimal("1.23456789")
 
 
-def test_convert_to_decimal_from_decimal():
+def test_convert_to_decimal_from_decimal() -> None:
     """Test converting an existing Decimal to Decimal (should return as is)."""
     dec_val = Decimal("99.99")
     assert convert_to_decimal(dec_val) is dec_val
 
 
-def test_convert_to_decimal_invalid_type():
+def test_convert_to_decimal_invalid_type() -> None:
     """Test converting an invalid type to Decimal raises TypeError."""
     with pytest.raises(TypeError):
         convert_to_decimal([1, 2])
@@ -60,7 +61,7 @@ def test_convert_to_decimal_invalid_type():
         convert_to_decimal({"a": 1})
 
 
-def test_convert_to_decimal_invalid_string():
+def test_convert_to_decimal_invalid_string() -> None:
     """Test converting an invalid string to Decimal raises InvalidOperation."""
     with pytest.raises(ValueError):  # Decimal raises InvalidOperation, which is a subclass of ValueError
         convert_to_decimal("abc")
@@ -68,7 +69,7 @@ def test_convert_to_decimal_invalid_string():
         convert_to_decimal("1.2.3")
 
 
-def test_format_currency_default():
+def test_format_currency_default() -> None:
     """Test formatting currency with default precision."""
     assert format_currency(Decimal("123.456")) == "$123.46"
     assert format_currency(Decimal("100")) == "$100.00"
@@ -76,18 +77,18 @@ def test_format_currency_default():
     assert format_currency(Decimal("0.001")) == "$0.00"
 
 
-def test_format_currency_custom_precision():
+def test_format_currency_custom_precision() -> None:
     """Test formatting currency with custom precision."""
     assert format_currency(Decimal("123.45678"), precision=4) == "$123.4568"
     assert format_currency(Decimal("10"), precision=0) == "$10"
 
 
-def test_format_currency_negative_value():
+def test_format_currency_negative_value() -> None:
     """Test formatting negative currency values."""
     assert format_currency(Decimal("-123.45")) == "-$123.45"
 
 
-def test_generate_unique_id():
+def test_generate_unique_id() -> None:
     """Test that generate_unique_id produces unique strings."""
     ids = set()
     for _ in range(1000):
@@ -97,7 +98,7 @@ def test_generate_unique_id():
     assert len(ids) == 1000
 
 
-def test_load_config_success(tmp_path):
+def test_load_config_success(tmp_path: Path) -> None:
     """Test successful loading of a valid config file."""
     config_data = {"key1": "value1", "key2": 123}
     config_file = tmp_path / "config.json"
@@ -108,13 +109,13 @@ def test_load_config_success(tmp_path):
     assert loaded_config == config_data
 
 
-def test_load_config_file_not_found():
+def test_load_config_file_not_found() -> None:
     """Test loading a non-existent config file."""
     with pytest.raises(ConfigError, match="Config file not found"):
         load_config("non_existent_config.json")
 
 
-def test_load_config_invalid_json(tmp_path):
+def test_load_config_invalid_json(tmp_path: Path) -> None:
     """Test loading a config file with invalid JSON."""
     config_file = tmp_path / "invalid_config.json"
     with open(config_file, "w") as f:
@@ -124,7 +125,7 @@ def test_load_config_invalid_json(tmp_path):
         load_config(str(config_file))
 
 
-def test_save_config_success(tmp_path):
+def test_save_config_success(tmp_path: Path) -> None:
     """Test successful saving of config data."""
     config_data = {"setting1": True, "setting2": [1, 2, 3]}
     config_file = tmp_path / "saved_config.json"
@@ -137,7 +138,7 @@ def test_save_config_success(tmp_path):
     assert loaded_data == config_data
 
 
-def test_save_config_invalid_path():
+def test_save_config_invalid_path() -> None:
     """Test saving config to an invalid path."""
     with pytest.raises(ConfigError, match="Error saving config file"):
         save_config({"a": 1}, "/non_existent_dir/config.json")

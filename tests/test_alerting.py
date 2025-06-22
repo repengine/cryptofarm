@@ -22,7 +22,7 @@ from airdrops.monitoring.alerter import (
 class TestAlerter:
     """Test cases for the Alerter class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.alerter = Alerter()
 
@@ -50,7 +50,7 @@ class TestAlerter:
             }
         )
 
-    def test_init_default_config(self):
+    def test_init_default_config(self) -> None:
         """Test Alerter initialization with default configuration."""
         alerter = Alerter()
 
@@ -62,14 +62,14 @@ class TestAlerter:
         assert alerter.evaluation_interval == 60
         assert alerter.alert_retention_hours == 168
 
-    def test_init_custom_config(self):
+    def test_init_custom_config(self) -> None:
         """Test Alerter initialization with custom configuration."""
         config = {"custom_setting": "value"}
         alerter = Alerter(config)
 
         assert alerter.config == config
 
-    def test_load_alert_rules_success(self):
+    def test_load_alert_rules_success(self) -> None:
         """Test successful loading of alert rules from YAML file."""
         rules_data = {
             "rules": [
@@ -104,12 +104,12 @@ class TestAlerter:
         finally:
             os.unlink(rules_file)
 
-    def test_load_alert_rules_file_not_found(self):
+    def test_load_alert_rules_file_not_found(self) -> None:
         """Test loading alert rules when file doesn't exist."""
         self.alerter.load_alert_rules("nonexistent_file.yaml")
         assert len(self.alerter.alert_rules) == 0
 
-    def test_load_alert_rules_invalid_yaml(self):
+    def test_load_alert_rules_invalid_yaml(self) -> None:
         """Test loading alert rules with invalid YAML."""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
             f.write("invalid: yaml: content: [")
@@ -121,7 +121,31 @@ class TestAlerter:
         finally:
             os.unlink(rules_file)
 
-    def test_load_notification_channels_success(self):
+    def test_load_alert_rules_invalid_rule_data(self) -> None:
+        """Test loading alert rules with invalid rule data."""
+        invalid_rules_data = {
+            "rules": [
+                {
+                    "name": "cpu_alert",
+                    "metric_name": "cpu_usage",
+                    "condition": "invalid",  # Invalid condition
+                    "threshold": "not_a_number",  # Invalid threshold type
+                    "severity": "high",
+                    "description": "High CPU usage"
+                }
+            ]
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(invalid_rules_data, f)
+            rules_file = f.name
+
+        try:
+            with pytest.raises(RuntimeError, match="Alert rules loading failed"):
+                self.alerter.load_alert_rules(rules_file)
+        finally:
+            os.unlink(rules_file)
+
+    def test_load_notification_channels_success(self) -> None:
         """Test successful loading of notification channels."""
         channels_data = {
             "channels": [
@@ -154,12 +178,46 @@ class TestAlerter:
         finally:
             os.unlink(channels_file)
 
-    def test_load_notification_channels_file_not_found(self):
+    def test_load_notification_channels_file_not_found(self) -> None:
         """Test loading notification channels when file doesn't exist."""
         self.alerter.load_notification_channels("nonexistent_file.yaml")
         assert len(self.alerter.notification_channels) == 0
 
-    def test_evaluate_rules_condition_met_new_alert(self):
+    def test_load_notification_channels_invalid_yaml(self) -> None:
+        """Test loading notification channels with invalid YAML."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write("invalid: yaml: content: [")
+            channels_file = f.name
+
+        try:
+            with pytest.raises(RuntimeError, match="Notification channels loading failed"):
+                self.alerter.load_notification_channels(channels_file)
+        finally:
+            os.unlink(channels_file)
+
+    def test_load_notification_channels_invalid_channel_data(self) -> None:
+        """Test loading notification channels with invalid channel data."""
+        invalid_channels_data = {
+            "channels": [
+                {
+                    "name": "email_alerts",
+                    "type": "invalid_type",  # Invalid type
+                    "config": "not_a_dict",  # Invalid config type
+                    "enabled": "not_a_bool"  # Invalid enabled type
+                }
+            ]
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(invalid_channels_data, f)
+            channels_file = f.name
+
+        try:
+            with pytest.raises(RuntimeError, match="Notification channels loading failed"):
+                self.alerter.load_notification_channels(channels_file)
+        finally:
+            os.unlink(channels_file)
+
+    def test_evaluate_rules_condition_met_new_alert(self) -> None:
         """Test rule evaluation when condition is met for new alert."""
         self.alerter.alert_rules = [self.sample_rule]
         metrics = {"system": {"cpu_usage_percent": 85.0}}
@@ -175,7 +233,7 @@ class TestAlerter:
         assert alert.status == AlertStatus.PENDING
         assert alert.current_value == 85.0
 
-    def test_evaluate_rules_condition_met_alert_fires(self):
+    def test_evaluate_rules_condition_met_alert_fires(self) -> None:
         """Test rule evaluation when alert should fire after duration."""
         self.alerter.alert_rules = [self.sample_rule]
 
@@ -203,7 +261,7 @@ class TestAlerter:
         assert len(alerts) == 1
         assert alerts[0].status == AlertStatus.FIRING
 
-    def test_evaluate_rules_condition_not_met_resolves_alert(self):
+    def test_evaluate_rules_condition_not_met_resolves_alert(self) -> None:
         """Test rule evaluation when condition is not met and alert resolves."""
         self.alerter.alert_rules = [self.sample_rule]
 
@@ -233,7 +291,7 @@ class TestAlerter:
         assert alert_key not in self.alerter.active_alerts
         assert len(self.alerter.alert_history) == 1
 
-    def test_evaluate_rules_metric_not_found(self):
+    def test_evaluate_rules_metric_not_found(self) -> None:
         """Test rule evaluation when metric is not found."""
         self.alerter.alert_rules = [self.sample_rule]
         metrics = {"other": {"metric": 50.0}}  # Missing target metric
@@ -243,7 +301,7 @@ class TestAlerter:
         assert len(alerts) == 0
         assert len(self.alerter.active_alerts) == 0
 
-    def test_evaluate_rules_invalid_condition(self):
+    def test_evaluate_rules_invalid_condition(self) -> None:
         """Test rule evaluation with invalid condition."""
         invalid_rule = AlertRule(
             name="test_alert",
@@ -261,68 +319,68 @@ class TestAlerter:
         assert len(alerts) == 0
         assert len(self.alerter.active_alerts) == 0
 
-    def test_extract_metric_value_nested_path(self):
+    def test_extract_metric_value_nested_path(self) -> None:
         """Test extracting metric value from nested path."""
         metrics = {"system": {"cpu_usage_percent": 75.0}}
 
         value = self.alerter._extract_metric_value(metrics, "system.cpu_usage_percent")
         assert value == 75.0
 
-    def test_extract_metric_value_direct_path(self):
+    def test_extract_metric_value_direct_path(self) -> None:
         """Test extracting metric value from direct path."""
         metrics = {"cpu_usage": 80.0}
 
         value = self.alerter._extract_metric_value(metrics, "cpu_usage")
         assert value == 80.0
 
-    def test_extract_metric_value_not_found(self):
+    def test_extract_metric_value_not_found(self) -> None:
         """Test extracting metric value when path doesn't exist."""
         metrics = {"other": {"metric": 50.0}}
 
         value = self.alerter._extract_metric_value(metrics, "system.cpu_usage")
         assert value is None
 
-    def test_extract_metric_value_invalid_type(self):
+    def test_extract_metric_value_invalid_type(self) -> None:
         """Test extracting metric value with invalid type."""
         metrics = {"metric": "not_a_number"}
 
         value = self.alerter._extract_metric_value(metrics, "metric")
         assert value is None
 
-    def test_evaluate_condition_greater_than(self):
+    def test_evaluate_condition_greater_than(self) -> None:
         """Test condition evaluation for greater than."""
         assert self.alerter._evaluate_condition(85.0, "gt", 80.0) is True
         assert self.alerter._evaluate_condition(75.0, "gt", 80.0) is False
 
-    def test_evaluate_condition_less_than(self):
+    def test_evaluate_condition_less_than(self) -> None:
         """Test condition evaluation for less than."""
         assert self.alerter._evaluate_condition(75.0, "lt", 80.0) is True
         assert self.alerter._evaluate_condition(85.0, "lt", 80.0) is False
 
-    def test_evaluate_condition_equal(self):
+    def test_evaluate_condition_equal(self) -> None:
         """Test condition evaluation for equal."""
         assert self.alerter._evaluate_condition(80.0, "eq", 80.0) is True
         assert self.alerter._evaluate_condition(75.0, "eq", 80.0) is False
 
-    def test_evaluate_condition_not_equal(self):
+    def test_evaluate_condition_not_equal(self) -> None:
         """Test condition evaluation for not equal."""
         assert self.alerter._evaluate_condition(75.0, "ne", 80.0) is True
         assert self.alerter._evaluate_condition(80.0, "ne", 80.0) is False
 
-    def test_evaluate_condition_greater_than_equal(self):
+    def test_evaluate_condition_greater_than_equal(self) -> None:
         """Test condition evaluation for greater than or equal."""
         assert self.alerter._evaluate_condition(80.0, "gte", 80.0) is True
         assert self.alerter._evaluate_condition(85.0, "gte", 80.0) is True
         assert self.alerter._evaluate_condition(75.0, "gte", 80.0) is False
 
-    def test_evaluate_condition_less_than_equal(self):
+    def test_evaluate_condition_less_than_equal(self) -> None:
         """Test condition evaluation for less than or equal."""
         assert self.alerter._evaluate_condition(80.0, "lte", 80.0) is True
         assert self.alerter._evaluate_condition(75.0, "lte", 80.0) is True
         assert self.alerter._evaluate_condition(85.0, "lte", 80.0) is False
 
     @patch('smtplib.SMTP')
-    def test_send_email_notification_success(self, mock_smtp):
+    def test_send_email_notification_success(self, mock_smtp: Mock) -> None:
         """Test successful email notification sending."""
         mock_server = Mock()
         mock_smtp.return_value = mock_server
@@ -362,7 +420,7 @@ class TestAlerter:
         mock_server.quit.assert_called_once()
 
     @patch('requests.post')
-    def test_send_slack_notification_success(self, mock_post):
+    def test_send_slack_notification_success(self, mock_post: Mock) -> None:
         """Test successful Slack notification sending."""
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
@@ -393,7 +451,7 @@ class TestAlerter:
         assert call_args[1]['json']['attachments'][0]['title'] == "test_alert"
 
     @patch('requests.post')
-    def test_send_webhook_notification_success(self, mock_post):
+    def test_send_webhook_notification_success(self, mock_post: Mock) -> None:
         """Test successful webhook notification sending."""
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
@@ -427,7 +485,7 @@ class TestAlerter:
         assert call_args[0][0] == "https://example.com/webhook"
         assert call_args[1]['headers']['Authorization'] == "Bearer token"
 
-    def test_send_notifications_disabled_channel(self):
+    def test_send_notifications_disabled_channel(self) -> None:
         """Test that disabled channels are skipped."""
         alert = Alert(
             rule_name="test_alert",
@@ -453,7 +511,7 @@ class TestAlerter:
         # Should not raise any exceptions
         self.alerter.send_notifications([alert])
 
-    def test_send_notifications_unknown_channel_type(self):
+    def test_send_notifications_unknown_channel_type(self) -> None:
         """Test handling of unknown notification channel type."""
         alert = Alert(
             rule_name="test_alert",
@@ -478,7 +536,7 @@ class TestAlerter:
         # Should not raise any exceptions
         self.alerter.send_notifications([alert])
 
-    def test_get_active_alerts(self):
+    def test_get_active_alerts(self) -> None:
         """Test getting list of active alerts."""
         alert = Alert(
             rule_name="test_alert",
@@ -498,7 +556,7 @@ class TestAlerter:
         assert len(active_alerts) == 1
         assert active_alerts[0] == alert
 
-    def test_get_alert_history(self):
+    def test_get_alert_history(self) -> None:
         """Test getting alert history with time filtering."""
         current_time = time.time()
 
@@ -539,7 +597,7 @@ class TestAlerter:
         extended_history = self.alerter.get_alert_history(hours=48)
         assert len(extended_history) == 2
 
-    def test_cleanup_old_alerts(self):
+    def test_cleanup_old_alerts(self) -> None:
         """Test cleanup of old alerts from history."""
         current_time = time.time()
 
@@ -580,7 +638,7 @@ class TestAlerter:
 class TestDataClasses:
     """Test cases for data classes."""
 
-    def test_alert_rule_creation(self):
+    def test_alert_rule_creation(self) -> None:
         """Test AlertRule data class creation."""
         rule = AlertRule(
             name="test_rule",
@@ -600,7 +658,7 @@ class TestDataClasses:
         assert rule.for_duration == 300  # Default
         assert rule.labels == {}  # Default
 
-    def test_alert_rule_with_custom_values(self):
+    def test_alert_rule_with_custom_values(self) -> None:
         """Test AlertRule with custom values."""
         rule = AlertRule(
             name="test_rule",
@@ -616,7 +674,7 @@ class TestDataClasses:
         assert rule.for_duration == 600
         assert rule.labels == {"env": "prod"}
 
-    def test_alert_creation(self):
+    def test_alert_creation(self) -> None:
         """Test Alert data class creation."""
         alert = Alert(
             rule_name="test_rule",
@@ -641,7 +699,7 @@ class TestDataClasses:
         assert alert.firing_since is None  # Default
         assert alert.resolved_at is None  # Default
 
-    def test_notification_channel_creation(self):
+    def test_notification_channel_creation(self) -> None:
         """Test NotificationChannel data class creation."""
         channel = NotificationChannel(
             name="test_channel",
@@ -654,7 +712,7 @@ class TestDataClasses:
         assert channel.config == {"smtp_host": "localhost"}
         assert channel.enabled is True  # Default
 
-    def test_notification_channel_disabled(self):
+    def test_notification_channel_disabled(self) -> None:
         """Test NotificationChannel with disabled flag."""
         channel = NotificationChannel(
             name="test_channel",
@@ -669,14 +727,14 @@ class TestDataClasses:
 class TestEnums:
     """Test cases for enum classes."""
 
-    def test_alert_severity_values(self):
+    def test_alert_severity_values(self) -> None:
         """Test AlertSeverity enum values."""
         assert AlertSeverity.LOW.value == "low"
         assert AlertSeverity.MEDIUM.value == "medium"
         assert AlertSeverity.HIGH.value == "high"
         assert AlertSeverity.CRITICAL.value == "critical"
 
-    def test_alert_status_values(self):
+    def test_alert_status_values(self) -> None:
         """Test AlertStatus enum values."""
         assert AlertStatus.FIRING.value == "firing"
         assert AlertStatus.RESOLVED.value == "resolved"

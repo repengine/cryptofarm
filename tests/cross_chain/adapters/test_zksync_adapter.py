@@ -21,6 +21,10 @@ class TestZkSyncBridgeAdapter:
         """Create a mock ZkSyncProtocol instance."""
         mock = Mock(spec=ZkSyncProtocol)
         mock.bridge_assets.return_value = "0x123abc456def789"
+        # Mock the attributes that the adapter accesses
+        mock.web3_l1 = Mock()
+        mock.web3_l2 = Mock()
+        mock.private_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
         return mock
     
     @pytest.fixture

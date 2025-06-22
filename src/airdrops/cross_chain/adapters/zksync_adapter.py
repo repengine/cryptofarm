@@ -270,6 +270,9 @@ class ZkSyncBridgeAdapter(BridgeAdapter):
 
             # Use the ZkSync protocol's bridge_assets method
             tx_hash = self._protocol.bridge_assets(
+                web3_l1=self._protocol.web3_l1,
+                web3_l2=self._protocol.web3_l2,
+                private_key=self._protocol.private_key,
                 token_symbol=asset,
                 amount=amount,
                 direction=direction

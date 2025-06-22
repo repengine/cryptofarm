@@ -6,6 +6,8 @@ import json
 import pytest
 from decimal import Decimal
 from datetime import datetime
+from pathlib import Path
+from typing import List, Any
 from unittest.mock import MagicMock
 
 from airdrops.analytics.reporter import AirdropReporter, ReportFormat, AirdropReport, ProtocolSummary
@@ -13,7 +15,7 @@ from airdrops.analytics.tracker import AirdropTracker, AirdropEvent
 
 
 @pytest.fixture
-def sample_events():
+def sample_events() -> List[AirdropEvent]:
     """Sample airdrop events for testing."""
     return [
         AirdropEvent(
@@ -23,6 +25,9 @@ def sample_events():
             estimated_value_usd=Decimal("200"),
             wallet_address="0x1000000000000000000000000000000000000001",
             event_date=datetime(2023, 1, 1),
+            transaction_hash="0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            block_number=12345,
+            notes="Test airdrop event"
         ),
         AirdropEvent(
             protocol_name="Zksync",
@@ -31,6 +36,9 @@ def sample_events():
             estimated_value_usd=Decimal("100"),
             wallet_address="0x1000000000000000000000000000000000000001",
             event_date=datetime(2023, 1, 15),
+            transaction_hash="0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            block_number=12346,
+            notes="Test airdrop event"
         ),
         AirdropEvent(
             protocol_name="Scroll",
@@ -39,23 +47,26 @@ def sample_events():
             estimated_value_usd=Decimal("50"),
             wallet_address="0x2000000000000000000000000000000000000002",
             event_date=datetime(2023, 2, 1),
+            transaction_hash="0x567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234",
+            block_number=12347,
+            notes="Test airdrop event"
         ),
     ]
 
 
 @pytest.fixture
-def mock_tracker(sample_events):
+def mock_tracker(sample_events: List[AirdropEvent]) -> MagicMock:
     """Fixture for a mock AirdropTracker instance."""
     tracker = MagicMock(spec=AirdropTracker)
 
-    def get_by_date_range(start_date, end_date):
+    def get_by_date_range(start_date: datetime, end_date: datetime) -> List[AirdropEvent]:
         return [
             e for e in sample_events
             if (start_date is None or e.event_date >= start_date) and
                (end_date is None or e.event_date <= end_date)
         ]
 
-    def get_by_protocol(protocol_name):
+    def get_by_protocol(protocol_name: str) -> List[AirdropEvent]:
         return [e for e in sample_events if e.protocol_name.lower() == protocol_name.lower()]
 
     tracker.get_airdrops_by_date_range.side_effect = get_by_date_range
@@ -64,12 +75,12 @@ def mock_tracker(sample_events):
 
 
 @pytest.fixture
-def reporter(mock_tracker):
+def reporter(mock_tracker: MagicMock) -> AirdropReporter:
     """Fixture for an AirdropReporter instance."""
     return AirdropReporter(mock_tracker)
 
 
-def test_generate_comprehensive_report(reporter: AirdropReporter):
+def test_generate_comprehensive_report(reporter: AirdropReporter) -> None:
     """Test generating a comprehensive report."""
     report = reporter.generate_comprehensive_report()
 
@@ -88,7 +99,7 @@ def test_generate_comprehensive_report(reporter: AirdropReporter):
     assert zksync_summary.total_estimated_value_usd == Decimal("100")
 
 
-def test_generate_protocol_report(reporter: AirdropReporter):
+def test_generate_protocol_report(reporter: AirdropReporter) -> None:
     """Test generating a protocol-specific report."""
     report = reporter.generate_protocol_report("Scroll")
 
@@ -99,13 +110,13 @@ def test_generate_protocol_report(reporter: AirdropReporter):
     assert set(report.unique_tokens) == {"ETH", "USDT"}
 
 
-def test_generate_protocol_report_not_found(reporter: AirdropReporter):
+def test_generate_protocol_report_not_found(reporter: AirdropReporter) -> None:
     """Test generating a report for a non-existent protocol."""
     report = reporter.generate_protocol_report("non_existent")
     assert report.total_events == 0
 
 
-def test_export_report_json(reporter: AirdropReporter, tmp_path):
+def test_export_report_json(reporter: AirdropReporter, tmp_path: Path) -> None:
     """Test exporting a report to JSON."""
     report = reporter.generate_comprehensive_report()
     output_file = tmp_path / "report.json"
@@ -120,7 +131,7 @@ def test_export_report_json(reporter: AirdropReporter, tmp_path):
     assert data["protocol_summaries"][0]["total_estimated_value_usd"] == "250"
 
 
-def test_export_report_csv(reporter: AirdropReporter, tmp_path):
+def test_export_report_csv(reporter: AirdropReporter, tmp_path: Path) -> None:
     """Test exporting a report to CSV."""
     report = reporter.generate_comprehensive_report()
     output_file = tmp_path / "report.csv"
@@ -136,7 +147,7 @@ def test_export_report_csv(reporter: AirdropReporter, tmp_path):
     assert "Zksync,1" in lines[2]
 
 
-def test_export_report_console(reporter: AirdropReporter, capsys):
+def test_export_report_console(reporter: AirdropReporter, capsys: Any) -> None:
     """Test exporting a report to the console."""
     report = reporter.generate_comprehensive_report()
 
@@ -150,8 +161,9 @@ def test_export_report_console(reporter: AirdropReporter, capsys):
     assert "Value: $250.00" in captured.out
 
 
-def test_unsupported_report_format(reporter: AirdropReporter):
+def test_unsupported_report_format(reporter: AirdropReporter) -> None:
     """Test that an unsupported report format raises an error."""
     report = reporter.generate_comprehensive_report()
     with pytest.raises(ValueError, match="Unsupported format"):
-        reporter.export_report(report, "file.txt", "unsupported_format")
+        # Cast to ReportFormat to satisfy mypy
+        reporter.export_report(report, "file.txt", "unsupported_format")  # type: ignore

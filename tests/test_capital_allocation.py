@@ -9,7 +9,7 @@ and efficiency metrics calculation.
 import pytest
 from decimal import Decimal
 from unittest.mock import patch
-from typing import Dict, List
+from typing import Dict, List, Any
 
 from airdrops.capital_allocation.engine import (
     CapitalAllocator,
@@ -28,7 +28,7 @@ class TestCapitalAllocator:
         {"capital_allocation": {"strategy": "risk_parity", "max_protocols": 5}},
         {"capital_allocation": {"strategy": "mean_variance", "max_protocols": 5}}
     ])
-    def allocator(self, request) -> CapitalAllocator:
+    def allocator(self, request: Any) -> CapitalAllocator:
         """Create a CapitalAllocator instance for testing with parameterized config."""
         return CapitalAllocator(request.param)
 
@@ -46,7 +46,7 @@ class TestCapitalAllocator:
             "max_daily_loss_pct": Decimal("10")
         }
 
-    def test_init_default_config(self):
+    def test_init_default_config(self) -> None:
         """Test CapitalAllocator initialization with default config."""
         allocator = CapitalAllocator()
 
@@ -57,7 +57,7 @@ class TestCapitalAllocator:
         assert allocator.max_protocols == 10
         assert allocator.portfolio_history == []
 
-    def test_init_custom_config(self):
+    def test_init_custom_config(self) -> None:
         """Test CapitalAllocator initialization with custom config."""
         config = {"capital_allocation": {"strategy": "risk_parity", "max_protocols": 3}}
         allocator = CapitalAllocator(config)
@@ -65,9 +65,7 @@ class TestCapitalAllocator:
         assert allocator.config == config
         assert allocator.allocation_strategy == AllocationStrategy.RISK_PARITY
 
-    def test_optimize_portfolio_equal_weight(
-        self, allocator, sample_protocols, sample_risk_constraints
-    ):
+    def test_optimize_portfolio_equal_weight(self, allocator: Any, sample_protocols: Any, sample_risk_constraints: Any) -> None:
         """Test portfolio optimization with equal weight strategy."""
         allocation = allocator.optimize_portfolio(
             sample_protocols, sample_risk_constraints
@@ -84,9 +82,7 @@ class TestCapitalAllocator:
         [{"capital_allocation": {"strategy": "risk_parity"}}],
         indirect=True
     )
-    def test_optimize_portfolio_risk_parity(
-        self, allocator, sample_protocols, sample_risk_constraints
-    ):
+    def test_optimize_portfolio_risk_parity(self, allocator: Any, sample_protocols: Any, sample_risk_constraints: Any) -> None:
         """Test portfolio optimization with risk parity strategy."""
 
         risk_scores = {
@@ -120,9 +116,7 @@ class TestCapitalAllocator:
         [{"capital_allocation": {"strategy": "mean_variance"}}],
         indirect=True
     )
-    def test_optimize_portfolio_mean_variance(
-        self, allocator, sample_protocols, sample_risk_constraints
-    ):
+    def test_optimize_portfolio_mean_variance(self, allocator: Any, sample_protocols: Any, sample_risk_constraints: Any) -> None:
         """Test portfolio optimization with mean variance strategy."""
 
         expected_returns = {
@@ -155,17 +149,13 @@ class TestCapitalAllocator:
             expected_allocation["eigenlayer"], rel=Decimal("1e-4")
         )
 
-    def test_optimize_portfolio_empty_protocols(
-        self, allocator, sample_risk_constraints
-    ):
+    def test_optimize_portfolio_empty_protocols(self, allocator: Any, sample_risk_constraints: Any) -> None:
         """Test portfolio optimization with empty protocols list."""
         allocation = allocator.optimize_portfolio([], sample_risk_constraints)
 
         assert allocation == {}
 
-    def test_optimize_portfolio_too_many_protocols(
-        self, allocator, sample_risk_constraints
-    ):
+    def test_optimize_portfolio_too_many_protocols(self, allocator: Any, sample_risk_constraints: Any) -> None:
         """Test portfolio optimization with too many protocols."""
         many_protocols = [f"protocol_{i}" for i in range(15)]
 
@@ -176,9 +166,7 @@ class TestCapitalAllocator:
         # Should limit to max_protocols (10 by default, 5 in fixture)
         assert len(allocation) <= allocator.max_protocols
 
-    def test_optimize_portfolio_max_exposure_constraint(
-        self, allocator, sample_protocols
-    ):
+    def test_optimize_portfolio_max_exposure_constraint(self, allocator: Any, sample_protocols: Any) -> None:
         """Test portfolio optimization respects maximum exposure constraints."""
         risk_constraints = {"max_protocol_exposure_pct": Decimal("10")}  # 10% max
 
@@ -187,7 +175,7 @@ class TestCapitalAllocator:
         for protocol in sample_protocols:
             assert allocation[protocol] <= Decimal("0.10")
 
-    def test_allocate_risk_adjusted_capital_normal_conditions(self, allocator):
+    def test_allocate_risk_adjusted_capital_normal_conditions(self, allocator: Any) -> None:
         """Test risk-adjusted capital allocation under normal conditions."""
         total_capital = Decimal("100000")
         portfolio_allocation = {
@@ -208,7 +196,7 @@ class TestCapitalAllocator:
         assert capital_allocations["scroll"] == Decimal("40000")  # 40% of 100k
         assert capital_allocations["zksync"] == Decimal("60000")  # 60% of 100k
 
-    def test_allocate_risk_adjusted_capital_high_volatility(self, allocator):
+    def test_allocate_risk_adjusted_capital_high_volatility(self, allocator: Any) -> None:
         """Test risk-adjusted capital allocation under high volatility."""
         total_capital = Decimal("100000")
         portfolio_allocation = {
@@ -229,7 +217,7 @@ class TestCapitalAllocator:
         total_allocated = sum(capital_allocations.values())
         assert total_allocated < total_capital
 
-    def test_allocate_risk_adjusted_capital_circuit_breaker(self, allocator):
+    def test_allocate_risk_adjusted_capital_circuit_breaker(self, allocator: Any) -> None:
         """Test risk-adjusted capital allocation with circuit breaker active."""
         total_capital = Decimal("100000")
         portfolio_allocation = {"scroll": Decimal("1.0")}
@@ -246,7 +234,7 @@ class TestCapitalAllocator:
         # Circuit breaker should result in zero allocation
         assert capital_allocations["scroll"] == Decimal("0")
 
-    def test_allocate_risk_adjusted_capital_high_gas_prices(self, allocator):
+    def test_allocate_risk_adjusted_capital_high_gas_prices(self, allocator: Any) -> None:
         """Test risk-adjusted capital allocation with high gas prices."""
         total_capital = Decimal("100000")
         portfolio_allocation = {"scroll": Decimal("1.0")}
@@ -263,14 +251,14 @@ class TestCapitalAllocator:
         # High gas prices should reduce allocation
         assert capital_allocations["scroll"] < Decimal("100000")
 
-    def test_allocate_risk_adjusted_capital_invalid_capital(self, allocator):
+    def test_allocate_risk_adjusted_capital_invalid_capital(self, allocator: Any) -> None:
         """Test risk-adjusted capital allocation with invalid capital amount."""
         with pytest.raises(ValueError, match="Total capital must be positive"):
             allocator.allocate_risk_adjusted_capital(
                 Decimal("0"), {}, {}
             )
 
-    def test_rebalance_portfolio_no_rebalancing_needed(self, allocator):
+    def test_rebalance_portfolio_no_rebalancing_needed(self, allocator: Any) -> None:
         """Test portfolio rebalancing when no rebalancing is needed."""
         current_allocations = {
             "scroll": Decimal("0.30"),
@@ -289,7 +277,7 @@ class TestCapitalAllocator:
         # No orders should be generated for small deviations
         assert len(orders) == 0
 
-    def test_rebalance_portfolio_rebalancing_needed(self, allocator):
+    def test_rebalance_portfolio_rebalancing_needed(self, allocator: Any) -> None:
         """Test portfolio rebalancing when rebalancing is needed."""
         current_allocations = {
             "scroll": Decimal("0.20"),
@@ -317,7 +305,7 @@ class TestCapitalAllocator:
         assert zksync_order.action == "decrease"
         assert zksync_order.amount == Decimal("20000")  # 20% of 100k
 
-    def test_rebalance_portfolio_new_protocol(self, allocator):
+    def test_rebalance_portfolio_new_protocol(self, allocator: Any) -> None:
         """Test portfolio rebalancing with new protocol addition."""
         current_allocations = {
             "scroll": Decimal("0.50"),
@@ -342,7 +330,7 @@ class TestCapitalAllocator:
         assert eigenlayer_order.action == "increase"
         assert eigenlayer_order.amount == Decimal("40000")
 
-    def test_rebalance_portfolio_priority_ordering(self, allocator):
+    def test_rebalance_portfolio_priority_ordering(self, allocator: Any) -> None:
         """Test that rebalancing orders are prioritized correctly."""
         current_allocations = {
             "scroll": Decimal("0.10"),
@@ -361,7 +349,7 @@ class TestCapitalAllocator:
         # Orders should be sorted by priority (deviation magnitude)
         assert orders[0].priority >= orders[1].priority
 
-    def test_calculate_efficiency_metrics_empty_returns(self, allocator):
+    def test_calculate_efficiency_metrics_empty_returns(self, allocator: Any) -> None:
         """Test efficiency metrics calculation with empty returns."""
         metrics = allocator.calculate_efficiency_metrics([])
 
@@ -369,7 +357,7 @@ class TestCapitalAllocator:
         assert metrics.sharpe_ratio == Decimal("0")
         assert metrics.max_drawdown == Decimal("0")
 
-    def test_calculate_efficiency_metrics_positive_returns(self, allocator):
+    def test_calculate_efficiency_metrics_positive_returns(self, allocator: Any) -> None:
         """Test efficiency metrics calculation with positive returns."""
         returns = [
             Decimal("0.05"), Decimal("0.03"), Decimal("0.04")
@@ -381,7 +369,7 @@ class TestCapitalAllocator:
         assert metrics.sharpe_ratio > Decimal("0")
         assert len(allocator.portfolio_history) == 1
 
-    def test_calculate_efficiency_metrics_mixed_returns(self, allocator):
+    def test_calculate_efficiency_metrics_mixed_returns(self, allocator: Any) -> None:
         """Test efficiency metrics calculation with mixed returns."""
         returns = [Decimal("0.05"), Decimal("-0.02"), Decimal("0.01")]
 
@@ -390,7 +378,7 @@ class TestCapitalAllocator:
         assert metrics.max_drawdown > Decimal("0")
         assert isinstance(metrics.total_return, Decimal)
 
-    def test_calculate_efficiency_metrics_zero_volatility(self, allocator):
+    def test_calculate_efficiency_metrics_zero_volatility(self, allocator: Any) -> None:
         """Test efficiency metrics calculation with zero volatility."""
         returns = [Decimal("0.02"), Decimal("0.02"), Decimal("0.02")]
 
@@ -399,9 +387,7 @@ class TestCapitalAllocator:
         # Zero volatility should result in zero Sharpe ratio
         assert metrics.sharpe_ratio == Decimal("0")
 
-    def test_equal_weight_allocation_method(
-        self, allocator, sample_protocols, sample_risk_constraints
-    ):
+    def test_equal_weight_allocation_method(self, allocator: Any, sample_protocols: Any, sample_risk_constraints: Any) -> None:
         """Test the _equal_weight_allocation private method."""
         allocation = allocator._equal_weight_allocation(
             sample_protocols, sample_risk_constraints
@@ -411,9 +397,7 @@ class TestCapitalAllocator:
         for protocol in sample_protocols:
             assert allocation[protocol] == expected_weight
 
-    def test_risk_parity_allocation_method(
-        self, allocator, sample_protocols, sample_risk_constraints
-    ):
+    def test_risk_parity_allocation_method(self, allocator: Any, sample_protocols: Any, sample_risk_constraints: Any) -> None:
         """Test the _risk_parity_allocation private method."""
         risk_scores = {
             "scroll": Decimal("0.2"),
@@ -429,9 +413,7 @@ class TestCapitalAllocator:
         assert allocation["eigenlayer"] > allocation["scroll"]
         assert allocation["scroll"] > allocation["zksync"]
 
-    def test_mean_variance_allocation_method(
-        self, allocator, sample_protocols, sample_risk_constraints
-    ):
+    def test_mean_variance_allocation_method(self, allocator: Any, sample_protocols: Any, sample_risk_constraints: Any) -> None:
         """Test the _mean_variance_allocation private method."""
         expected_returns = {
             "scroll": Decimal("0.06"),
@@ -452,7 +434,7 @@ class TestCapitalAllocator:
         assert allocation["eigenlayer"] > allocation["scroll"]
         assert allocation["scroll"] > allocation["zksync"]
 
-    def test_calculate_risk_multiplier_normal_conditions(self, allocator):
+    def test_calculate_risk_multiplier_normal_conditions(self, allocator: Any) -> None:
         """Test risk multiplier calculation under normal conditions."""
         multiplier = allocator._calculate_risk_multiplier(
             "low", Decimal("30"), False
@@ -460,7 +442,7 @@ class TestCapitalAllocator:
 
         assert multiplier == Decimal("1.0")
 
-    def test_calculate_risk_multiplier_high_volatility(self, allocator):
+    def test_calculate_risk_multiplier_high_volatility(self, allocator: Any) -> None:
         """Test risk multiplier calculation with high volatility."""
         multiplier = allocator._calculate_risk_multiplier(
             "high", Decimal("30"), False
@@ -468,7 +450,7 @@ class TestCapitalAllocator:
 
         assert multiplier < Decimal("1.0")
 
-    def test_calculate_risk_multiplier_circuit_breaker(self, allocator):
+    def test_calculate_risk_multiplier_circuit_breaker(self, allocator: Any) -> None:
         """Test risk multiplier calculation with circuit breaker active."""
         multiplier = allocator._calculate_risk_multiplier(
             "low", Decimal("30"), True
@@ -476,7 +458,7 @@ class TestCapitalAllocator:
 
         assert multiplier == Decimal("0")
 
-    def test_calculate_risk_multiplier_high_gas_prices(self, allocator):
+    def test_calculate_risk_multiplier_high_gas_prices(self, allocator: Any) -> None:
         """Test risk multiplier calculation with high gas prices."""
         multiplier = allocator._calculate_risk_multiplier(
             "low", Decimal("150"), False
@@ -484,7 +466,7 @@ class TestCapitalAllocator:
 
         assert multiplier < Decimal("1.0")
 
-    def test_optimize_portfolio_exception_handling(self, allocator):
+    def test_optimize_portfolio_exception_handling(self, allocator: Any) -> None:
         """Test portfolio optimization exception handling."""
         # Determine which allocation method to patch based on the current strategy
         if allocator.allocation_strategy == AllocationStrategy.EQUAL_WEIGHT:
@@ -513,7 +495,7 @@ class TestCapitalAllocator:
                     risk_scores=risk_scores
                 )
 
-    def test_allocate_risk_adjusted_capital_exception_handling(self, allocator):
+    def test_allocate_risk_adjusted_capital_exception_handling(self, allocator: Any) -> None:
         """Test risk-adjusted capital allocation exception handling."""
         with patch.object(
             allocator, '_calculate_risk_multiplier', side_effect=Exception("Test error")
@@ -525,7 +507,7 @@ class TestCapitalAllocator:
                     Decimal("1000"), {"test": Decimal("1")}, {}
                 )
 
-    def test_rebalance_portfolio_exception_handling(self, allocator):
+    def test_rebalance_portfolio_exception_handling(self, allocator: Any) -> None:
         """Test portfolio rebalancing exception handling."""
         with patch(
             'airdrops.capital_allocation.engine.RebalanceOrder',
@@ -538,7 +520,7 @@ class TestCapitalAllocator:
                     {"test": Decimal("1")}, {"test": Decimal("0.5")}, Decimal("1000")
                 )
 
-    def test_calculate_efficiency_metrics_exception_handling(self, allocator):
+    def test_calculate_efficiency_metrics_exception_handling(self, allocator: Any) -> None:
         """Test efficiency metrics calculation exception handling."""
         with patch('numpy.array', side_effect=Exception("Test error")):
             with pytest.raises(
@@ -550,7 +532,7 @@ class TestCapitalAllocator:
 class TestDataClasses:
     """Test suite for data classes."""
 
-    def test_allocation_target_creation(self):
+    def test_allocation_target_creation(self) -> None:
         """Test AllocationTarget data class creation."""
         target = AllocationTarget(
             protocol="scroll",
@@ -566,7 +548,7 @@ class TestDataClasses:
         assert target.risk_score == Decimal("0.4")
         assert target.expected_return == Decimal("0.06")
 
-    def test_portfolio_metrics_creation(self):
+    def test_portfolio_metrics_creation(self) -> None:
         """Test PortfolioMetrics data class creation."""
         metrics = PortfolioMetrics(
             total_value=Decimal("100000"),
@@ -584,7 +566,7 @@ class TestDataClasses:
         assert metrics.capital_utilization == Decimal("0.85")
         assert len(metrics.protocol_allocations) == 2
 
-    def test_rebalance_order_creation(self):
+    def test_rebalance_order_creation(self) -> None:
         """Test RebalanceOrder data class creation."""
         order = RebalanceOrder(
             protocol="scroll",
@@ -602,7 +584,7 @@ class TestDataClasses:
 class TestAllocationStrategy:
     """Test suite for AllocationStrategy enum."""
 
-    def test_allocation_strategy_values(self):
+    def test_allocation_strategy_values(self) -> None:
         """Test AllocationStrategy enum values."""
         assert AllocationStrategy.EQUAL_WEIGHT.value == "equal_weight"
         assert AllocationStrategy.RISK_PARITY.value == "risk_parity"

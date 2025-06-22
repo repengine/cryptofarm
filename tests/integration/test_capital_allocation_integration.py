@@ -4,6 +4,7 @@ Integration tests for the capital allocation module.
 
 import pytest
 from decimal import Decimal
+from typing import Any
 
 from airdrops.capital_allocation.engine import (
     CapitalAllocator,
@@ -12,7 +13,7 @@ from airdrops.capital_allocation.engine import (
 
 
 @pytest.fixture
-def capital_allocator():
+def capital_allocator() -> CapitalAllocator:
     """Fixture for a CapitalAllocator instance with default config."""
     config = {
         "capital_allocation": {
@@ -25,7 +26,7 @@ def capital_allocator():
     return CapitalAllocator(config)
 
 
-def test_equal_weight_allocation_integration(capital_allocator):
+def test_equal_weight_allocation_integration(capital_allocator: Any) -> None:
     """
     Test equal weight allocation strategy with a simple scenario.
     """
@@ -57,7 +58,7 @@ def test_equal_weight_allocation_integration(capital_allocator):
     assert sum(allocations.values()) == pytest.approx(total_capital)
 
 
-def test_risk_parity_allocation_integration(capital_allocator):
+def test_risk_parity_allocation_integration(capital_allocator: Any) -> None:
     """
     Test risk parity allocation strategy with varying risk scores.
     """
@@ -97,7 +98,7 @@ def test_risk_parity_allocation_integration(capital_allocator):
     assert sum(allocations.values()) == pytest.approx(total_capital)
 
 
-def test_rebalancing_logic_integration(capital_allocator):
+def test_rebalancing_logic_integration(capital_allocator: Any) -> None:
     """
     Test rebalancing logic with a scenario where rebalance is needed.
     """
@@ -124,7 +125,7 @@ def test_rebalancing_logic_integration(capital_allocator):
     # For this test, we'll just confirm the check_rebalance_needed logic.
 
 
-def test_min_max_allocation_constraints_integration(capital_allocator):
+def test_min_max_allocation_constraints_integration(capital_allocator: Any) -> None:
     """
     Test that min/max allocation constraints are respected.
     """
@@ -154,7 +155,7 @@ def test_min_max_allocation_constraints_integration(capital_allocator):
     assert sum(allocations.values()) == pytest.approx(total_capital)
 
 
-def test_edge_case_single_protocol(capital_allocator):
+def test_edge_case_single_protocol(capital_allocator: Any) -> None:
     """
     Test allocation with only a single protocol.
     """
@@ -172,7 +173,7 @@ def test_edge_case_single_protocol(capital_allocator):
     assert allocations["single_protocol"] == total_capital
 
 
-def test_edge_case_zero_total_capital(capital_allocator):
+def test_edge_case_zero_total_capital(capital_allocator: Any) -> None:
     """
     Test allocation with zero total capital.
     """

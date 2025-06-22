@@ -54,7 +54,7 @@ class TestnetConfig:
 class RealWalletManager:
     """Manages real wallet interactions for testnet validation."""
 
-    def __init__(self, private_key: str, rpc_url: str):
+    def __init__(self, private_key: str, rpc_url: str) -> None:
         """Initialize real wallet manager.
 
         Args:

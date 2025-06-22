@@ -245,7 +245,7 @@ class ScrollBridgeAdapter(BridgeAdapter):
                 web3_l2=self.web3_l2,
                 private_key=self.private_key,
                 token_symbol=asset,
-                amount=amount_in_units,
+                amount=Decimal(str(amount_in_units)),
                 direction=direction
             )
 

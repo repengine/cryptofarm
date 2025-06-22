@@ -5,28 +5,28 @@ Integration tests for the monitoring module.
 import pytest
 from decimal import Decimal
 import time
-from unittest.mock import MagicMock
+from unittest.mock import patch
 
-from airdrops.monitoring.collector import MetricsCollector  # type: ignore
-from airdrops.monitoring.aggregator import MetricsAggregator  # type: ignore
-from airdrops.monitoring.alerter import Alerter  # type: ignore
-from airdrops.monitoring.health_checker import HealthChecker  # type: ignore
+from airdrops.monitoring.collector import MetricsCollector
+from airdrops.monitoring.aggregator import MetricsAggregator
+from airdrops.monitoring.alerter import Alerter
+from airdrops.monitoring.health_checker import HealthChecker
 
 
 @pytest.fixture
-def metrics_collector():
+def metrics_collector() -> MetricsCollector:
     """Fixture for a MetricsCollector instance."""
     return MetricsCollector()
 
 
 @pytest.fixture
-def metrics_aggregator(metrics_collector):
+def metrics_aggregator(metrics_collector: MetricsCollector) -> MetricsAggregator:
     """Fixture for a MetricsAggregator instance."""
     return MetricsAggregator(collector=metrics_collector)
 
 
 @pytest.fixture
-def alerter():
+def alerter() -> Alerter:
     """Fixture for an Alerter instance."""
     config = {
         "alerting": {
@@ -41,7 +41,7 @@ def alerter():
 
 
 @pytest.fixture
-def health_checker():
+def health_checker() -> HealthChecker:
     """Fixture for a HealthChecker instance."""
     config = {
         "health_check": {
@@ -53,8 +53,8 @@ def health_checker():
 
 
 def test_end_to_end_monitoring_flow(
-    metrics_collector, metrics_aggregator, alerter, health_checker
-):
+    metrics_collector: MetricsCollector, metrics_aggregator: MetricsAggregator, alerter: Alerter, health_checker: HealthChecker
+) -> None:
     """
     Test the full monitoring flow from collection to alerting and health check.
     """
@@ -153,16 +153,15 @@ def test_end_to_end_monitoring_flow(
 
     # --- Step 3: Alerting ---
     # Mock the send_alert method to capture calls
-    alerter.send_alert = MagicMock()
+    with patch.object(alerter, 'send_alert') as mock_send_alert:
+        # Check for alerts based on aggregated metrics
+        alerts_triggered = alerter.check_and_send_alerts(aggregated_metrics_dict)
 
-    # Check for alerts based on aggregated metrics
-    alerts_triggered = alerter.check_and_send_alerts(aggregated_metrics_dict)
-
-    # ZkSync should trigger a failure rate alert (100% failure > 10% threshold)
-    assert alerts_triggered is True
-    alerter.send_alert.assert_called_once()
-    call_args = alerter.send_alert.call_args[0][0]
-    assert "ZkSync transaction failure rate" in call_args
+        # ZkSync should trigger a failure rate alert (100% failure > 10% threshold)
+        assert alerts_triggered is True
+        mock_send_alert.assert_called_once()
+        call_args = mock_send_alert.call_args[0][0]
+        assert "ZkSync transaction failure rate" in call_args
     assert "100.00%" in call_args
 
     # --- Step 4: Health Check ---

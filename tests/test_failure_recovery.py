@@ -8,7 +8,7 @@ including network failures, transaction failures, system crashes, and data corru
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from decimal import Decimal
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 import pendulum
 import json
 import os
@@ -89,7 +89,7 @@ class TestFailureRecovery:
                 self.eth = Mock()
                 self.eth.get_block.return_value = {"number": 1000000}
 
-            def is_connected(self) -> bool:
+            def is_connected(self, show_traceback: bool = False) -> bool:
                 return self._is_connected
 
         # Setup primary RPC to fail
@@ -261,7 +261,7 @@ class TestFailureRecovery:
         # Cleanup
         os.remove(state_file)
 
-    def test_gas_estimation_failure_recovery(self, mock_config):
+    def test_gas_estimation_failure_recovery(self, mock_config: Dict[str, Any]) -> None:
         """Test recovery from gas estimation failures.
 
         Verifies:
@@ -360,7 +360,7 @@ class TestFailureRecovery:
         # Should try multiple channels
         assert mock_send_notifications.call_count >= 1
 
-    def test_protocol_specific_recovery(self, mock_config):
+    def test_protocol_specific_recovery(self, mock_config: Dict[str, Any]) -> None:
         """Test protocol-specific failure recovery mechanisms.
 
         Verifies:
@@ -401,7 +401,7 @@ class TestFailureRecovery:
             can_retry = protocol_manager.can_retry_protocol("scroll")
             assert can_retry is True
 
-    def test_data_corruption_recovery(self, mock_config):
+    def test_data_corruption_recovery(self, mock_config: Dict[str, Any]) -> None:
         """Test recovery from data corruption scenarios.
 
         Verifies:
@@ -528,7 +528,7 @@ class TestFailureRecovery:
         assert safe_positions["scroll"] < current_positions["scroll"]
         assert safe_positions["zksync"] < current_positions["zksync"]
 
-    def test_cascading_failure_prevention(self, mock_config):
+    def test_cascading_failure_prevention(self, mock_config: Dict[str, Any]) -> None:
         """Test prevention of cascading failures across system.
 
         Verifies:
@@ -580,21 +580,21 @@ class MockComponents:
     """Mock implementations of recovery components for testing."""
 
     class ConnectionManager:
-        def __init__(self, config):
+        def __init__(self, config: Dict[str, Any]) -> None:
             self.config = config
             self.connection_attempts = 0
 
-        def get_web3(self, network, max_retries=3):
+        def get_web3(self, network: str, max_retries: int = 3) -> Mock:
             self.connection_attempts += 1
             if self.connection_attempts > max_retries:
                 raise ConnectionError(f"Failed to connect to {network}")
             return Mock()
 
     class TransactionRecovery:
-        def __init__(self, config):
+        def __init__(self, config: Dict[str, Any]) -> None:
             self.config = config
 
-        def execute_with_retry(self, func, params, max_retries=3):
+        def execute_with_retry(self, func: Any, params: Dict[str, Any], max_retries: int = 3) -> Any:
             for i in range(max_retries):
                 try:
                     # Pass a copy of params for the function call, but
@@ -609,24 +609,24 @@ class MockComponents:
                     raise
 
     class StateManager:
-        def __init__(self, config):
+        def __init__(self, config: Dict[str, Any]) -> None:
             self.config = config
             self.backup_dir = config["recovery"]["backup_location"]
 
-        def recover_state(self):
+        def recover_state(self) -> Optional[Dict[str, Any]]:
             state_file = os.path.join(self.backup_dir, "system_state.json")
             backup_file = os.path.join(self.backup_dir, "system_state.backup")
 
             try:
                 with open(state_file, "r") as f:
-                    return json.load(f)
+                    return json.load(f)  # type: ignore[no-any-return]
             except (json.JSONDecodeError, FileNotFoundError):
                 if os.path.exists(backup_file):
                     with open(backup_file, "r") as f:
-                        return json.load(f)
+                        return json.load(f)  # type: ignore[no-any-return]
                 return None
 
-        def get_resumable_tasks(self):
+        def get_resumable_tasks(self) -> List[Dict[str, Any]]:
             state = self.recover_state()
             if state and "active_tasks" in state:
                 return [
@@ -636,29 +636,29 @@ class MockComponents:
             return []
 
     class GasManager:
-        def __init__(self, config):
+        def __init__(self, config: Dict[str, Any]) -> None:
             self.config = config
 
-        def estimate_gas_with_fallback(self, func, params, default_gas):
+        def estimate_gas_with_fallback(self, func: Any, params: Dict[str, Any], default_gas: int) -> int:
             try:
-                return func.estimate_gas(params)
+                return func.estimate_gas(params)  # type: ignore[no-any-return]
             except Exception:
                 return int(default_gas * 1.2)  # 20% buffer
 
-        def get_safe_gas_price(self, network, max_price_gwei):
+        def get_safe_gas_price(self, network: str, max_price_gwei: int) -> int:
             # Mock implementation
             return min(Web3.to_wei(max_price_gwei, "gwei"), Web3.to_wei(100, "gwei"))
 
     class ProtocolManager:
-        def __init__(self, config):
+        def __init__(self, config: Dict[str, Any]) -> None:
             self.config = config
-            self.protocol_failures = {}
+            self.protocol_failures: Dict[str, int] = {}
 
-        def record_failure(self, protocol, action):
+        def record_failure(self, protocol: str, action: str) -> None:
             key = f"{protocol}_{action}"
             self.protocol_failures[key] = self.protocol_failures.get(key, 0) + 1
 
-        def get_protocol_status(self, protocol):
+        def get_protocol_status(self, protocol: str) -> Dict[str, Any]:
             failures = sum(
                 count for key, count in self.protocol_failures.items()
                 if key.startswith(protocol)
@@ -668,20 +668,20 @@ class MockComponents:
                 "consecutive_failures": failures,
             }
 
-        def can_retry_protocol(self, protocol):
+        def can_retry_protocol(self, protocol: str) -> bool:
             # Simplified logic
             return True
 
     class CircuitBreaker:
-        def __init__(self, failure_threshold, recovery_timeout, expected_exception):
+        def __init__(self, failure_threshold: int, recovery_timeout: int, expected_exception: type) -> None:
             self.failure_threshold = failure_threshold
             self.recovery_timeout = recovery_timeout
             self.failure_count = 0
-            self.last_failure_time = None
+            self.last_failure_time: Optional[float] = None
             self.state = "closed"
 
         @property
-        def is_open(self):
+        def is_open(self) -> bool:
             if self.state == "open" and self.last_failure_time:
                 if time.time() - self.last_failure_time > self.recovery_timeout:
                     self.state = "half-open"
@@ -689,15 +689,15 @@ class MockComponents:
             return self.state == "open"
 
         @property
-        def is_closed(self):
+        def is_closed(self) -> bool:
             return self.state == "closed"
 
-        def __enter__(self):
+        def __enter__(self) -> "MockComponents.CircuitBreaker":
             if self.is_open:
                 raise Exception("Circuit breaker is open")
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
+        def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
             if exc_type:
                 self.failure_count += 1
                 self.last_failure_time = time.time()
@@ -710,17 +710,17 @@ class MockComponents:
             return True
 
     class SystemCoordinator:
-        def __init__(self, config):
+        def __init__(self, config: Dict[str, Any]) -> None:
             self.config = config
-            self.component_failures = {}
+            self.component_failures: Dict[str, Dict[str, Any]] = {}
 
-        def record_component_failure(self, component, error):
+        def record_component_failure(self, component: str, error: str) -> None:
             self.component_failures[component] = {
                 "error": error,
                 "timestamp": pendulum.now(),
             }
 
-        def create_recovery_plan(self):
+        def create_recovery_plan(self) -> Dict[str, Any]:
             # Prioritize critical components
             priority_map = {
                 "scheduler": 1,
@@ -736,14 +736,14 @@ class MockComponents:
                     "priority": priority_map.get(component, 4),
                 })
 
-            steps.sort(key=lambda x: x["priority"])
+            steps.sort(key=lambda x: x["priority"])  # type: ignore[arg-type,return-value]
 
             return {
                 "steps": steps,
                 "priority_order": [s["component"] for s in steps],
             }
 
-        def execute_recovery(self, plan):
+        def execute_recovery(self, plan: Dict[str, Any]) -> Dict[str, Any]:
             results = {}
             for step in plan["steps"]:
                 # Simulate recovery
@@ -753,7 +753,7 @@ class MockComponents:
                 }
             return results
 
-        def get_system_health(self):
+        def get_system_health(self) -> Dict[str, Any]:
             return {
                 "overall_health": "healthy",
                 "components": {

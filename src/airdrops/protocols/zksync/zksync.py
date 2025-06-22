@@ -33,6 +33,7 @@ from airdrops.shared.constants import (
 )
 
 from airdrops.shared import constants
+from ...shared.random_activity_utils import select_activity_by_weight, generate_random_amount, select_random_tokens
 from .exceptions import (
     ZkSyncBridgeError,
     InsufficientBalanceError,
@@ -45,6 +46,7 @@ from .exceptions import (
     ZkSyncSwapError,
     InsufficientLiquidityError,
     TokenNotSupportedError,
+    ZkSyncRandomActivityError,
 )
 
 
@@ -1218,6 +1220,275 @@ def _bridge_eth_zksync(
 
         return _build_and_send_tx_zksync(web3_l2, private_key, withdraw_tx)
     return ""
+
+
+def perform_random_activity(
+    user_address: str,
+    private_key: str,
+    config: Dict[str, Any],
+    web3_l1: Optional[Web3] = None,
+    web3_l2: Optional[Web3] = None
+) -> List[Dict[str, Any]]:
+    """
+    Performs a random on-chain activity based on weighted configuration for the zkSync protocol.
+
+    This function selects an activity (e.g., swap, bridge), generates random
+    parameters for it, executes the corresponding function, and returns a
+    detailed log of the actions taken. It includes fallback logic to try
+    alternative activities upon failure.
+
+    Args:
+        user_address (str): The public address of the user's wallet.
+        private_key (str): The private key for signing transactions.
+        config (Dict[str, Any]): The configuration dictionary for this protocol's
+            random activity, containing weights, parameter ranges, and retry options.
+        web3_l1 (Optional[Web3]): Web3 instance for L1. Required for bridging.
+        web3_l2 (Optional[Web3]): Web3 instance for the protocol's L2 network.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, where each dictionary
+            represents an attempted activity and its outcome.
+
+    Raises:
+        ValueError: If required parameters are missing or invalid.
+        ZkSyncRandomActivityError: If all activities fail after max retries.
+
+    Example:
+        >>> config = {
+        ...     "random_activity": {
+        ...         "zksync": {
+        ...             "action_weights": [
+        ...                 {"name": "swap", "weight": 50},
+        ...                 {"name": "bridge", "weight": 30}
+        ...             ],
+        ...             "max_retries": 3,
+        ...             "amount_ranges": {"swap": {"min": "0.01", "max": "0.1"}},
+        ...             "token_config": {"ETH": {}, "USDC": {}}
+        ...         }
+        ...     }
+        ... }
+        >>> results = perform_random_activity(
+        ...     user_address="0x123...",
+        ...     private_key="0xabc...",
+        ...     config=config,
+        ...     web3_l1=web3_instance,
+        ...     web3_l2=web3_instance
+        ... )
+    """
+    logger.info(f"Starting random activity for user {user_address}")
+    
+    # Input validation
+    if not user_address or not private_key:
+        raise ValueError("user_address and private_key are required")
+    
+    if not config or "random_activity" not in config:
+        raise ValueError("config must contain 'random_activity' section")
+    
+    if "zksync" not in config["random_activity"]:
+        raise ValueError("config must contain 'random_activity.zksync' section")
+    
+    zksync_config = config["random_activity"]["zksync"]
+    
+    # Extract configuration parameters
+    action_weights = zksync_config.get("action_weights", [])
+    max_retries = zksync_config.get("max_retries", 3)
+    amount_ranges = zksync_config.get("amount_ranges", {})
+    token_config = zksync_config.get("token_config", {})
+    
+    if not action_weights:
+        raise ValueError("action_weights cannot be empty")
+    
+    # Create mutable pool of activities
+    activity_pool = action_weights.copy()
+    results: List[Dict[str, Any]] = []
+    
+    for attempt in range(max_retries):
+        if not activity_pool:
+            logger.warning("No more activities to try")
+            break
+            
+        try:
+            # Select activity by weight
+            selected_activity = select_activity_by_weight(activity_pool)
+            logger.info(f"Attempt {attempt + 1}: Selected activity '{selected_activity}'")
+            
+            # Generate parameters based on activity type
+            activity_result = _execute_zksync_activity(
+                selected_activity,
+                user_address,
+                private_key,
+                amount_ranges,
+                token_config,
+                web3_l1,
+                web3_l2
+            )
+            
+            # Log successful result
+            results.append({
+                "attempt": attempt + 1,
+                "activity": selected_activity,
+                "status": "success",
+                "tx_hash": activity_result,
+                "timestamp": time.time()
+            })
+            
+            logger.info(f"Activity '{selected_activity}' completed successfully: {activity_result}")
+            break
+            
+        except Exception as e:
+            logger.error(f"Activity '{selected_activity}' failed: {e}")
+            
+            # Log failed result
+            results.append({
+                "attempt": attempt + 1,
+                "activity": selected_activity,
+                "status": "failed",
+                "error": str(e),
+                "timestamp": time.time()
+            })
+            
+            # Remove failed activity from pool
+            activity_pool = [
+                activity for activity in activity_pool
+                if activity["name"] != selected_activity
+            ]
+            
+            # Continue to next iteration for retry
+            continue
+    
+    if not any(result["status"] == "success" for result in results):
+        raise ZkSyncRandomActivityError(
+            f"All random activities failed after {max_retries} attempts"
+        )
+    
+    return results
+
+
+def _execute_zksync_activity(
+    activity_name: str,
+    user_address: str,
+    private_key: str,
+    amount_ranges: Dict[str, Any],
+    token_config: Dict[str, Any],
+    web3_l1: Optional[Web3],
+    web3_l2: Optional[Web3]
+) -> str:
+    """
+    Execute a specific zkSync activity with generated parameters.
+    
+    Args:
+        activity_name: Name of the activity to execute.
+        user_address: User's wallet address.
+        private_key: Private key for signing transactions.
+        amount_ranges: Configuration for amount generation.
+        token_config: Available tokens configuration.
+        web3_l1: Web3 instance for L1 operations.
+        web3_l2: Web3 instance for L2 operations.
+        
+    Returns:
+        Transaction hash of the executed activity.
+        
+    Raises:
+        ZkSyncRandomActivityError: If activity execution fails.
+    """
+    if activity_name == "swap":
+        return _execute_swap_activity_zksync(
+            user_address, private_key, amount_ranges, token_config, web3_l2
+        )
+    elif activity_name == "bridge":
+        return _execute_bridge_activity_zksync(
+            user_address, private_key, amount_ranges, token_config, web3_l1, web3_l2
+        )
+    else:
+        raise ZkSyncRandomActivityError(f"Unknown activity: {activity_name}")
+
+
+def _execute_swap_activity_zksync(
+    user_address: str,
+    private_key: str,
+    amount_ranges: Dict[str, Any],
+    token_config: Dict[str, Any],
+    web3_l2: Optional[Web3]
+) -> str:
+    """Execute a token swap activity on zkSync."""
+    if not web3_l2:
+        raise ZkSyncRandomActivityError("web3_l2 is required for swap activity")
+    
+    # Get swap configuration
+    swap_config = amount_ranges.get("swap", {})
+    min_amount = Decimal(swap_config.get("min", "0.01"))
+    max_amount = Decimal(swap_config.get("max", "0.1"))
+    decimals = swap_config.get("decimals", 4)
+    
+    # Generate random amount
+    amount = generate_random_amount(min_amount, max_amount, decimals)
+    
+    # Select random token pair
+    token_in, token_out = select_random_tokens(token_config, 2)
+    
+    # Convert amount to wei/smallest unit
+    if token_in == "ETH":
+        amount_wei = int(amount * Decimal(10**18))
+    else:
+        amount_wei = int(amount * Decimal(10**6))  # Assume USDC-like tokens
+    
+    return swap_tokens(
+        web3_zksync=web3_l2,
+        private_key=private_key,
+        token_in_symbol=token_in,
+        token_out_symbol=token_out,
+        amount_in=amount_wei,
+        slippage_percent=0.5,
+        deadline_seconds=1800
+    )
+
+
+def _execute_bridge_activity_zksync(
+    user_address: str,
+    private_key: str,
+    amount_ranges: Dict[str, Any],
+    token_config: Dict[str, Any],
+    web3_l1: Optional[Web3],
+    web3_l2: Optional[Web3]
+) -> str:
+    """Execute a bridge activity for zkSync."""
+    if not web3_l1 or not web3_l2:
+        raise ZkSyncRandomActivityError("Both web3_l1 and web3_l2 are required for bridge activity")
+    
+    # Get bridge configuration
+    bridge_config = amount_ranges.get("bridge", {})
+    min_amount = Decimal(bridge_config.get("min", "0.005"))
+    max_amount = Decimal(bridge_config.get("max", "0.05"))
+    decimals = bridge_config.get("decimals", 4)
+    
+    # Generate random amount
+    amount = generate_random_amount(min_amount, max_amount, decimals)
+    
+    # Select random token (prefer ETH for bridging)
+    available_tokens = list(token_config.keys())
+    if "ETH" in available_tokens:
+        token_symbol = "ETH"
+    else:
+        token_symbol = select_random_tokens(token_config, 1)[0]
+    
+    # Convert amount to wei/smallest unit
+    if token_symbol == "ETH":
+        amount_wei = int(amount * Decimal(10**18))
+    else:
+        amount_wei = int(amount * Decimal(10**6))  # Assume USDC-like tokens
+    
+    # Randomly choose direction (favor deposits for activity)
+    import random
+    direction = random.choice(["deposit", "deposit", "withdraw"])  # 2:1 ratio favoring deposits
+    
+    return bridge_assets(
+        web3_l1=web3_l1,
+        web3_l2=web3_l2,
+        private_key=private_key,
+        token_symbol=token_symbol,
+        amount=amount_wei,
+        direction=direction
+    )
 
 
 def _bridge_erc20_zksync(

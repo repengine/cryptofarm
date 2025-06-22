@@ -5,8 +5,12 @@ This module defines typing.Protocol interfaces for the capital allocation system
 enabling type-safe mocking and dependency injection in tests and production code.
 """
 
-from typing import Protocol, Dict, Any, List, Tuple, Optional
+from typing import Protocol, Dict, Any, List, Tuple, Optional, TYPE_CHECKING
 from decimal import Decimal
+
+# Import RebalanceOrder for return type annotation
+if TYPE_CHECKING:
+    from airdrops.capital_allocation.engine import RebalanceOrder
 
 __all__ = [
     "ICapitalAllocator",
@@ -42,19 +46,21 @@ class ICapitalAllocator(Protocol):
     
     def optimize_portfolio(
         self,
-        available_capital: Decimal,
-        risk_tolerance: Decimal,
-        constraints: Optional[Dict[str, Any]] = None
+        protocols: List[str],
+        risk_constraints: Dict[str, Any],
+        risk_scores: Optional[Dict[str, Decimal]] = None,
+        expected_returns: Optional[Dict[str, Decimal]] = None
     ) -> Dict[str, Decimal]:
-        """Optimize portfolio allocation based on available capital and risk tolerance.
+        """Optimize portfolio allocation based on protocols and risk constraints.
         
         Args:
-            available_capital: Total capital available for allocation.
-            risk_tolerance: Risk tolerance level (0.0 = risk-averse, 1.0 = risk-seeking).
-            constraints: Optional constraints for the optimization.
+            protocols: List of protocol names to allocate capital across.
+            risk_constraints: Risk constraints and parameters for optimization.
+            risk_scores: Optional risk scores for each protocol (0.0-1.0).
+            expected_returns: Optional expected returns for each protocol.
             
         Returns:
-            Dictionary mapping asset symbols to allocation amounts.
+            Dictionary mapping protocol names to allocation amounts.
             
         Raises:
             ValueError: If parameters are invalid.
@@ -86,19 +92,19 @@ class ICapitalAllocator(Protocol):
     
     def rebalance_portfolio(
         self,
-        current_positions: Dict[str, Decimal],
+        current_allocations: Dict[str, Decimal],
         target_allocations: Dict[str, Decimal],
-        rebalance_threshold: Decimal = Decimal("0.05")
-    ) -> Dict[str, Decimal]:
-        """Rebalance portfolio to target allocations.
+        total_portfolio_value: Decimal
+    ) -> List["RebalanceOrder"]:
+        """Generate rebalancing orders to align portfolio with target allocations.
         
         Args:
-            current_positions: Current position sizes by asset.
+            current_allocations: Current allocation percentages by protocol.
             target_allocations: Target allocation percentages.
-            rebalance_threshold: Minimum deviation threshold to trigger rebalancing.
+            total_portfolio_value: Total portfolio value for calculating amounts.
             
         Returns:
-            Dictionary mapping asset symbols to rebalancing amounts (positive = buy, negative = sell).
+            List of RebalanceOrder objects sorted by priority.
             
         Raises:
             ValueError: If parameters are invalid.

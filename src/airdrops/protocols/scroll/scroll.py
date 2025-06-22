@@ -8,6 +8,7 @@ and swapping tokens on SyncSwap DEX (L2).
 
 import json
 import logging
+import math
 import time
 from pathlib import Path
 from typing import Dict, Optional, Any, cast, Sequence, List
@@ -24,7 +25,7 @@ from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from web3.types import TxParams, Wei, TxReceipt
 
-from airdrops.shared import config as shared_config
+from ...shared import config as shared_config
 from .exceptions import (
     ScrollBridgeError,
     InsufficientBalanceError,
@@ -41,6 +42,12 @@ from .exceptions import (
     InsufficientCollateralError,
     RepayAmountExceedsDebtError,
     LayerBankComptrollerRejectionError,
+    ScrollRandomActivityError,
+)
+from ...shared.random_activity_utils import (
+    select_activity_by_weight,
+    generate_random_amount,
+    select_random_tokens,
 )
 
 
@@ -908,7 +915,7 @@ def swap_tokens(
                 private_key,
                 token_in_address_actual,
                 SYNC_SWAP_ROUTER_ADDRESS_SCROLL,
-                amount_in,
+                Decimal(amount_in),
             )
             logger.info(f"Approval successful for {token_in_symbol}.")
         except ApprovalError as e:
@@ -927,7 +934,7 @@ def swap_tokens(
             web3_scroll,
             token_in_address_actual,
             token_out_address_actual,
-            amount_in,
+            int(amount_in),
             recipient_address,
             weth_l2_address,
             router_contract,
@@ -1195,7 +1202,7 @@ def _handle_lend_action_scroll(
                     f"Insufficient ETH balance: have {eth_balance}, need {amount}"
                 )
 
-            tx_params["value"] = Wei(amount)
+            tx_params["value"] = Wei(int(amount))
             mint_tx = lbtoken_contract.functions.mint().build_transaction(tx_params)
 
         else:  # USDC
@@ -1377,7 +1384,7 @@ def _handle_repay_action_scroll(
                 raise InsufficientBalanceError(
                     f"Insufficient ETH balance to repay: have {eth_balance}, need {amount}"
                 )
-            tx_params["value"] = Wei(amount)
+            tx_params["value"] = Wei(int(amount))
             repay_tx = lbtoken_contract.functions.repayBorrow().build_transaction(tx_params)
         else:  # USDC
             usdc_contract = _get_contract_scroll(
@@ -1467,7 +1474,7 @@ def bridge_assets(
             web3_l1,
             web3_l2,
             private_key,
-            amount,
+            int(amount),
             direction,
             Web3.to_checksum_address(l1_address),
             Web3.to_checksum_address(l2_address),
@@ -1480,7 +1487,7 @@ def bridge_assets(
             web3_l2,
             private_key,
             token_symbol,
-            amount,
+            int(amount),
             direction,
             Web3.to_checksum_address(l1_address),
             Web3.to_checksum_address(l2_address),
@@ -1562,6 +1569,367 @@ def _bridge_eth_scroll(
     return ""
 
 
+def perform_random_activity(
+    user_address: str,
+    private_key: str,
+    config: Dict[str, Any],
+    web3_l1: Optional[Web3] = None,
+    web3_l2: Optional[Web3] = None
+) -> List[Dict[str, Any]]:
+    """
+    Performs a random on-chain activity based on weighted configuration for the Scroll protocol.
+
+    This function selects an activity (e.g., swap, lend), generates random
+    parameters for it, executes the corresponding function, and returns a
+    detailed log of the actions taken. It includes fallback logic to try
+    alternative activities upon failure.
+
+    Args:
+        user_address (str): The public address of the user's wallet.
+        private_key (str): The private key for signing transactions.
+        config (Dict[str, Any]): The configuration dictionary for this protocol's
+            random activity, containing weights, parameter ranges, and retry options.
+        web3_l1 (Optional[Web3]): Web3 instance for L1. Required for bridging.
+        web3_l2 (Optional[Web3]): Web3 instance for the protocol's L2 network.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, where each dictionary
+            represents an attempted activity and its outcome.
+
+    Example:
+        >>> config = {
+        ...     "random_activity": {
+        ...         "scroll": {
+        ...             "action_weights": [
+        ...                 {"name": "swap", "weight": 50},
+        ...                 {"name": "lend", "weight": 30}
+        ...             ],
+        ...             "max_retries": 3,
+        ...             "amount_ranges": {
+        ...                 "swap": {"min": "0.01", "max": "0.1", "decimals": 4},
+        ...                 "lend": {"min": "0.005", "max": "0.05", "decimals": 4}
+        ...             },
+        ...             "token_config": {"ETH": {}, "USDC": {}}
+        ...         }
+        ...     }
+        ... }
+        >>> results = perform_random_activity(
+        ...     user_address="0x123...",
+        ...     private_key="0xabc...",
+        ...     config=config,
+        ...     web3_l2=web3_instance
+        ... )
+    """
+    logger.info(f"Starting random activity for user {user_address}")
+    
+    # Input validation
+    if not user_address or not private_key:
+        raise ValueError("user_address and private_key are required")
+    
+    if not config or "random_activity" not in config:
+        raise ValueError("config must contain 'random_activity' section")
+    
+    if "scroll" not in config["random_activity"]:
+        raise ValueError("config must contain 'random_activity.scroll' section")
+    
+    scroll_config = config["random_activity"]["scroll"]
+    
+    # Extract configuration parameters
+    action_weights = scroll_config.get("action_weights", [])
+    max_retries = scroll_config.get("max_retries", 3)
+    amount_ranges = scroll_config.get("amount_ranges", {})
+    token_config = scroll_config.get("token_config", {})
+    
+    if not action_weights:
+        raise ValueError("action_weights cannot be empty")
+    
+    # Create mutable pool of activities
+    activity_pool = action_weights.copy()
+    results: List[Dict[str, Any]] = []
+    
+    for attempt in range(max_retries):
+        if not activity_pool:
+            logger.warning("No more activities to try")
+            break
+            
+        try:
+            # Select activity by weight
+            selected_activity = select_activity_by_weight(activity_pool)
+            logger.info(f"Attempt {attempt + 1}: Selected activity '{selected_activity}'")
+            
+            # Generate parameters based on activity type
+            activity_result = _execute_scroll_activity(
+                selected_activity,
+                user_address,
+                private_key,
+                amount_ranges,
+                token_config,
+                web3_l1,
+                web3_l2
+            )
+            
+            # Log successful result
+            results.append({
+                "attempt": attempt + 1,
+                "activity": selected_activity,
+                "status": "success",
+                "tx_hash": activity_result,
+                "timestamp": time.time()
+            })
+            
+            logger.info(f"Activity '{selected_activity}' completed successfully: {activity_result}")
+            break
+            
+        except Exception as e:
+            logger.error(f"Activity '{selected_activity}' failed: {e}")
+            
+            # Log failed result
+            results.append({
+                "attempt": attempt + 1,
+                "activity": selected_activity,
+                "status": "failed",
+                "error": str(e),
+                "timestamp": time.time()
+            })
+            
+            # Remove failed activity from pool
+            activity_pool = [
+                activity for activity in activity_pool
+                if activity["name"] != selected_activity
+            ]
+            
+            # Continue to next iteration for retry
+            continue
+    
+    if not any(result["status"] == "success" for result in results):
+        raise ScrollRandomActivityError(
+            f"All random activities failed after {max_retries} attempts"
+        )
+    
+    return results
+
+
+def _execute_scroll_activity(
+    activity_name: str,
+    user_address: str,
+    private_key: str,
+    amount_ranges: Dict[str, Any],
+    token_config: Dict[str, Any],
+    web3_l1: Optional[Web3],
+    web3_l2: Optional[Web3]
+) -> str:
+    """
+    Execute a specific Scroll activity with generated parameters.
+    
+    Args:
+        activity_name: Name of the activity to execute.
+        user_address: User's wallet address.
+        private_key: Private key for signing transactions.
+        amount_ranges: Configuration for amount generation.
+        token_config: Available tokens configuration.
+        web3_l1: Web3 instance for L1 operations.
+        web3_l2: Web3 instance for L2 operations.
+        
+    Returns:
+        Transaction hash of the executed activity.
+        
+    Raises:
+        ScrollRandomActivityError: If activity execution fails.
+    """
+    if activity_name == "swap":
+        return _execute_swap_activity(
+            user_address, private_key, amount_ranges, token_config, web3_l2
+        )
+    elif activity_name == "lend":
+        return _execute_lend_activity(
+            user_address, private_key, amount_ranges, token_config, web3_l2
+        )
+    elif activity_name == "bridge":
+        return _execute_bridge_activity(
+            user_address, private_key, amount_ranges, token_config, web3_l1, web3_l2
+        )
+    elif activity_name == "provide_liquidity":
+        return _execute_liquidity_activity(
+            user_address, private_key, amount_ranges, token_config, web3_l2
+        )
+    else:
+        raise ScrollRandomActivityError(f"Unknown activity: {activity_name}")
+
+
+def _execute_swap_activity(
+    user_address: str,
+    private_key: str,
+    amount_ranges: Dict[str, Any],
+    token_config: Dict[str, Any],
+    web3_l2: Optional[Web3]
+) -> str:
+    """Execute a token swap activity."""
+    if not web3_l2:
+        raise ScrollRandomActivityError("web3_l2 is required for swap activity")
+    
+    # Get swap configuration
+    swap_config = amount_ranges.get("swap", {})
+    min_amount = Decimal(swap_config.get("min", "0.01"))
+    max_amount = Decimal(swap_config.get("max", "0.1"))
+    decimals = swap_config.get("decimals", 4)
+    
+    # Generate random amount
+    amount = generate_random_amount(min_amount, max_amount, decimals)
+    
+    # Select random token pair
+    token_in, token_out = select_random_tokens(token_config, 2)
+    
+    # Convert amount to wei/smallest unit
+    if token_in == "ETH":
+        amount_wei = int(amount * Decimal(10**18))
+    else:
+        amount_wei = int(amount * Decimal(10**6))  # Assume USDC-like tokens
+    
+    return swap_tokens(
+        web3_scroll=web3_l2,
+        private_key=private_key,
+        token_in_symbol=token_in,
+        token_out_symbol=token_out,
+        amount_in=amount_wei,
+        slippage_percent=0.5,
+        deadline_seconds=1800
+    )
+
+
+def _execute_lend_activity(
+    user_address: str,
+    private_key: str,
+    amount_ranges: Dict[str, Any],
+    token_config: Dict[str, Any],
+    web3_l2: Optional[Web3]
+) -> str:
+    """Execute a lending activity."""
+    if not web3_l2:
+        raise ScrollRandomActivityError("web3_l2 is required for lend activity")
+    
+    # Get lend configuration
+    lend_config = amount_ranges.get("lend", {})
+    min_amount = Decimal(lend_config.get("min", "0.005"))
+    max_amount = Decimal(lend_config.get("max", "0.05"))
+    decimals = lend_config.get("decimals", 4)
+    
+    # Generate random amount
+    amount = generate_random_amount(min_amount, max_amount, decimals)
+    
+    # Select random token (ETH or USDC for LayerBank)
+    available_tokens = [token for token in token_config.keys() if token in ["ETH", "USDC"]]
+    if not available_tokens:
+        raise ScrollRandomActivityError("No supported tokens for lending (ETH, USDC)")
+    
+    token_symbol = available_tokens[0] if len(available_tokens) == 1 else select_random_tokens(
+        {token: {} for token in available_tokens}, 1
+    )[0]
+    
+    # Convert amount to wei/smallest unit
+    if token_symbol == "ETH":
+        amount_wei = amount * Decimal(10**18)
+    else:
+        amount_wei = amount * Decimal(10**6)  # USDC
+    
+    return lend_borrow_layerbank_scroll(
+        web3_scroll=web3_l2,
+        private_key=private_key,
+        action="lend",
+        token_symbol=token_symbol,
+        amount=amount_wei
+    )
+
+
+def _execute_bridge_activity(
+    user_address: str,
+    private_key: str,
+    amount_ranges: Dict[str, Any],
+    token_config: Dict[str, Any],
+    web3_l1: Optional[Web3],
+    web3_l2: Optional[Web3]
+) -> str:
+    """Execute a bridge activity."""
+    if not web3_l1 or not web3_l2:
+        raise ScrollRandomActivityError("Both web3_l1 and web3_l2 are required for bridge activity")
+    
+    # Get bridge configuration
+    bridge_config = amount_ranges.get("bridge", {})
+    min_amount = Decimal(bridge_config.get("min", "0.01"))
+    max_amount = Decimal(bridge_config.get("max", "0.1"))
+    decimals = bridge_config.get("decimals", 4)
+    
+    # Generate random amount
+    amount = generate_random_amount(min_amount, max_amount, decimals)
+    
+    # Select random token
+    token_symbol = select_random_tokens(token_config, 1)[0]
+    
+    # Convert amount to wei/smallest unit
+    if token_symbol == "ETH":
+        amount_wei = amount * Decimal(10**18)
+    else:
+        amount_wei = amount * Decimal(10**6)  # Assume USDC-like tokens
+    
+    # Randomly choose direction (deposit or withdraw)
+    direction = "deposit" if time.time() % 2 < 1 else "withdraw"
+    
+    return bridge_assets(
+        web3_l1=web3_l1,
+        web3_l2=web3_l2,
+        private_key=private_key,
+        token_symbol=token_symbol,
+        amount=amount_wei,
+        direction=direction
+    )
+
+
+def _execute_liquidity_activity(
+    user_address: str,
+    private_key: str,
+    amount_ranges: Dict[str, Any],
+    token_config: Dict[str, Any],
+    web3_l2: Optional[Web3]
+) -> str:
+    """Execute a liquidity provision activity."""
+    if not web3_l2:
+        raise ScrollRandomActivityError("web3_l2 is required for liquidity activity")
+    
+    # Get liquidity configuration
+    liquidity_config = amount_ranges.get("provide_liquidity", {})
+    min_amount = Decimal(liquidity_config.get("min", "0.01"))
+    max_amount = Decimal(liquidity_config.get("max", "0.1"))
+    decimals = liquidity_config.get("decimals", 4)
+    
+    # Generate random amounts for both tokens
+    amount_a = generate_random_amount(min_amount, max_amount, decimals)
+    amount_b = generate_random_amount(min_amount, max_amount, decimals)
+    
+    # Select random token pair
+    token_a, token_b = select_random_tokens(token_config, 2)
+    
+    # Convert amounts to wei/smallest units
+    if token_a == "ETH":
+        amount_a_wei = amount_a * Decimal(10**18)
+    else:
+        amount_a_wei = amount_a * Decimal(10**6)
+    
+    if token_b == "ETH":
+        amount_b_wei = amount_b * Decimal(10**18)
+    else:
+        amount_b_wei = amount_b * Decimal(10**6)
+    
+    return provide_liquidity(
+        web3_l2=web3_l2,
+        private_key=private_key,
+        token_a_symbol=token_a,
+        token_b_symbol=token_b,
+        amount_a=amount_a_wei,
+        amount_b=amount_b_wei,
+        slippage_percent=0.5,
+        deadline_seconds=1800
+    )
+
+
 class ScrollProtocol:
     """
     ScrollProtocol handles interactions with the Scroll network.
@@ -1634,7 +2002,7 @@ class ScrollProtocol:
             RuntimeError: If the bridge transaction fails.
         """
         return bridge_assets(
-            web3_l1, web3_l2, private_key, token_symbol, amount, direction
+            web3_l1, web3_l2, private_key, token_symbol, Decimal(amount), direction
         )
     
     def swap_tokens(
@@ -1668,6 +2036,223 @@ class ScrollProtocol:
         # For now, delegate to the functional implementation
         # This would need to be implemented based on the actual swap functionality
         raise NotImplementedError("Swap functionality not yet implemented in ScrollProtocol")
+
+
+def provide_liquidity(
+    web3_l2: Web3,
+    private_key: str,
+    token_a_symbol: str,
+    token_b_symbol: str,
+    amount_a: Decimal,
+    amount_b: Decimal,
+    slippage_percent: float = 0.5,
+    deadline_seconds: int = 1800,
+) -> str:
+    """
+    Provides liquidity to a SyncSwap pool on Scroll L2.
+
+    Args:
+        web3_l2: Web3 instance for Scroll L2.
+        private_key: Private key of the account providing liquidity.
+        token_a_symbol: Symbol of the first token (e.g., "ETH", "USDC").
+        token_b_symbol: Symbol of the second token (e.g., "USDC", "WETH").
+        amount_a: Amount of token A to provide (in Wei or smallest unit).
+        amount_b: Amount of token B to provide (in Wei or smallest unit).
+        slippage_percent: Allowed slippage percentage (e.g., 0.5 for 0.5%).
+        deadline_seconds: Transaction deadline in seconds from now.
+
+    Returns:
+        Transaction hash of the liquidity provision operation.
+
+    Raises:
+        ScrollSwapError: For general liquidity provision errors.
+        InsufficientLiquidityError: If pool doesn't exist or has insufficient liquidity.
+        TokenNotSupportedError: If one of the token symbols is not configured.
+        ApprovalError: If token approval fails.
+        TransactionRevertedError: If the transaction is reverted.
+        GasEstimationError: If gas estimation fails.
+        ValueError: For invalid inputs like slippage or amounts.
+        InsufficientBalanceError: If account balance is insufficient.
+
+    Example:
+        >>> web3_l2 = Web3(Web3.HTTPProvider("https://scroll-mainnet.chainstacklabs.com"))
+        >>> tx_hash = provide_liquidity(
+        ...     web3_l2=web3_l2,
+        ...     private_key="0x123...",
+        ...     token_a_symbol="USDC",
+        ...     token_b_symbol="WETH",
+        ...     amount_a=Decimal("1000000"),  # 1 USDC (6 decimals)
+        ...     amount_b=Decimal("500000000000000000"),  # 0.5 WETH (18 decimals)
+        ...     slippage_percent=0.5,
+        ...     deadline_seconds=1800
+        ... )
+    """
+    logger.info(
+        f"Initiating SyncSwap liquidity provision: {amount_a} {token_a_symbol} + "
+        f"{amount_b} {token_b_symbol} with {slippage_percent}% slippage, "
+        f"deadline {deadline_seconds}s."
+    )
+
+    # Input validation
+    if amount_a <= 0 or amount_b <= 0:
+        raise ValueError("Liquidity amounts must be positive.")
+    if not 0 <= slippage_percent <= 100:
+        raise ValueError("Slippage percent must be between 0 and 100.")
+    if deadline_seconds <= 0:
+        raise ValueError("Deadline must be positive.")
+
+    account = _get_account_scroll(private_key, web3_l2)
+    user_address = account.address
+
+    # Get token addresses
+    token_a_address = _get_l2_token_address_scroll(token_a_symbol)
+    token_b_address = _get_l2_token_address_scroll(token_b_symbol)
+    weth_l2_address = _get_l2_token_address_scroll(WETH_SYMBOL)
+
+    # Handle ETH as WETH for pool operations
+    if token_a_symbol == ETH_SYMBOL:
+        token_a_address = weth_l2_address
+    if token_b_symbol == ETH_SYMBOL:
+        token_b_address = weth_l2_address
+
+    # Get pool address
+    pool_address = _get_syncswap_pool_address_scroll(
+        web3_l2, token_a_address, token_b_address
+    )
+    if not pool_address:
+        raise InsufficientLiquidityError(
+            f"No SyncSwap pool found for {token_a_symbol}/{token_b_symbol} pair."
+        )
+
+    # Check balances and approve tokens
+    amount_a_int = int(amount_a)
+    amount_b_int = int(amount_b)
+    
+    _check_balance_and_approve_liquidity_token(
+        web3_l2, private_key, token_a_symbol, token_a_address,
+        amount_a_int, user_address
+    )
+    _check_balance_and_approve_liquidity_token(
+        web3_l2, private_key, token_b_symbol, token_b_address,
+        amount_b_int, user_address
+    )
+
+    # Calculate minimum liquidity based on slippage
+    min_liquidity = _calculate_min_liquidity_amount(
+        amount_a_int, amount_b_int, slippage_percent
+    )
+
+    # Get router contract
+    router_contract = _get_syncswap_router_contract_scroll(web3_l2)
+
+    # Prepare transaction inputs for SyncSwap addLiquidity
+    token_inputs = [
+        {"token": Web3.to_checksum_address(token_a_address), "amount": amount_a_int},
+        {"token": Web3.to_checksum_address(token_b_address), "amount": amount_b_int},
+    ]
+
+    # Encode data for liquidity provision (empty for basic liquidity provision)
+    data = HexBytes("0x")
+
+    # Calculate ETH value to send (if either token is ETH)
+    eth_value = Wei(0)
+    if token_a_symbol == ETH_SYMBOL:
+        eth_value = Wei(eth_value + amount_a_int)
+    if token_b_symbol == ETH_SYMBOL:
+        eth_value = Wei(eth_value + amount_b_int)
+
+    # Build transaction parameters
+    tx_params: TxParams = {
+        "from": user_address,
+        "to": SYNC_SWAP_ROUTER_ADDRESS_SCROLL,
+        "value": eth_value,
+        "gasPrice": web3_l2.eth.gas_price,
+    }
+
+    try:
+        # Build addLiquidity transaction
+        add_liquidity_tx = router_contract.functions.addLiquidity(
+            Web3.to_checksum_address(pool_address),
+            token_inputs,
+            data,
+            min_liquidity,
+            ZERO_ADDRESS,  # No callback
+            HexBytes("0x"),  # No callback data
+        ).build_transaction(tx_params)
+
+        logger.info(f"Built liquidity provision transaction: {add_liquidity_tx}")
+        return _build_and_send_tx_scroll(web3_l2, private_key, add_liquidity_tx)
+
+    except ContractLogicError as e:
+        logger.error(f"SyncSwap contract logic error: {e.message} - Data: {e.data}")
+        if "NotEnoughLiquidityMinted" in str(e):
+            raise InsufficientLiquidityError(
+                f"Insufficient liquidity minted (slippage too high): {e.message}",
+                tx_data=e.data
+            )
+        raise TransactionRevertedError(
+            f"SyncSwap liquidity provision reverted: {e.message}",
+            receipt=None,
+            tx_hash=None,
+        ) from e
+    except GasEstimationError as e:
+        logger.error(f"Gas estimation failed for liquidity provision: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during liquidity provision: {e}")
+        raise ScrollSwapError(f"Failed to provide liquidity: {e}") from e
+
+
+def _check_balance_and_approve_liquidity_token(
+    web3_l2: Web3,
+    private_key: str,
+    token_symbol: str,
+    token_address: str,
+    amount: int,
+    user_address: str,
+) -> None:
+    """Check token balance and approve router if needed for liquidity provision."""
+    if token_symbol == ETH_SYMBOL:
+        # Check ETH balance
+        eth_balance = web3_l2.eth.get_balance(Web3.to_checksum_address(user_address))
+        if eth_balance < amount:
+            raise InsufficientBalanceError(
+                f"Insufficient ETH balance: have {eth_balance}, need {amount}"
+            )
+    else:
+        # Check ERC20 balance and approve
+        token_contract = _get_contract_scroll(web3_l2, ERC20_ABI_NAME, token_address)
+        token_balance = token_contract.functions.balanceOf(
+            Web3.to_checksum_address(user_address)
+        ).call()
+        if token_balance < amount:
+            raise InsufficientBalanceError(
+                f"Insufficient {token_symbol} balance: have {token_balance}, need {amount}"
+            )
+
+        # Approve router to spend tokens
+        _approve_erc20_scroll(
+            web3_l2,
+            private_key,
+            token_address,
+            SYNC_SWAP_ROUTER_ADDRESS_SCROLL,
+            Decimal(amount),
+        )
+
+
+def _calculate_min_liquidity_amount(
+    amount_a: int, amount_b: int, slippage_percent: float
+) -> int:
+    """Calculate minimum liquidity amount based on slippage tolerance."""
+    # Simple estimation: use geometric mean of amounts as base liquidity
+    # and apply slippage tolerance
+    base_liquidity = int(math.sqrt(amount_a * amount_b))
+    min_liquidity = int(base_liquidity * (1 - slippage_percent / 100.0))
+    logger.info(
+        f"Calculated minimum liquidity: {min_liquidity} from amounts "
+        f"{amount_a}, {amount_b} with {slippage_percent}% slippage"
+    )
+    return min_liquidity
 
 
 def _bridge_erc20_scroll(
@@ -1712,7 +2297,7 @@ def _bridge_erc20_scroll(
         # Approve L1 Gateway Router to spend ERC20
         _approve_erc20_scroll(
             web3_l1, private_key, l1_token_address,
-            SCROLL_L1_GATEWAY_ROUTER_ADDRESS, amount
+            SCROLL_L1_GATEWAY_ROUTER_ADDRESS, Decimal(amount)
         )
 
         l2_gas_price_actual = l2_gas_price or web3_l2.eth.gas_price
@@ -1753,7 +2338,7 @@ def _bridge_erc20_scroll(
         # Approve L2 Gateway Router to spend ERC20
         _approve_erc20_scroll(
             web3_l2, private_key, l2_token_address,
-            SCROLL_L2_GATEWAY_ROUTER_ADDRESS, amount
+            SCROLL_L2_GATEWAY_ROUTER_ADDRESS, Decimal(amount)
         )
 
         erc20_withdraw_tx_params: TxParams = {

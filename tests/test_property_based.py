@@ -11,9 +11,9 @@ from decimal import Decimal
 from typing import Dict, List, Any, cast
 import pendulum
 
-from airdrops.capital_allocation.engine import CapitalAllocator  # type: ignore
-from airdrops.monitoring.collector import MetricsCollector  # type: ignore
-from airdrops.monitoring.aggregator import calculate_percentiles  # type: ignore
+from airdrops.capital_allocation.engine import CapitalAllocator
+from airdrops.monitoring.collector import MetricsCollector
+from airdrops.monitoring.aggregator import calculate_percentiles
 
 # Custom strategies for domain-specific types
 protocol_strategy = st.sampled_from(

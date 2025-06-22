@@ -22,7 +22,7 @@ from airdrops.monitoring.health_checker import (
 class TestHealthChecker:
     """Test cases for HealthChecker class."""
 
-    def test_init_default_config(self):
+    def test_init_default_config(self) -> None:
         """Test HealthChecker initialization with default configuration."""
         health_checker = HealthChecker()
 
@@ -35,7 +35,7 @@ class TestHealthChecker:
         assert health_checker.memory_warning_threshold == 85.0
         assert health_checker.memory_critical_threshold == 95.0
 
-    def test_init_custom_config(self):
+    def test_init_custom_config(self) -> None:
         """Test HealthChecker initialization with custom configuration."""
         config = {"custom_setting": "value"}
 
@@ -55,7 +55,7 @@ class TestHealthChecker:
         assert health_checker.cpu_warning_threshold == 70.0
         assert health_checker.cpu_critical_threshold == 90.0
 
-    def test_check_system_health_all_components_healthy(self):
+    def test_check_system_health_all_components_healthy(self) -> None:
         """Test system health check with all components healthy."""
         health_checker = HealthChecker()
 
@@ -103,7 +103,7 @@ class TestHealthChecker:
         assert health_status.summary['ok_count'] >= 5
         assert health_status.summary['critical_count'] == 0
 
-    def test_check_system_health_circuit_breaker_active(self):
+    def test_check_system_health_circuit_breaker_active(self) -> None:
         """Test system health check with circuit breaker active."""
         health_checker = HealthChecker()
 
@@ -133,7 +133,7 @@ class TestHealthChecker:
         assert risk_component.status == HealthStatus.CRITICAL
         assert "circuit breaker" in risk_component.message.lower()
 
-    def test_check_system_health_high_cpu_usage(self):
+    def test_check_system_health_high_cpu_usage(self) -> None:
         """Test system health check with high CPU usage."""
         health_checker = HealthChecker()
 
@@ -157,7 +157,7 @@ class TestHealthChecker:
         assert system_component.status == HealthStatus.WARNING
         assert "High CPU usage" in system_component.message
 
-    def test_check_system_health_critical_memory_usage(self):
+    def test_check_system_health_critical_memory_usage(self) -> None:
         """Test system health check with critical memory usage."""
         health_checker = HealthChecker()
 
@@ -181,7 +181,7 @@ class TestHealthChecker:
         assert system_component.status == HealthStatus.CRITICAL
         assert "Critical memory usage" in system_component.message
 
-    def test_check_component_health_system_resources(self):
+    def test_check_component_health_system_resources(self) -> None:
         """Test individual component health check for system resources."""
         health_checker = HealthChecker()
 
@@ -201,7 +201,7 @@ class TestHealthChecker:
         assert component_health.metrics['cpu_usage_percent'] == 75.0
         assert component_health.metrics['memory_usage_percent'] == 70.0
 
-    def test_check_component_health_external_dependencies(self):
+    def test_check_component_health_external_dependencies(self) -> None:
         """Test individual component health check for external dependencies."""
         health_checker = HealthChecker()
 
@@ -217,7 +217,7 @@ class TestHealthChecker:
         assert component_health.metrics['eth_rpc_configured'] is True
         assert component_health.metrics['scroll_rpc_configured'] is True
 
-    def test_check_component_health_unknown_component(self):
+    def test_check_component_health_unknown_component(self) -> None:
         """Test individual component health check for unknown component."""
         health_checker = HealthChecker()
 
@@ -225,7 +225,7 @@ class TestHealthChecker:
 
         assert component_health is None
 
-    def test_check_risk_manager_health_healthy(self):
+    def test_check_risk_manager_health_healthy(self) -> None:
         """Test risk manager health check when healthy."""
         health_checker = HealthChecker()
 
@@ -241,7 +241,7 @@ class TestHealthChecker:
         assert component_health.metrics['circuit_breaker_active'] is False
         assert component_health.metrics['risk_limits_configured'] is True
 
-    def test_check_risk_manager_health_circuit_breaker_active(self):
+    def test_check_risk_manager_health_circuit_breaker_active(self) -> None:
         """Test risk manager health check with circuit breaker active."""
         health_checker = HealthChecker()
 
@@ -254,7 +254,7 @@ class TestHealthChecker:
         assert component_health.status == HealthStatus.CRITICAL
         assert component_health.message == "Circuit breaker is active"
 
-    def test_check_risk_manager_health_no_risk_limits(self):
+    def test_check_risk_manager_health_no_risk_limits(self) -> None:
         """Test risk manager health check without risk limits."""
         health_checker = HealthChecker()
 
@@ -268,7 +268,7 @@ class TestHealthChecker:
         assert component_health.status == HealthStatus.WARNING
         assert component_health.message == "Risk limits not configured"
 
-    def test_check_capital_allocator_health_healthy(self):
+    def test_check_capital_allocator_health_healthy(self) -> None:
         """Test capital allocator health check when healthy."""
         health_checker = HealthChecker()
 
@@ -285,7 +285,7 @@ class TestHealthChecker:
         assert component_health.metrics['portfolio_history_length'] == 2
         assert component_health.metrics['allocation_strategy'] == "risk_parity"
 
-    def test_check_capital_allocator_health_no_history(self):
+    def test_check_capital_allocator_health_no_history(self) -> None:
         """Test capital allocator health check with no portfolio history."""
         health_checker = HealthChecker()
 
@@ -299,7 +299,7 @@ class TestHealthChecker:
         assert component_health.status == HealthStatus.WARNING
         assert component_health.message == "No portfolio history available"
 
-    def test_check_scheduler_health_healthy(self):
+    def test_check_scheduler_health_healthy(self) -> None:
         """Test scheduler health check when healthy."""
         health_checker = HealthChecker()
 
@@ -315,7 +315,7 @@ class TestHealthChecker:
         assert component_health.metrics['is_running'] is True
         assert component_health.metrics['task_count'] == 2
 
-    def test_check_scheduler_health_not_running(self):
+    def test_check_scheduler_health_not_running(self) -> None:
         """Test scheduler health check when not running."""
         health_checker = HealthChecker()
 
@@ -328,7 +328,7 @@ class TestHealthChecker:
         assert component_health.status == HealthStatus.CRITICAL
         assert component_health.message == "Scheduler is not running"
 
-    def test_check_scheduler_health_no_tasks(self):
+    def test_check_scheduler_health_no_tasks(self) -> None:
         """Test scheduler health check with no tasks defined."""
         health_checker = HealthChecker()
 
@@ -341,7 +341,7 @@ class TestHealthChecker:
         assert component_health.status == HealthStatus.WARNING
         assert component_health.message == "No tasks defined"
 
-    def test_check_metrics_collector_health_healthy(self):
+    def test_check_metrics_collector_health_healthy(self) -> None:
         """Test metrics collector health check when healthy."""
         health_checker = HealthChecker()
 
@@ -357,7 +357,7 @@ class TestHealthChecker:
         assert component_health.metrics['registry_configured'] is True
         assert component_health.metrics['collection_interval'] == 30
 
-    def test_check_metrics_collector_health_no_registry(self):
+    def test_check_metrics_collector_health_no_registry(self) -> None:
         """Test metrics collector health check without registry."""
         health_checker = HealthChecker()
 
@@ -370,7 +370,7 @@ class TestHealthChecker:
         assert component_health.status == HealthStatus.CRITICAL
         assert component_health.message == "Metrics registry not configured"
 
-    def test_check_alerter_health_healthy(self):
+    def test_check_alerter_health_healthy(self) -> None:
         """Test alerter health check when healthy."""
         health_checker = HealthChecker()
 
@@ -388,7 +388,7 @@ class TestHealthChecker:
         assert component_health.metrics['notification_channels_count'] == 2
         assert component_health.metrics['active_alerts_count'] == 1
 
-    def test_check_alerter_health_no_rules(self):
+    def test_check_alerter_health_no_rules(self) -> None:
         """Test alerter health check with no alert rules."""
         health_checker = HealthChecker()
 
@@ -402,7 +402,7 @@ class TestHealthChecker:
         assert component_health.status == HealthStatus.WARNING
         assert component_health.message == "No alert rules configured"
 
-    def test_check_alerter_health_no_channels(self):
+    def test_check_alerter_health_no_channels(self) -> None:
         """Test alerter health check with no notification channels."""
         health_checker = HealthChecker()
 
@@ -416,7 +416,7 @@ class TestHealthChecker:
         assert component_health.status == HealthStatus.WARNING
         assert component_health.message == "No notification channels configured"
 
-    def test_check_external_dependencies_no_config(self):
+    def test_check_external_dependencies_no_config(self) -> None:
         """Test external dependencies health check with no configuration."""
         health_checker = HealthChecker()
 
@@ -427,7 +427,7 @@ class TestHealthChecker:
         assert component_health.status == HealthStatus.WARNING
         assert "ETH RPC URL not configured" in component_health.message
 
-    def test_determine_overall_status_all_ok(self):
+    def test_determine_overall_status_all_ok(self) -> None:
         """Test overall status determination with all components OK."""
         health_checker = HealthChecker()
 
@@ -439,7 +439,7 @@ class TestHealthChecker:
         overall_status = health_checker._determine_overall_status(components)
         assert overall_status == HealthStatus.OK
 
-    def test_determine_overall_status_with_warnings(self):
+    def test_determine_overall_status_with_warnings(self) -> None:
         """Test overall status determination with warnings."""
         health_checker = HealthChecker()
 
@@ -451,7 +451,7 @@ class TestHealthChecker:
         overall_status = health_checker._determine_overall_status(components)
         assert overall_status == HealthStatus.WARNING
 
-    def test_determine_overall_status_with_critical(self):
+    def test_determine_overall_status_with_critical(self) -> None:
         """Test overall status determination with critical components."""
         health_checker = HealthChecker()
 
@@ -470,14 +470,14 @@ class TestHealthChecker:
         overall_status = health_checker._determine_overall_status(components)
         assert overall_status == HealthStatus.CRITICAL
 
-    def test_determine_overall_status_empty_components(self):
+    def test_determine_overall_status_empty_components(self) -> None:
         """Test overall status determination with no components."""
         health_checker = HealthChecker()
 
         overall_status = health_checker._determine_overall_status([])
         assert overall_status == HealthStatus.CRITICAL
 
-    def test_health_endpoint_success(self):
+    def test_health_endpoint_success(self) -> None:
         """Test health endpoint returns successful response."""
         health_checker = HealthChecker()
         client = TestClient(health_checker.app)
@@ -501,7 +501,7 @@ class TestHealthChecker:
         assert len(data["components"]) == 1
         assert data["summary"]["ok_count"] == 1
 
-    def test_health_endpoint_warning_status(self):
+    def test_health_endpoint_warning_status(self) -> None:
         """Test health endpoint with warning status."""
         health_checker = HealthChecker()
         client = TestClient(health_checker.app)
@@ -529,7 +529,7 @@ class TestHealthChecker:
         data = response.json()
         assert data["status"] == "WARNING"
 
-    def test_health_endpoint_critical_status(self):
+    def test_health_endpoint_critical_status(self) -> None:
         """Test health endpoint with critical status."""
         health_checker = HealthChecker()
         client = TestClient(health_checker.app)
@@ -557,7 +557,7 @@ class TestHealthChecker:
         data = response.json()
         assert data["status"] == "CRITICAL"
 
-    def test_health_endpoint_exception(self):
+    def test_health_endpoint_exception(self) -> None:
         """Test health endpoint handles exceptions."""
         health_checker = HealthChecker()
         client = TestClient(health_checker.app)
@@ -572,7 +572,7 @@ class TestHealthChecker:
         assert data["status"] == "CRITICAL"
         assert "error" in data
 
-    def test_component_health_endpoint_success(self):
+    def test_component_health_endpoint_success(self) -> None:
         """Test component health endpoint returns successful response."""
         health_checker = HealthChecker()
         client = TestClient(health_checker.app)
@@ -591,7 +591,7 @@ class TestHealthChecker:
         assert data["status"] == "OK"
         assert data["metrics"]["cpu"] == 50.0
 
-    def test_component_health_endpoint_not_found(self):
+    def test_component_health_endpoint_not_found(self) -> None:
         """Test component health endpoint with unknown component."""
         health_checker = HealthChecker()
         client = TestClient(health_checker.app)
@@ -605,7 +605,7 @@ class TestHealthChecker:
         data = response.json()
         assert "not found" in data["detail"]
 
-    def test_component_health_endpoint_exception(self):
+    def test_component_health_endpoint_exception(self) -> None:
         """Test component health endpoint handles exceptions."""
         health_checker = HealthChecker()
         client = TestClient(health_checker.app)
@@ -619,7 +619,7 @@ class TestHealthChecker:
         data = response.json()
         assert "error" in data
 
-    def test_system_health_check_exception_handling(self):
+    def test_system_health_check_exception_handling(self) -> None:
         """Test system health check handles exceptions gracefully."""
         health_checker = HealthChecker()
 
@@ -629,7 +629,7 @@ class TestHealthChecker:
             with pytest.raises(RuntimeError, match="Failed to check system health"):
                 health_checker.check_system_health()
 
-    def test_component_health_check_exception_handling(self):
+    def test_component_health_check_exception_handling(self) -> None:
         """Test component health check handles exceptions gracefully."""
         health_checker = HealthChecker()
 
@@ -638,10 +638,11 @@ class TestHealthChecker:
 
             component_health = health_checker.check_component_health("system_resources")
 
+        assert component_health is not None
         assert component_health.status == HealthStatus.CRITICAL
         assert "Health check failed" in component_health.message
 
-    def test_start_server_configuration(self):
+    def test_start_server_configuration(self) -> None:
         """Test server start configuration."""
         health_checker = HealthChecker()
 
@@ -655,7 +656,7 @@ class TestHealthChecker:
                 log_level="info"
             )
 
-    def test_start_server_exception_handling(self):
+    def test_start_server_exception_handling(self) -> None:
         """Test server start handles exceptions."""
         health_checker = HealthChecker()
 
@@ -669,7 +670,7 @@ class TestHealthChecker:
 class TestDataClasses:
     """Test cases for data classes."""
 
-    def test_component_health_creation(self):
+    def test_component_health_creation(self) -> None:
         """Test ComponentHealth data class creation."""
         component_health = ComponentHealth(
             component_name="test_component",
@@ -685,7 +686,7 @@ class TestDataClasses:
         assert component_health.last_check == 1234567890.0
         assert component_health.metrics == {"cpu": 50.0}
 
-    def test_system_health_creation(self):
+    def test_system_health_creation(self) -> None:
         """Test SystemHealth data class creation."""
         components = [
             ComponentHealth("comp1", HealthStatus.OK, "OK", time.time(), {})
@@ -707,7 +708,7 @@ class TestDataClasses:
 class TestEnums:
     """Test cases for enums."""
 
-    def test_health_status_values(self):
+    def test_health_status_values(self) -> None:
         """Test HealthStatus enum values."""
         assert HealthStatus.OK.value == "OK"
         assert HealthStatus.WARNING.value == "WARNING"

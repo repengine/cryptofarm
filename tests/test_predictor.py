@@ -1,8 +1,9 @@
 """
 Tests for the Airdrop Predictor module.
 
-This module contains comprehensive tests for the predictive analytics functionality,
-including data ingestion stubs, heuristic models, and prediction output validation.
+This module contains comprehensive tests for the predictive analytics
+functionality, including data ingestion stubs, heuristic models, and
+prediction output validation.
 """
 
 import pytest
@@ -26,7 +27,7 @@ from airdrops.analytics.tracker import AirdropTracker, AirdropEvent
 class TestPredictionWindow:
     """Test cases for PredictionWindow model."""
 
-    def test_valid_prediction_window(self):
+    def test_valid_prediction_window(self) -> None:
         """Test creating a valid prediction window."""
         start = datetime(2024, 1, 1)
         end = datetime(2024, 1, 31)
@@ -41,19 +42,21 @@ class TestPredictionWindow:
         assert window.end_date == end
         assert window.probability == Decimal("0.7")
 
-    def test_invalid_end_date_before_start(self):
+    def test_invalid_end_date_before_start(self) -> None:
         """Test validation error when end_date is before start_date."""
         start = datetime(2024, 1, 31)
         end = datetime(2024, 1, 1)
 
-        with pytest.raises(ValueError, match="end_date must be after start_date"):
+        with pytest.raises(
+            ValueError, match="end_date must be after start_date"
+        ):
             PredictionWindow(
                 start_date=start,
                 end_date=end,
                 probability=Decimal("0.5")
             )
 
-    def test_probability_bounds_validation(self):
+    def test_probability_bounds_validation(self) -> None:
         """Test probability validation bounds."""
         start = datetime(2024, 1, 1)
         end = datetime(2024, 1, 31)
@@ -86,7 +89,7 @@ class TestPredictionWindow:
 class TestPredictionResult:
     """Test cases for PredictionResult model."""
 
-    def test_valid_prediction_result(self):
+    def test_valid_prediction_result(self) -> None:
         """Test creating a valid prediction result."""
         window = PredictionWindow(
             start_date=datetime(2024, 1, 1),
@@ -109,7 +112,7 @@ class TestPredictionResult:
         assert result.model_version == "1.0.0"
         assert DataSourceType.HISTORICAL_AIRDROPS in result.data_sources_used
 
-    def test_protocol_name_validation(self):
+    def test_protocol_name_validation(self) -> None:
         """Test protocol name validation and normalization."""
         window = PredictionWindow(
             start_date=datetime(2024, 1, 1),
@@ -143,7 +146,7 @@ class TestPredictionResult:
 class TestDataStubs:
     """Test cases for data source stub implementations."""
 
-    def test_market_data_stub(self):
+    def test_market_data_stub(self) -> None:
         """Test MarketDataStub functionality."""
         stub = MarketDataStub()
         start_date = datetime(2024, 1, 1)
@@ -154,7 +157,7 @@ class TestDataStubs:
         assert df.empty
         assert list(df.columns) == ['timestamp', 'price', 'volume']
 
-    def test_onchain_activity_stub(self):
+    def test_onchain_activity_stub(self) -> None:
         """Test OnChainActivityStub functionality."""
         stub = OnChainActivityStub()
         start_date = datetime(2024, 1, 1)
@@ -165,7 +168,7 @@ class TestDataStubs:
         assert df.empty
         assert list(df.columns) == ['timestamp', 'tx_count', 'active_addresses']
 
-    def test_social_sentiment_stub(self):
+    def test_social_sentiment_stub(self) -> None:
         """Test SocialSentimentStub functionality."""
         stub = SocialSentimentStub()
         start_date = datetime(2024, 1, 1)
@@ -181,16 +184,16 @@ class TestAirdropPredictor:
     """Test cases for AirdropPredictor class."""
 
     @pytest.fixture
-    def mock_tracker(self):
+    def mock_tracker(self) -> Mock:
         """Create a mock AirdropTracker for testing."""
         return Mock(spec=AirdropTracker)
 
     @pytest.fixture
-    def predictor(self, mock_tracker):
+    def predictor(self, mock_tracker: Mock) -> AirdropPredictor:
         """Create an AirdropPredictor instance for testing."""
         return AirdropPredictor(mock_tracker)
 
-    def test_predictor_initialization(self, mock_tracker):
+    def test_predictor_initialization(self, mock_tracker: Mock) -> None:
         """Test predictor initialization with default stubs."""
         predictor = AirdropPredictor(mock_tracker)
 
@@ -200,7 +203,7 @@ class TestAirdropPredictor:
         assert isinstance(predictor.sentiment_data, SocialSentimentStub)
         assert predictor.model_version == "1.0.0-heuristic"
 
-    def test_predictor_initialization_with_custom_stubs(self, mock_tracker):
+    def test_predictor_initialization_with_custom_stubs(self, mock_tracker: Mock) -> None:
         """Test predictor initialization with custom data sources."""
         market_stub = MarketDataStub()
         onchain_stub = OnChainActivityStub()
@@ -217,7 +220,7 @@ class TestAirdropPredictor:
         assert predictor.onchain_data == onchain_stub
         assert predictor.sentiment_data == sentiment_stub
 
-    def test_predict_airdrop_timing_no_historical_data(self, predictor, mock_tracker):
+    def test_predict_airdrop_timing_no_historical_data(self, predictor: AirdropPredictor, mock_tracker: Mock) -> None:
         """Test prediction with no historical data."""
         mock_tracker.get_airdrops_by_protocol.return_value = []
 
@@ -228,11 +231,12 @@ class TestAirdropPredictor:
         assert result.confidence_level == PredictionConfidence.LOW
         assert result.model_version == "1.0.0-heuristic"
         assert DataSourceType.HISTORICAL_AIRDROPS in result.data_sources_used
+        assert result.metadata is not None
         assert result.metadata["historical_events_count"] == 0
 
     def test_predict_airdrop_timing_single_historical_event(
-        self, predictor, mock_tracker
-    ):
+        self, predictor: AirdropPredictor, mock_tracker: Mock
+    ) -> None:
         """Test prediction with single historical event."""
         historical_event = Mock()
         historical_event.event_date = datetime(2023, 6, 1)
@@ -244,11 +248,12 @@ class TestAirdropPredictor:
         assert len(result.prediction_windows) == 1
         assert result.confidence_level == PredictionConfidence.MEDIUM
         assert result.prediction_windows[0].probability == Decimal("0.4")
+        assert result.metadata is not None
         assert result.metadata["historical_events_count"] == 1
 
     def test_predict_airdrop_timing_multiple_historical_events(
-        self, predictor, mock_tracker
-    ):
+        self, predictor: AirdropPredictor, mock_tracker: Mock
+    ) -> None:
         """Test prediction with multiple historical events."""
         event1 = Mock()
         event1.event_date = datetime(2023, 1, 1)
@@ -263,9 +268,10 @@ class TestAirdropPredictor:
         assert len(result.prediction_windows) == 1
         assert result.confidence_level == PredictionConfidence.MEDIUM
         assert result.prediction_windows[0].probability == Decimal("0.6")
+        assert result.metadata is not None
         assert result.metadata["historical_events_count"] == 2
 
-    def test_predict_airdrop_timing_high_confidence(self, predictor, mock_tracker):
+    def test_predict_airdrop_timing_high_confidence(self, predictor: AirdropPredictor, mock_tracker: Mock) -> None:
         """Test prediction with high confidence (3+ events)."""
         events = []
         for i in range(3):
@@ -278,9 +284,10 @@ class TestAirdropPredictor:
         result = predictor.predict_airdrop_timing("HighConfidenceProtocol")
 
         assert result.confidence_level == PredictionConfidence.HIGH
+        assert result.metadata is not None
         assert result.metadata["historical_events_count"] == 3
 
-    def test_predict_airdrop_timing_invalid_protocol_name(self, predictor):
+    def test_predict_airdrop_timing_invalid_protocol_name(self, predictor: AirdropPredictor) -> None:
         """Test prediction with invalid protocol name."""
         with pytest.raises(ValueError, match="Protocol name cannot be empty"):
             predictor.predict_airdrop_timing("")
@@ -288,14 +295,14 @@ class TestAirdropPredictor:
         with pytest.raises(ValueError, match="Protocol name cannot be empty"):
             predictor.predict_airdrop_timing("   ")
 
-    def test_predict_airdrop_timing_tracker_exception(self, predictor, mock_tracker):
+    def test_predict_airdrop_timing_tracker_exception(self, predictor: AirdropPredictor, mock_tracker: Mock) -> None:
         """Test prediction when tracker raises exception."""
         mock_tracker.get_airdrops_by_protocol.side_effect = Exception("Database error")
 
         with pytest.raises(RuntimeError, match="Prediction generation failed"):
             predictor.predict_airdrop_timing("ErrorProtocol")
 
-    def test_get_data_source_status(self, predictor):
+    def test_get_data_source_status(self, predictor: AirdropPredictor) -> None:
         """Test data source status reporting."""
         status = predictor.get_data_source_status()
 
@@ -308,14 +315,14 @@ class TestAirdropPredictor:
 
         assert status == expected_status
 
-    def test_update_prediction_model(self, predictor):
+    def test_update_prediction_model(self, predictor: AirdropPredictor) -> None:
         """Test updating prediction model version."""
         new_version = "2.0.0-ml"
         predictor.update_prediction_model(new_version)
 
         assert predictor.model_version == new_version
 
-    def test_generate_default_prediction_windows(self, predictor):
+    def test_generate_default_prediction_windows(self, predictor: AirdropPredictor) -> None:
         """Test default prediction window generation."""
         windows = predictor._generate_default_prediction_windows()
 
@@ -327,7 +334,7 @@ class TestAirdropPredictor:
         for i in range(1, len(windows)):
             assert windows[i].start_date > windows[i-1].start_date
 
-    def test_calculate_confidence_level(self, predictor):
+    def test_calculate_confidence_level(self, predictor: AirdropPredictor) -> None:
         """Test confidence level calculation."""
         # No events - LOW confidence
         confidence = predictor._calculate_confidence_level([])
@@ -343,14 +350,14 @@ class TestAirdropPredictor:
         confidence = predictor._calculate_confidence_level(events)
         assert confidence == PredictionConfidence.HIGH
 
-    def test_apply_heuristic_model_no_events(self, predictor):
+    def test_apply_heuristic_model_no_events(self, predictor: AirdropPredictor) -> None:
         """Test heuristic model with no historical events."""
         windows = predictor._apply_heuristic_model("TestProtocol", [], 365)
 
         assert len(windows) == 3  # Default windows
         assert all(isinstance(w, PredictionWindow) for w in windows)
 
-    def test_apply_heuristic_model_single_event(self, predictor):
+    def test_apply_heuristic_model_single_event(self, predictor: AirdropPredictor) -> None:
         """Test heuristic model with single historical event."""
         event = Mock()
         event.event_date = datetime(2023, 1, 1)
@@ -363,7 +370,7 @@ class TestAirdropPredictor:
         expected_date = event.event_date + timedelta(days=150)
         assert windows[0].start_date > expected_date
 
-    def test_apply_heuristic_model_multiple_events(self, predictor):
+    def test_apply_heuristic_model_multiple_events(self, predictor: AirdropPredictor) -> None:
         """Test heuristic model with multiple historical events."""
         event1 = Mock()
         event1.event_date = datetime(2023, 1, 1)
@@ -387,14 +394,14 @@ class TestAirdropPredictor:
 class TestEnums:
     """Test cases for enum classes."""
 
-    def test_data_source_type_values(self):
+    def test_data_source_type_values(self) -> None:
         """Test DataSourceType enum values."""
         assert DataSourceType.HISTORICAL_AIRDROPS.value == "historical_airdrops"
         assert DataSourceType.MARKET_DATA.value == "market_data"
         assert DataSourceType.ONCHAIN_ACTIVITY.value == "onchain_activity"
         assert DataSourceType.SOCIAL_SENTIMENT.value == "social_sentiment"
 
-    def test_prediction_confidence_values(self):
+    def test_prediction_confidence_values(self) -> None:
         """Test PredictionConfidence enum values."""
         assert PredictionConfidence.LOW.value == "low"
         assert PredictionConfidence.MEDIUM.value == "medium"
@@ -404,7 +411,7 @@ class TestEnums:
 class TestIntegration:
     """Integration tests for the predictor module."""
 
-    def test_end_to_end_prediction_workflow(self):
+    def test_end_to_end_prediction_workflow(self) -> None:
         """Test complete prediction workflow with real tracker."""
         # Create real tracker with in-memory database
         tracker = AirdropTracker(":memory:")
@@ -416,7 +423,10 @@ class TestIntegration:
             amount_received=Decimal("100"),
             estimated_value_usd=Decimal("500"),
             wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-            event_date=datetime(2023, 1, 1)
+            event_date=datetime(2023, 1, 1),
+            transaction_hash="0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            block_number=12345,
+            notes="Test event 1"
         )
 
         event2 = AirdropEvent(
@@ -425,7 +435,10 @@ class TestIntegration:
             amount_received=Decimal("200"),
             estimated_value_usd=Decimal("1000"),
             wallet_address="0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-            event_date=datetime(2023, 7, 1)
+            event_date=datetime(2023, 7, 1),
+            transaction_hash="0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            block_number=67890,
+            notes="Test event 2"
         )
 
         tracker.record_airdrop(event1)
@@ -439,6 +452,7 @@ class TestIntegration:
         assert result.protocol_name == "Testprotocol"
         assert len(result.prediction_windows) == 1
         assert result.confidence_level == PredictionConfidence.MEDIUM
+        assert result.metadata is not None
         assert result.metadata["historical_events_count"] == 2
 
         # Verify prediction window is reasonable
@@ -447,12 +461,13 @@ class TestIntegration:
         assert window.end_date > window.start_date
         assert 0 < window.probability <= 1
 
-    def test_prediction_with_custom_lookback_days(self):
+    def test_prediction_with_custom_lookback_days(self) -> None:
         """Test prediction with custom lookback period."""
         tracker = AirdropTracker(":memory:")
         predictor = AirdropPredictor(tracker)
 
         result = predictor.predict_airdrop_timing("NewProtocol", lookback_days=180)
 
+        assert result.metadata is not None
         assert result.metadata["lookback_days"] == 180
         assert result.confidence_level == PredictionConfidence.LOW  # No historical data

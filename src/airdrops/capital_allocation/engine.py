@@ -7,6 +7,7 @@ airdrop farming activities.
 """
 
 import logging
+import math
 import os
 from decimal import Decimal, getcontext
 import pendulum
@@ -21,6 +22,7 @@ from airdrops.protocols.zksync.interfaces import IZkSyncProtocol
 from airdrops.protocols.layerzero.interfaces import ILayerZeroProtocol
 from airdrops.protocols.eigenlayer.interfaces import IEigenLayerProtocol
 from airdrops.risk_management.interfaces import IRiskManager
+from airdrops.capital_allocation.interfaces import ICapitalAllocator
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -65,7 +67,7 @@ class AllocationStrategy(Enum):
     MEAN_VARIANCE = "mean_variance"
 
 
-class CapitalAllocator:
+class CapitalAllocator(ICapitalAllocator):
     """
     Capital Allocation Engine for automated airdrop farming.
 
@@ -179,30 +181,25 @@ class CapitalAllocator:
     def optimize_portfolio(
         self,
         protocols: List[str],
-        risk_constraints: Dict[str, Decimal],
-        expected_returns: Optional[Dict[str, Decimal]] = None,
-        risk_scores: Optional[Dict[str, Decimal]] = None
+        risk_constraints: Dict[str, Any],
+        risk_scores: Optional[Dict[str, Decimal]] = None,
+        expected_returns: Optional[Dict[str, Decimal]] = None
     ) -> Dict[str, Decimal]:
         """
-        Optimize portfolio allocation across available protocols.
-
-        This method implements portfolio optimization algorithms to determine
-        optimal capital allocation based on risk constraints and expected returns.
+        Optimize portfolio allocation based on protocols and risk constraints.
 
         Args:
-                protocols: List of available protocol names.
-                risk_constraints: Dictionary of risk limits per protocol.
-                expected_returns: Optional expected returns per protocol.
-                risk_scores: Optional risk scores per protocol.
-
+            protocols: List of protocol names to allocate across.
+            risk_constraints: Risk constraints for the optimization.
+            risk_scores: Optional risk scores for each protocol.
+            expected_returns: Optional expected returns for each protocol.
+            
         Returns:
-                Dictionary mapping protocol names to allocation percentages.
-
-        Example:
-                >>> protocols = ["scroll", "zksync", "eigenlayer"]
-                >>> constraints = {"max_protocol_exposure": Decimal("0.20")}
-                >>> allocation = allocator.optimize_portfolio(protocols, constraints)
-                >>> print(f"Scroll allocation: {allocation['scroll']}%")
+            Dictionary mapping protocol names to allocation percentages.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            RuntimeError: If optimization fails.
         """
         try:
             if not protocols:
@@ -321,24 +318,65 @@ class CapitalAllocator:
         """
         Generate rebalancing orders to align portfolio with target allocations.
 
-        This method compares current and target allocations to determine
-        necessary rebalancing actions, considering transaction costs and
-        minimum rebalancing thresholds.
-
         Args:
-                current_allocations: Current allocation percentages per protocol.
-                target_allocations: Target allocation percentages per protocol.
-                total_portfolio_value: Current total portfolio value.
-
+            current_allocations: Current allocation percentages by protocol.
+            target_allocations: Target allocation percentages.
+            total_portfolio_value: Total portfolio value for calculating amounts.
+            
         Returns:
-                List of RebalanceOrder objects prioritized by importance.
+            List of RebalanceOrder objects sorted by priority.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            RuntimeError: If rebalancing calculation fails.
+        """
+        try:
+            rebalance_orders = []
 
-        Example:
-                >>> current = {"scroll": Decimal("0.40"), "zksync": Decimal("0.60")}
-                >>> target = {"scroll": Decimal("0.30"), "zksync": Decimal("0.70")}
-                >>> orders = allocator.rebalance_portfolio(current, target, 100000)
-                >>> for order in orders:
-                ...     print(f"{order.action} {order.protocol} by ${order.amount}")
+            # Calculate deviations and determine rebalancing needs
+            all_protocols = (
+                set(current_allocations.keys()) | set(target_allocations.keys())
+            )
+
+            for protocol in all_protocols:
+                current_pct = current_allocations.get(protocol, Decimal("0"))
+                target_pct = target_allocations.get(protocol, Decimal("0"))
+                deviation = target_pct - current_pct
+
+                # Check if rebalancing is needed
+                if abs(deviation) >= self.rebalance_threshold:
+                    action = "increase" if deviation > 0 else "decrease"
+                    amount = abs(deviation) * total_portfolio_value
+                    priority = int(abs(deviation) * 100)  # Higher deviation = higher priority (scaled to int)
+
+                    order = RebalanceOrder(
+                        protocol=protocol,
+                        action=action,
+                        amount=amount,
+                        priority=priority
+                    )
+                    rebalance_orders.append(order)
+
+            # Sort by priority (highest deviation first)
+            rebalance_orders.sort(key=lambda x: x.priority, reverse=True)
+
+            logger.info(f"Generated {len(rebalance_orders)} rebalancing orders")
+            return rebalance_orders
+
+        except Exception as e:
+            logger.error(f"Failed to generate rebalancing orders: {e}")
+            raise RuntimeError(f"Failed to generate rebalancing orders: {e}")
+
+    def rebalance_portfolio_legacy(
+        self,
+        current_allocations: Dict[str, Decimal],
+        target_allocations: Dict[str, Decimal],
+        total_portfolio_value: Decimal
+    ) -> List[RebalanceOrder]:
+        """
+        Legacy method: Generate rebalancing orders to align portfolio with target allocations.
+        
+        This method is kept for backward compatibility.
         """
         try:
             rebalance_orders = []
@@ -925,6 +963,90 @@ class CapitalAllocator:
             multiplier *= Decimal("0.9")
 
         return multiplier
+
+    def calculate_sharpe_ratio(
+        self,
+        returns: List[Decimal],
+        risk_free_rate: Decimal = Decimal("0.02")
+    ) -> Decimal:
+        """Calculate Sharpe ratio for a series of returns.
+        
+        Args:
+            returns: List of historical returns.
+            risk_free_rate: Risk-free rate for Sharpe ratio calculation.
+            
+        Returns:
+            Sharpe ratio as a Decimal.
+            
+        Raises:
+            ValueError: If returns data is invalid.
+            RuntimeError: If calculation fails.
+        """
+        if not returns:
+            return Decimal("0")
+        
+        try:
+            mean_return = sum(returns) / len(returns)
+            excess_return = Decimal(str(mean_return)) - risk_free_rate
+            
+            if len(returns) < 2:
+                return Decimal("0")
+            
+            # Calculate standard deviation
+            variance = sum((Decimal(str(r)) - Decimal(str(mean_return))) ** 2 for r in returns) / (len(returns) - 1)
+            std_dev = Decimal(str(math.sqrt(float(variance))))
+            
+            if std_dev == 0:
+                return Decimal("0")
+            
+            return excess_return / std_dev
+        except Exception as e:
+            logger.error(f"Sharpe ratio calculation failed: {e}")
+            raise RuntimeError(f"Failed to calculate Sharpe ratio: {e}")
+
+    def estimate_portfolio_risk(
+        self,
+        allocations: Dict[str, Decimal],
+        correlation_matrix: Dict[Tuple[str, str], Decimal]
+    ) -> Decimal:
+        """Estimate portfolio risk based on allocations and correlations.
+        
+        Args:
+            allocations: Portfolio allocations by asset.
+            correlation_matrix: Correlation matrix between assets.
+            
+        Returns:
+            Estimated portfolio risk (standard deviation).
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            RuntimeError: If risk estimation fails.
+        """
+        if not allocations:
+            return Decimal("0")
+        
+        try:
+            # Simplified risk calculation using weighted average correlation
+            total_risk = Decimal("0")
+            total_weight = Decimal("0")
+            
+            for protocol1, weight1 in allocations.items():
+                for protocol2, weight2 in allocations.items():
+                    correlation = correlation_matrix.get((protocol1, protocol2), Decimal("0"))
+                    if protocol1 == protocol2:
+                        correlation = Decimal("1")
+                    
+                    risk_contribution = weight1 * weight2 * correlation
+                    total_risk += risk_contribution
+                    total_weight += weight1 * weight2
+            
+            if total_weight == 0:
+                return Decimal("0")
+            
+            return (total_risk / total_weight).sqrt()
+        except Exception as e:
+            logger.error(f"Portfolio risk estimation failed: {e}")
+            raise RuntimeError(f"Failed to estimate portfolio risk: {e}")
 
     def _initialize_default_dependencies(self) -> None:
         """Initialize default dependency implementations when none are provided."""

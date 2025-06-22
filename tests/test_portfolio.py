@@ -39,7 +39,7 @@ class TestPortfolioPerformanceAnalyzer:
 
     @pytest.fixture
     def analyzer(
-        self, tracker: AirdropTracker, roi_optimizer: ROIOptimizer, airdrop_tracker_cleanup
+        self, tracker: AirdropTracker, roi_optimizer: ROIOptimizer, airdrop_tracker_cleanup: Any
     ) -> PortfolioPerformanceAnalyzer:
         """Create a portfolio analyzer instance."""
         return PortfolioPerformanceAnalyzer(tracker, roi_optimizer)

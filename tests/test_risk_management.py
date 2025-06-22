@@ -5,17 +5,18 @@ Tests for the airdrops.risk_management.core module.
 import pytest
 from decimal import Decimal
 
-from airdrops.risk_management.core import (  # type: ignore
+from airdrops.risk_management.core import (
     RiskManager,
     RiskLevel,
     RiskEvent,
     RiskAssessment,
 )
-from airdrops.shared.utils import get_current_timestamp  # type: ignore
+from airdrops.shared.utils import get_current_timestamp
+from typing import Any
 
 
 @pytest.fixture
-def risk_manager():
+def risk_manager() -> RiskManager:
     """Fixture for a RiskManager instance."""
     config = {
         "risk_management": {
@@ -33,49 +34,49 @@ def risk_manager():
     return RiskManager(config)
 
 
-def test_initial_state(risk_manager):
+def test_initial_state(risk_manager: Any) -> None:
     """Test the initial state of the RiskManager."""
     assert risk_manager.current_risk_level == RiskLevel.LOW
     assert risk_manager.protocol_failure_counts == {}
     assert risk_manager.circuit_breaker_active is False
 
 
-def test_assess_volatility_low(risk_manager):
+def test_assess_volatility_low(risk_manager: Any) -> None:
     """Test volatility assessment for low volatility."""
     metrics = {"price_volatility": Decimal("0.005")}
     risk_level = risk_manager.assess_volatility(metrics)
     assert risk_level == RiskLevel.LOW
 
 
-def test_assess_volatility_medium(risk_manager):
+def test_assess_volatility_medium(risk_manager: Any) -> None:
     """Test volatility assessment for medium volatility."""
     metrics = {"price_volatility": Decimal("0.03")}
     risk_level = risk_manager.assess_volatility(metrics)
     assert risk_level == RiskLevel.MEDIUM
 
 
-def test_assess_volatility_high(risk_manager):
+def test_assess_volatility_high(risk_manager: Any) -> None:
     """Test volatility assessment for high volatility."""
     metrics = {"price_volatility": Decimal("0.08")}
     risk_level = risk_manager.assess_volatility(metrics)
     assert risk_level == RiskLevel.HIGH
 
 
-def test_assess_volatility_extreme(risk_manager):
+def test_assess_volatility_extreme(risk_manager: Any) -> None:
     """Test volatility assessment for extreme volatility."""
     metrics = {"price_volatility": Decimal("0.15")}
     risk_level = risk_manager.assess_volatility(metrics)
     assert risk_level == RiskLevel.EXTREME
 
 
-def test_assess_gas_price_normal(risk_manager):
+def test_assess_gas_price_normal(risk_manager: Any) -> None:
     """Test gas price assessment for normal gas prices."""
     metrics = {"gas_price_gwei": Decimal("50")}
     risk_event = risk_manager.assess_gas_price(metrics)
     assert risk_event is None
 
 
-def test_assess_gas_price_high(risk_manager):
+def test_assess_gas_price_high(risk_manager: Any) -> None:
     """Test gas price assessment for high gas prices."""
     metrics = {"gas_price_gwei": Decimal("120")}
     risk_event = risk_manager.assess_gas_price(metrics)
@@ -85,7 +86,7 @@ def test_assess_gas_price_high(risk_manager):
     assert risk_event.details == "Current gas price (120.00 Gwei) exceeds threshold (100.00 Gwei)."
 
 
-def test_assess_transaction_failures_single_protocol(risk_manager):
+def test_assess_transaction_failures_single_protocol(risk_manager: Any) -> None:
     """Test transaction failure assessment for a single protocol."""
     # Simulate 1 failure
     risk_manager.record_transaction_outcome("scroll", False)
@@ -108,7 +109,7 @@ def test_assess_transaction_failures_single_protocol(risk_manager):
     assert risk_manager.assess_transaction_failures("scroll") is None
 
 
-def test_assess_transaction_failures_multiple_protocols(risk_manager):
+def test_assess_transaction_failures_multiple_protocols(risk_manager: Any) -> None:
     """Test transaction failure assessment for multiple protocols."""
     risk_manager.record_transaction_outcome("zksync", False)
     risk_manager.record_transaction_outcome("eigenlayer", False)
@@ -124,7 +125,7 @@ def test_assess_transaction_failures_multiple_protocols(risk_manager):
     assert eigenlayer_event is None  # Only 2 failures for EigenLayer
 
 
-def test_check_circuit_breaker_active(risk_manager):
+def test_check_circuit_breaker_active(risk_manager: Any) -> None:
     """Test circuit breaker activation based on overall failure rate."""
     # Simulate metrics that trigger circuit breaker (e.g., 90% failure rate)
     mock_metrics = {
@@ -147,7 +148,7 @@ def test_check_circuit_breaker_active(risk_manager):
     assert risk_manager.circuit_breaker_active is False
 
 
-def test_get_overall_risk_assessment(risk_manager):
+def test_get_overall_risk_assessment(risk_manager: Any) -> None:
     """Test getting overall risk assessment."""
     # Simulate some conditions
     risk_manager.current_risk_level = RiskLevel.HIGH
@@ -162,7 +163,7 @@ def test_get_overall_risk_assessment(risk_manager):
     assert assessment.unhealthy_protocols["scroll"] == 5
 
 
-def test_update_risk_parameters(risk_manager):
+def test_update_risk_parameters(risk_manager: Any) -> None:
     """Test updating risk parameters dynamically."""
     new_config = {
         "risk_management": {
@@ -179,7 +180,7 @@ def test_update_risk_parameters(risk_manager):
     assert risk_manager.config["risk_management"]["gas_price_threshold_gwei"] == Decimal("150")
 
 
-def test_handle_external_risk_event(risk_manager):
+def test_handle_external_risk_event(risk_manager: Any) -> None:
     """Test handling an external risk event."""
     external_event = RiskEvent(
         event_type="external_market_crash",
@@ -193,7 +194,7 @@ def test_handle_external_risk_event(risk_manager):
     assert risk_manager.circuit_breaker_active is True  # Critical event should activate it
 
 
-def test_risk_level_transition(risk_manager):
+def test_risk_level_transition(risk_manager: Any) -> None:
     """Test how risk level transitions based on multiple factors."""
     # Start low
     risk_manager.current_risk_level = RiskLevel.LOW
@@ -215,7 +216,7 @@ def test_risk_level_transition(risk_manager):
     assert risk_manager.circuit_breaker_active is True
 
 
-def test_risk_level_degradation_and_recovery(risk_manager):
+def test_risk_level_degradation_and_recovery(risk_manager: Any) -> None:
     """Test risk level degradation and recovery."""
     risk_manager.current_risk_level = RiskLevel.EXTREME
     risk_manager.circuit_breaker_active = True

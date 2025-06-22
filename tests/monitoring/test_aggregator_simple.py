@@ -105,13 +105,13 @@ class TestMetricsAggregatorSimple:
 
         # Mock Prometheus metrics for this test
         class MockSample:
-            def __init__(self, name, value, labels):
+            def __init__(self, name: str, value: float, labels: dict[str, str]) -> None:
                 self.name = name
                 self.value = value
                 self.labels = labels
 
         class MockMetricFamily:
-            def __init__(self, name, documentation, _type, samples):
+            def __init__(self, name: str, documentation: str, _type: str, samples: list['MockSample']) -> None:
                 self.name = name
                 self.documentation = documentation
                 self.type = _type
@@ -160,13 +160,13 @@ class TestMetricsAggregatorSimple:
         """Test aggregate_time_window with metrics in the window."""
         # Mock Prometheus MetricFamily and Sample objects
         class MockSample:
-            def __init__(self, name, value, labels):
+            def __init__(self, name: str, value: float, labels: dict[str, str]) -> None:
                 self.name = name
                 self.value = value
                 self.labels = labels
 
         class MockMetricFamily:
-            def __init__(self, name, documentation, _type, samples):
+            def __init__(self, name: str, documentation: str, _type: str, samples: list['MockSample']) -> None:
                 self.name = name
                 self.documentation = documentation
                 self.type = _type
@@ -210,9 +210,9 @@ class TestMetricsAggregatorSimple:
 
     def test_cleanup_old_metrics(self) -> None:
         """Test cleanup of old aggregated metrics."""
-        self.aggregator.aggregation_config.retention_period_hours = 0.0001  # Very short retention
+        self.aggregator.aggregation_config.retention_period_hours = 1
         self.aggregator.aggregated_metrics = [
-            AggregatedMetric("old_metric", 1.0, time.time() - 1000, {}, "avg"),
+            AggregatedMetric("old_metric", 1.0, time.time() - 7200, {}, "avg"),  # 2 hours old
             AggregatedMetric("new_metric", 2.0, time.time(), {}, "avg"),
         ]
         self.aggregator._cleanup_old_metrics()

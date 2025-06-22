@@ -191,6 +191,17 @@ class Alerter:
 
             self.notification_channels = []
             for channel_data in channels_config.get('channels', []):
+                # Validate channel data
+                if not isinstance(channel_data.get('config'), dict):
+                    logger.error(f"Invalid channel config for {channel_data.get('name')}")
+                    raise RuntimeError("Notification channels loading failed")
+                if not isinstance(channel_data.get('enabled', True), bool):
+                    logger.error(f"Invalid enabled value for {channel_data.get('name')}")
+                    raise RuntimeError("Notification channels loading failed")
+                if channel_data.get('type') not in ['email', 'slack', 'webhook']:
+                    logger.error(f"Invalid channel type for {channel_data.get('name')}")
+                    raise RuntimeError("Notification channels loading failed")
+                    
                 channel = NotificationChannel(
                     name=channel_data['name'],
                     type=channel_data['type'],

@@ -68,15 +68,17 @@ class TypedEthMock(Mock):
 @pytest.fixture
 def mock_web3() -> MagicMock:
     """Fixture for a comprehensive mock Web3 instance."""
-    mock_w3 = MagicMock()
+    from web3 import Web3
+    
+    mock_w3 = MagicMock(spec=Web3)
     mock_w3.is_connected.return_value = True
     
     # Mock eth attribute and its methods
     mock_w3.eth = MagicMock()
     mock_w3.eth.gas_price = Wei(10**9)  # 1 Gwei
-    mock_w3.eth.get_transaction_count.return_value = 0
-    mock_w3.eth.get_balance.return_value = Wei(10**18)  # 1 ETH
-    mock_w3.eth.estimate_gas.return_value = 100000
+    mock_w3.eth.get_transaction_count = MagicMock(return_value=0)
+    mock_w3.eth.get_balance = MagicMock(return_value=Wei(10**18))  # 1 ETH
+    mock_w3.eth.estimate_gas = MagicMock(return_value=100000)
     mock_w3.eth.send_raw_transaction.return_value = b"0xmock_tx_hash"
     
     # Mock receipt as an object with attributes
@@ -84,7 +86,7 @@ def mock_web3() -> MagicMock:
     mock_receipt.status = 1
     mock_receipt.gasUsed = 21000
     mock_receipt.blockHash = b"0xmock_block_hash"
-    mock_w3.eth.wait_for_transaction_receipt.return_value = mock_receipt
+    mock_w3.eth.wait_for_transaction_receipt = MagicMock(return_value=mock_receipt)
     
     # Mock account methods
     mock_w3.eth.account = MagicMock()
@@ -186,7 +188,7 @@ def test_layerzero_perform_airdrop_legacy_success(layerzero_protocol: LayerZeroP
     mock_receipt.status = 1  # Success
     mock_receipt.gasUsed = 21000
     mock_receipt.blockHash = b"0xmock_block_hash"
-    layerzero_protocol.w3.eth.wait_for_transaction_receipt.return_value = mock_receipt
+    layerzero_protocol.w3.eth.wait_for_transaction_receipt.return_value = mock_receipt  # type: ignore[attr-defined]
 
     # Perform legacy airdrop
     value_usd = Decimal("100")
@@ -214,7 +216,7 @@ def test_layerzero_get_gas_price(layerzero_protocol: LayerZeroProtocol) -> None:
 def test_layerzero_get_transaction_count(layerzero_protocol: LayerZeroProtocol) -> None:
     """Test getting transaction count (nonce)."""
     # Update mock for this specific test
-    layerzero_protocol.w3.eth.get_transaction_count.return_value = 15
+    layerzero_protocol.w3.eth.get_transaction_count.return_value = 15  # type: ignore[attr-defined]
 
     nonce = layerzero_protocol.get_transaction_count("0xMockAddress")
     assert nonce == 15
@@ -223,7 +225,7 @@ def test_layerzero_get_transaction_count(layerzero_protocol: LayerZeroProtocol) 
 def test_layerzero_estimate_gas(layerzero_protocol: LayerZeroProtocol) -> None:
     """Test gas estimation."""
     # Update mock for this specific test
-    layerzero_protocol.w3.eth.estimate_gas.return_value = 100000
+    layerzero_protocol.w3.eth.estimate_gas.return_value = 100000  # type: ignore[attr-defined]
 
     tx_params: TxParams = {
         "from": "0xSender",

@@ -9,11 +9,14 @@ for maximizing Return on Investment (ROI).
 import logging
 import os
 from decimal import Decimal
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
+
+from airdrops.analytics.tracker import AirdropTracker
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +88,7 @@ class ROIOptimizer:
 
     def __init__(
         self,
-        tracker: Optional[Any] = None,
+        tracker: AirdropTracker,
         default_gas_cost_usd: Optional[Decimal] = None,
         cost_model: Optional[CostModel] = None,
         config: Optional[Dict[str, Any]] = None
@@ -403,8 +406,8 @@ class ROIOptimizer:
 
     def calculate_portfolio_roi(
         self,
-        start_date: Optional[Any] = None,
-        end_date: Optional[Any] = None
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
     ) -> List[ROIMetrics]:
         """
         Calculate portfolio ROI metrics for the given date range.

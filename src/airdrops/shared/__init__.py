@@ -1,6 +1,6 @@
 # This file makes 'shared' a Python package.
 
-from airdrops.shared.utils import (
+from .utils import (
     format_currency,
     generate_unique_id,
     load_config,
@@ -8,6 +8,12 @@ from airdrops.shared.utils import (
     ConfigError,
     get_current_timestamp,
     convert_to_decimal,
+)
+
+from .random_activity_utils import (
+    select_activity_by_weight,
+    generate_random_amount,
+    select_random_tokens,
 )
 
 __all__ = [
@@ -18,4 +24,7 @@ __all__ = [
     "ConfigError",
     "get_current_timestamp",
     "convert_to_decimal",
+    "select_activity_by_weight",
+    "generate_random_amount",
+    "select_random_tokens",
 ]

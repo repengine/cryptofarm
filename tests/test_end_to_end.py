@@ -136,12 +136,12 @@ def full_system_config() -> Dict[str, Any]:
 @patch("airdrops.protocols.zksync.zksync.bridge_assets")
 @patch("airdrops.protocols.zksync.zksync.swap_tokens")
 def test_daily_operation_cycle(
-    mock_zksync_swap,
-    mock_zksync_bridge,
-    mock_scroll_swap,
-    mock_scroll_bridge,
-    full_system_config
-):
+    mock_zksync_swap: Any,
+    mock_zksync_bridge: Any,
+    mock_scroll_swap: Any,
+    mock_scroll_bridge: Any,
+    full_system_config: Dict[str, Any]
+) -> None:
     """Test a complete daily operation cycle.
 
     This test simulates a full day of operations including:
@@ -325,7 +325,7 @@ def test_daily_operation_cycle(
         metrics["total_transactions"] > 0 for metrics in protocol_metrics.values()
     ), "Some protocols have no transactions"
 
-def test_multi_day_portfolio_evolution(full_system_config):
+def test_multi_day_portfolio_evolution(full_system_config: Any) -> None:
     """Test portfolio evolution over multiple days.
 
     This test simulates several days of operations to verify:
@@ -438,8 +438,8 @@ def test_multi_day_portfolio_evolution(full_system_config):
 
 @patch("airdrops.monitoring.alerter.Alerter.send_notifications")
 def test_incident_response_workflow(
-    mock_send_notifications, full_system_config
-):
+    mock_send_notifications: Any, full_system_config: Dict[str, Any]
+) -> None:
     """Test system response to various incident scenarios.
 
     This test verifies the system can handle:
@@ -636,7 +636,7 @@ def _select_action(protocol: str, config: Dict[str, Any]) -> str:
 
     # Weight-based selection
     weights = [operations[op]["weight"] for op in enabled_ops]
-    return random.choices(enabled_ops, weights=weights)[0]
+    return str(random.choices(enabled_ops, weights=weights)[0])
 
 def _simulate_task_execution(task: Dict[str, Any]) -> Dict[str, Any]:
     """Simulate task execution.
@@ -719,7 +719,7 @@ def _generate_market_conditions(day: int) -> Dict[str, Any]:
 
 
 def _simulate_daily_return(
-    self, portfolio: Dict[str, Decimal], market_conditions: Dict[str, Any]
+    portfolio: Dict[str, Decimal], market_conditions: Dict[str, Any]
 ) -> Decimal:
     """Simulate daily portfolio return.
 
@@ -774,7 +774,7 @@ def _calculate_current_allocation(
     else:
         return {protocol: Decimal("0") for protocol in initial_allocation}
 
-def _generate_historical_data(self) -> List[Dict[str, Any]]:
+def _generate_historical_data() -> List[Dict[str, Any]]:
     """Generate historical transaction data for testing.
 
     Returns:
@@ -807,64 +807,7 @@ def _generate_historical_data(self) -> List[Dict[str, Any]]:
     return records
 
 
-def _generate_market_conditions(day: int) -> Dict[str, Any]:
-    """Generate mock market conditions for testing."""
-    conditions = ["stable", "volatile", "bearish", "bullish"]
-    state = conditions[day % len(conditions)]
-    
-    if state == "bullish":
-        returns = {"scroll": Decimal("0.15"), "zksync": Decimal("0.18"), "eigenlayer": Decimal("0.12")}
-        risks = {"scroll": Decimal("0.3"), "zksync": Decimal("0.35"), "eigenlayer": Decimal("0.25")}
-    elif state == "bearish":
-        returns = {"scroll": Decimal("0.05"), "zksync": Decimal("0.03"), "eigenlayer": Decimal("0.08")}
-        risks = {"scroll": Decimal("0.5"), "zksync": Decimal("0.55"), "eigenlayer": Decimal("0.4")}
-    else:  # stable or volatile
-        returns = {"scroll": Decimal("0.10"), "zksync": Decimal("0.12"), "eigenlayer": Decimal("0.08")}
-        risks = {"scroll": Decimal("0.4"), "zksync": Decimal("0.45"), "eigenlayer": Decimal("0.3")}
 
-    return {
-        "state": state,
-        "volatility": 0.1 + (day * 0.05),
-        "trend": "up" if day % 2 == 0 else "down",
-        "expected_returns": returns,
-        "risk_scores": risks,
-    }
-
-
-def _simulate_daily_return(portfolio: Dict[str, Any], market_conditions: Dict[str, Any]) -> Decimal:
-    """Simulate daily portfolio return based on market conditions."""
-    base_return = Decimal("0.01")  # 1% base return
-    
-    if market_conditions["state"] == "bullish":
-        return base_return * Decimal("1.5")
-    elif market_conditions["state"] == "bearish":
-        return base_return * Decimal("0.5")
-    else:
-        return base_return
-
-
-def _generate_historical_data() -> List[Dict[str, Any]]:
-    """Generate mock historical data for testing."""
-    records = []
-    protocols = ["scroll", "zksync", "eigenlayer"]
-    actions = ["swap", "bridge", "liquidity", "lending"]
-
-    for i in range(100):
-        protocol = random.choice(protocols)
-        action = random.choice(
-            actions[:3] if protocol != "eigenlayer" else ["restake"]
-        )
-
-        records.append({
-            "protocol": protocol,
-            "action": action,
-            "wallet": f"0x{'0' * 39}{i % 10}",
-            "success": random.random() > 0.1,
-            "gas_used": random.randint(100000, 500000),
-            "value_usd": Decimal(str(random.uniform(100, 5000))),
-            "tx_hash": f"0x{i:064x}",
-        })
-    return records
 
 
 if __name__ == "__main__":

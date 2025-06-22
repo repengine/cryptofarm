@@ -60,15 +60,17 @@ class TypedEthMock(Mock):
 @pytest.fixture
 def mock_web3() -> MagicMock:
     """Fixture for a comprehensive mock Web3 instance."""
-    mock_w3 = MagicMock()
+    from web3 import Web3
+    
+    mock_w3 = MagicMock(spec=Web3)
     mock_w3.is_connected.return_value = True
     
     # Mock eth attribute and its methods
     mock_w3.eth = MagicMock()
     mock_w3.eth.gas_price = Wei(10**9)  # 1 Gwei
-    mock_w3.eth.get_transaction_count.return_value = 0
-    mock_w3.eth.get_balance.return_value = Wei(10**18)  # 1 ETH
-    mock_w3.eth.estimate_gas.return_value = 100000
+    mock_w3.eth.get_transaction_count = MagicMock(return_value=0)
+    mock_w3.eth.get_balance = MagicMock(return_value=Wei(10**18))  # 1 ETH
+    mock_w3.eth.estimate_gas = MagicMock(return_value=100000)
     
     # Mock account methods
     mock_w3.eth.account = MagicMock()
@@ -174,7 +176,7 @@ def test_eigenlayer_get_gas_price(eigenlayer_protocol: EigenLayerProtocol) -> No
 def test_eigenlayer_get_transaction_count(eigenlayer_protocol: EigenLayerProtocol) -> None:
     """Test getting transaction count (nonce)."""
     # Update mock for this specific test
-    eigenlayer_protocol.w3.eth.get_transaction_count.return_value = 15
+    eigenlayer_protocol.w3.eth.get_transaction_count.return_value = 15  # type: ignore[attr-defined]
 
     nonce = eigenlayer_protocol.get_transaction_count("0xMockAddress")
     assert nonce == 15
@@ -183,7 +185,7 @@ def test_eigenlayer_get_transaction_count(eigenlayer_protocol: EigenLayerProtoco
 def test_eigenlayer_estimate_gas(eigenlayer_protocol: EigenLayerProtocol) -> None:
     """Test gas estimation."""
     # Update mock for this specific test
-    eigenlayer_protocol.w3.eth.estimate_gas.return_value = 100000
+    eigenlayer_protocol.w3.eth.estimate_gas.return_value = 100000  # type: ignore[attr-defined]
 
     tx_params: TxParams = {
         "from": "0xSender",

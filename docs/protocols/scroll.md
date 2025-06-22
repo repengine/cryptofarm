@@ -150,6 +150,176 @@ tx_hash = lend_borrow_layerbank_scroll(
 print(f"Lending transaction hash: {tx_hash}")
 ```
 
+### `provide_liquidity(web3_l2, private_key, token_a_symbol, token_b_symbol, amount_a, amount_b, slippage_percent, deadline_seconds)`
+
+Provides liquidity to a SyncSwap pool on Scroll L2 network by depositing two tokens into a liquidity pool.
+
+**Parameters:**
+- `web3_l2` (Web3): Web3 instance for Scroll L2
+- `private_key` (str): Private key of the account providing liquidity
+- `token_a_symbol` (str): Symbol of the first token (e.g., "ETH", "USDC", "WETH")
+- `token_b_symbol` (str): Symbol of the second token (e.g., "USDC", "WETH", "ETH")
+- `amount_a` (Decimal): Amount of token A to provide (in Wei for ETH/WETH, smallest unit for ERC20)
+- `amount_b` (Decimal): Amount of token B to provide (in Wei for ETH/WETH, smallest unit for ERC20)
+- `slippage_percent` (float, optional): Allowed slippage percentage (default: 0.5%)
+- `deadline_seconds` (int, optional): Transaction deadline in seconds from now (default: 1800)
+
+**Returns:**
+- `str`: Transaction hash of the liquidity provision operation
+
+**Raises:**
+- `ScrollSwapError`: For general liquidity provision errors
+- `InsufficientLiquidityError`: If pool doesn't exist or has insufficient liquidity
+- `TokenNotSupportedError`: If one of the token symbols is not configured
+- `ApprovalError`: If token approval fails
+- `TransactionRevertedError`: If the transaction is reverted
+- `GasEstimationError`: If gas estimation fails
+- `ValueError`: For invalid inputs like slippage or amounts
+- `InsufficientBalanceError`: If account balance is insufficient
+
+**Example:**
+```python
+from web3 import Web3
+from decimal import Decimal
+from airdrops.protocols.scroll import provide_liquidity
+
+# Initialize Web3 connection to Scroll
+w3_scroll = Web3(Web3.HTTPProvider("https://rpc.scroll.io"))
+
+# Provide liquidity: 1 USDC + 0.5 WETH to USDC/WETH pool
+tx_hash = provide_liquidity(
+    web3_l2=w3_scroll,
+    private_key="0x...",
+    token_a_symbol="USDC",
+    token_b_symbol="WETH",
+    amount_a=Decimal("1000000"),  # 1 USDC (6 decimals)
+    amount_b=Decimal("500000000000000000"),  # 0.5 WETH (18 decimals)
+    slippage_percent=0.5,
+    deadline_seconds=1800
+)
+
+print(f"Liquidity provision transaction hash: {tx_hash}")
+
+# Provide liquidity with ETH (automatically converted to WETH)
+tx_hash = provide_liquidity(
+    web3_l2=w3_scroll,
+    private_key="0x...",
+    token_a_symbol="ETH",
+    token_b_symbol="USDC",
+    amount_a=Decimal("1000000000000000000"),  # 1 ETH (18 decimals)
+    amount_b=Decimal("2000000000"),  # 2000 USDC (6 decimals)
+    slippage_percent=1.0,
+    deadline_seconds=3600
+)
+
+print(f"ETH/USDC liquidity provision transaction hash: {tx_hash}")
+```
+
+**Important Notes:**
+- **Token Approvals**: The function automatically handles ERC20 token approvals for the SyncSwap router contract
+- **ETH Handling**: ETH is automatically treated as WETH for pool operations, but you can send ETH directly
+- **Pool Existence**: The function verifies that a SyncSwap pool exists for the token pair before proceeding
+- **Balance Checks**: Sufficient token balances are verified before attempting the transaction
+- **Slippage Protection**: Minimum liquidity amounts are calculated based on the specified slippage tolerance
+- **Gas Optimization**: The function uses dynamic gas pricing and estimation for optimal transaction execution
+
+### `perform_random_activity(user_address, private_key, config, web3_l1, web3_l2)`
+
+Orchestrates random activity execution on the Scroll protocol by selecting and executing activities based on weighted probabilities with retry logic and fallback mechanisms.
+
+**Parameters:**
+- `user_address` (str): Ethereum address of the user account
+- `private_key` (str): Private key of the account (hex string with or without 0x prefix)
+- `config` (Dict[str, Any]): Configuration dictionary containing random_activity.scroll settings
+- `web3_l1` (Web3): Web3 instance for Ethereum L1 network
+- `web3_l2` (Web3): Web3 instance for Scroll L2 network
+
+**Returns:**
+- `str`: Transaction hash of the successfully executed activity
+
+**Raises:**
+- `ScrollRandomActivityError`: When all retry attempts are exhausted or configuration is invalid
+- `ValueError`: When required configuration sections are missing
+
+**Configuration Structure:**
+```python
+config = {
+    "random_activity": {
+        "scroll": {
+            "activities": {
+                "swap": {"weight": 30, "enabled": True},
+                "lend": {"weight": 25, "enabled": True},
+                "bridge": {"weight": 25, "enabled": True},
+                "provide_liquidity": {"weight": 20, "enabled": True}
+            },
+            "max_retries": 3,
+            "amount_range": {"min": "0.001", "max": "0.1"},
+            "tokens": ["ETH", "USDC", "WETH"],
+            "slippage_percent": 0.5,
+            "deadline_seconds": 1800
+        }
+    }
+}
+```
+
+**Example:**
+```python
+from web3 import Web3
+from airdrops.protocols.scroll import perform_random_activity
+
+# Initialize Web3 connections
+w3_l1 = Web3(Web3.HTTPProvider("https://mainnet.infura.io/v3/YOUR_KEY"))
+w3_l2 = Web3(Web3.HTTPProvider("https://rpc.scroll.io"))
+
+# Configuration with activity weights and settings
+config = {
+    "random_activity": {
+        "scroll": {
+            "activities": {
+                "swap": {"weight": 30, "enabled": True},
+                "lend": {"weight": 25, "enabled": True},
+                "bridge": {"weight": 25, "enabled": True},
+                "provide_liquidity": {"weight": 20, "enabled": True}
+            },
+            "max_retries": 3,
+            "amount_range": {"min": "0.001", "max": "0.1"},
+            "tokens": ["ETH", "USDC", "WETH"],
+            "slippage_percent": 0.5,
+            "deadline_seconds": 1800
+        }
+    }
+}
+
+# Execute random activity
+tx_hash = perform_random_activity(
+    user_address="0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47",
+    private_key="0x...",
+    config=config,
+    web3_l1=w3_l1,
+    web3_l2=w3_l2
+)
+
+print(f"Random activity transaction hash: {tx_hash}")
+```
+
+**Activity Types:**
+- **swap**: Token swapping on SyncSwap DEX with random token pairs
+- **lend**: Lending assets to LayerBank V2 protocol
+- **bridge**: Cross-chain bridging between L1 and L2
+- **provide_liquidity**: Adding liquidity to SyncSwap pools
+
+**Retry Logic:**
+- Activities are selected based on weighted probabilities
+- Failed activities are removed from the pool for subsequent retries
+- Maximum retry attempts are configurable (default: 3)
+- Fallback mechanism ensures different activities are tried on failures
+
+**Random Parameter Generation:**
+- Amounts are randomly generated within configured ranges
+- Token pairs are randomly selected from available tokens
+- Bridge directions (deposit/withdraw) are randomly chosen
+- All parameters respect protocol constraints and user balances
+
 ## Error Handling
 
 The module defines comprehensive custom exceptions for different error scenarios:
@@ -203,14 +373,36 @@ Comprehensive unit tests cover:
 - Successful bridging scenarios for ETH and ERC20 tokens
 - Token swapping with various routing scenarios
 - LayerBank lending, borrowing, and repaying operations
+- Random activity orchestration with retry logic and fallback mechanisms
 - Error handling for various failure modes
 - Input validation and edge cases
 - Contract interaction mocking
 - Gas estimation and transaction building
 
-Run tests with:
+### Test Files
+
+**Core Protocol Tests:**
 ```bash
 pytest tests/protocols/test_scroll.py -v
+```
+
+**Random Activity Tests:**
+```bash
+pytest tests/protocols/test_scroll_random_activity.py -v
+```
+
+The random activity test suite includes 15 comprehensive test cases covering:
+- Successful activity execution for all activity types (swap, lend, bridge, provide_liquidity)
+- Retry logic and fallback mechanisms when activities fail
+- Configuration validation and error handling
+- Parameter generation and validation
+- Activity pool management and weight-based selection
+- Maximum retry exhaustion scenarios
+- Edge cases and error conditions
+
+**Run All Scroll Tests:**
+```bash
+pytest tests/protocols/test_scroll*.py -v
 ```
 
 ## Architecture Notes

@@ -12,11 +12,12 @@ import time
 import random
 import pendulum
 from decimal import Decimal
-from typing import Dict, Any, List
+from typing import Dict, Any, List, TypedDict
 from unittest.mock import Mock
 from unittest.mock import patch
 from dataclasses import dataclass
 from enum import Enum
+from web3 import Web3
 
 from airdrops.scheduler.bot import TaskStatus
 from airdrops.capital_allocation.engine import CapitalAllocator
@@ -24,6 +25,7 @@ from airdrops.monitoring.collector import MetricsCollector
 from airdrops.risk_management.core import RiskManager
 from airdrops.analytics.portfolio import PortfolioPerformanceAnalyzer
 from airdrops.analytics.tracker import AirdropTracker
+from tests.shared.capital_tracker import TestCapitalTracker
 import sys
 
 # Add project root to path for imports
@@ -47,6 +49,12 @@ class FarmingCyclePhase(Enum):
     MONITORING = "monitoring"
     REPORTING = "reporting"
     CLEANUP = "cleanup"
+
+class DailyResult(TypedDict):
+    day: int
+    config: Dict[str, Any]
+    metrics: 'FarmingCycleMetrics'
+    wallet_types: List[str]
 
 @dataclass
 class FarmingCycleMetrics:
@@ -172,17 +180,17 @@ class TestE2EFarmingCycles:
                 Dictionary mapping wallet types to factory functions
         """
 
-        def create_normal_wallet(address: str, balance_eth: float = 2.0):
-            return MockHotWallet(initial_balance=int(balance_eth * 10**18))
-
-        def create_low_balance_wallet(address: str, balance_eth: float = 0.05):
-            return MockLowBalanceWallet(balance=int(balance_eth * 10**18))
-
-        def create_compromised_wallet(address: str, balance_eth: float = 1.0):
-            return MockCompromisedWallet(balance=int(balance_eth * 10**18))
-
-        def create_network_failure_wallet(address: str, balance_eth: float = 2.0):
-            return MockNetworkFailureWallet(balance=int(balance_eth * 10**18))
+        def create_normal_wallet(address: str, balance_eth: float = 2.0) -> MockHotWallet:
+            return MockHotWallet(initial_balance=Web3.to_wei(balance_eth, 'ether'))
+ 
+        def create_low_balance_wallet(address: str, balance_eth: float = 0.05) -> MockLowBalanceWallet:
+            return MockLowBalanceWallet(balance=Web3.to_wei(balance_eth, 'ether'))
+ 
+        def create_compromised_wallet(address: str, balance_eth: float = 1.0) -> MockCompromisedWallet:
+            return MockCompromisedWallet(balance=Web3.to_wei(balance_eth, 'ether'))
+ 
+        def create_network_failure_wallet(address: str, balance_eth: float = 2.0) -> MockNetworkFailureWallet:
+            return MockNetworkFailureWallet(balance=Web3.to_wei(balance_eth, 'ether'))
 
         return {
             "normal": create_normal_wallet,
@@ -198,15 +206,15 @@ class TestE2EFarmingCycles:
     @patch("airdrops.protocols.eigenlayer.eigenlayer.EigenLayerProtocol.restake_lst")
     def test_complete_farming_cycle_normal_conditions(
         self,
-        mock_eigenlayer_restake,
-        mock_zksync_swap,
-        mock_zksync_bridge,
-        mock_scroll_swap,
-        mock_scroll_bridge,
-        farming_config,
-        mock_wallet_factory,
-        airdrop_tracker_cleanup # Add this fixture
-    ):
+        mock_eigenlayer_restake: Any,
+        mock_zksync_swap: Any,
+        mock_zksync_bridge: Any,
+        mock_scroll_swap: Any,
+        mock_scroll_bridge: Any,
+        farming_config: Dict[str, Any],
+        mock_wallet_factory: Dict[str, Any],
+        airdrop_tracker_cleanup: Any
+    ) -> None:
         """Test a complete farming cycle under normal operating conditions.
 
         This test simulates a full 24-hour farming cycle including:
@@ -258,6 +266,10 @@ class TestE2EFarmingCycles:
         mock_tracker.get_all_events.return_value = []
         portfolio_analyzer = PortfolioPerformanceAnalyzer(tracker=mock_tracker)
 
+        # Create capital tracker for stateful testing
+        total_capital = Decimal(farming_config["capital_allocation"]["total_capital_usd"])
+        capital_tracker = TestCapitalTracker(allocator, total_capital)
+
         # Create normal wallets for this cycle
         wallets = {}
         for wallet_config in farming_config["wallets"]:
@@ -277,11 +289,10 @@ class TestE2EFarmingCycles:
         portfolio = allocator.optimize_portfolio(protocols, risk_constraints)
         print(f"   Portfolio allocation: {portfolio}")
 
-        total_capital = Decimal(farming_config["capital_allocation"]["total_capital_usd"])
         risk_metrics = {"volatility_state": "low", "gas_price": 25}
 
-        capital_allocation = allocator.allocate_risk_adjusted_capital(
-            total_capital, portfolio, risk_metrics
+        capital_allocation = capital_tracker.allocate_risk_adjusted_capital(
+            portfolio, risk_metrics
         )
         print(f"   Capital allocated: ${sum(capital_allocation.values()):.2f}")
 
@@ -450,14 +461,14 @@ class TestE2EFarmingCycles:
     @patch("airdrops.protocols.zksync.zksync.ZkSyncProtocol.swap_tokens")
     def test_multi_day_farming_cycle_with_varying_conditions(
         self,
-        mock_zksync_swap,
-        mock_zksync_bridge,
-        mock_scroll_swap,
-        mock_scroll_bridge,
-        farming_config,
-        mock_wallet_factory,
-        airdrop_tracker_cleanup # Add this fixture
-    ):
+        mock_zksync_swap: Any,
+        mock_zksync_bridge: Any,
+        mock_scroll_swap: Any,
+        mock_scroll_bridge: Any,
+        farming_config: Dict[str, Any],
+        mock_wallet_factory: Dict[str, Any],
+        airdrop_tracker_cleanup: Any
+    ) -> None:
         """Test multi-day farming cycle with varying market and wallet conditions.
 
         This test simulates a 3-day farming cycle where:
@@ -485,7 +496,7 @@ class TestE2EFarmingCycles:
         risk_manager = RiskManager(farming_config)
         metrics_collector = MetricsCollector()
 
-        daily_results = []
+        daily_results: List[DailyResult] = []
         protocols = ["scroll", "zksync"]
 
         # Simulate 3 days of farming
@@ -532,9 +543,9 @@ class TestE2EFarmingCycles:
         # Analyze multi-day results
         print("\n=== MULTI-DAY ANALYSIS ===")
 
-        total_tasks = sum(result["metrics"].total_tasks for result in daily_results)
-        total_successful = sum(result["metrics"].successful_tasks for result in daily_results)
-        overall_success_rate = (total_successful / total_tasks) * 100 if total_tasks > 0 else 0
+        total_tasks: int = sum(result["metrics"].total_tasks for result in daily_results)
+        total_successful: int = sum(result["metrics"].successful_tasks for result in daily_results)
+        overall_success_rate: float = (total_successful / total_tasks) * 100 if total_tasks > 0 else 0
 
         print(f"Overall success rate: {overall_success_rate:.1%}")
         print(f"Total tasks across 3 days: {total_tasks}")
@@ -569,11 +580,11 @@ class TestE2EFarmingCycles:
     @patch("airdrops.protocols.zksync.zksync.ZkSyncProtocol.bridge_assets")
     def test_farming_cycle_with_risk_management_integration(
         self,
-        mock_zksync_bridge,
-        mock_scroll_bridge,
-        farming_config,
-        mock_wallet_factory
-    ):
+        mock_zksync_bridge: Any,
+        mock_scroll_bridge: Any,
+        farming_config: Any,
+        mock_wallet_factory: Any
+    ) -> None:
         """Test farming cycle with comprehensive risk management integration.
 
         This test verifies:
@@ -764,11 +775,11 @@ class TestE2EFarmingCycles:
         for action, weight in zip(actions, weights):
             cumulative += weight
             if rand_val <= cumulative:
-                return action
+                return str(action)
 
-        return actions[0]  # Fallback
-
-    def _generate_task_params(self, protocol: str, wallet) -> Dict[str, Any]:
+        return str(actions[0])
+ 
+    def _generate_task_params(self, protocol: str, wallet: Any) -> Dict[str, Any]:
         """Generate realistic task parameters for a protocol.
 
         Args:
@@ -805,8 +816,8 @@ class TestE2EFarmingCycles:
             })
 
         return base_params
-
-    def _execute_farming_task(self, task: Dict[str, Any], wallet) -> Dict[str, Any]:
+ 
+    def _execute_farming_task(self, task: Dict[str, Any], wallet: Any) -> Dict[str, Any]:
         """Execute a farming task with the given wallet.
 
         Args:
@@ -1012,8 +1023,8 @@ class TestE2EFarmingCycles:
         self,
         tasks: List[Dict[str, Any]],
         wallets: Dict[str, Any],
-        risk_manager,
-        metrics_collector,
+        risk_manager: RiskManager,
+        metrics_collector: MetricsCollector,
         day_config: Dict[str, Any]
     ) -> FarmingCycleMetrics:
         """Execute tasks for a specific day and collect metrics.

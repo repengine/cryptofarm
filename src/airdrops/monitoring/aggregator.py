@@ -398,7 +398,7 @@ class MetricsAggregator:
 
             initial_count = len(self.aggregated_metrics)
             self.aggregated_metrics = [
-                m for m in self.aggregated_metrics if m.timestamp >= cutoff_time
+                m for m in self.aggregated_metrics if m.timestamp > cutoff_time
             ]
 
             cleaned_count = initial_count - len(self.aggregated_metrics)

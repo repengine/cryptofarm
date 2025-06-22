@@ -237,8 +237,8 @@ class AirdropTracker:
 
     def get_airdrops_by_date_range(
         self,
-        start_date: datetime,
-        end_date: datetime
+        start_date: Optional[datetime],
+        end_date: Optional[datetime]
     ) -> List[AirdropEvent]:
         """
         Retrieve airdrop events within a date range.

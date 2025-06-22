@@ -38,7 +38,7 @@ class HyperliquidProtocol:
     HyperliquidProtocol handles interactions with the Hyperliquid DEX.
     """
 
-    def __init__(self, rpc_url: str, private_key: str, chain_id: int, w3: Web3 = None) -> None:
+    def __init__(self, rpc_url: str, private_key: str, chain_id: int, w3: Optional[Web3] = None) -> None:
         """
         Initialize the HyperliquidProtocol.
 
@@ -236,7 +236,7 @@ def spot_swap(
         order_type = {"market": {}}
     
     # Place order
-    return exchange.order(
+    result = exchange.order(
         asset=asset,
         is_buy=is_buy,
         sz=sz,
@@ -244,6 +244,7 @@ def spot_swap(
         order_type=order_type,
         reduce_only=False,
     )
+    return dict(result) if result else {}
 
 
 def stake_rotate(
@@ -318,7 +319,7 @@ def stake_rotate(
         amount_wei=amount_wei,
     )
     
-    return stake_result.get("status") == "ok"
+    return bool(stake_result.get("status") == "ok") if stake_result else False
 
 
 def vault_cycle(
@@ -387,7 +388,7 @@ def vault_cycle(
         usd=int(vault_equity * Decimal("1000000")),  # Convert to micro USDC
     )
     
-    return withdraw_result.get("status") == "ok"
+    return bool(withdraw_result.get("status") == "ok") if withdraw_result else False
 
 
 def evm_roundtrip(
@@ -395,9 +396,9 @@ def evm_roundtrip(
     private_key: str,
     chain_id: int,
     amount: Decimal,
-    w3: Web3 = None,
-    info_agent: Info = None,
-    exchange_agent: Exchange = None
+    w3: Optional[Web3] = None,
+    info_agent: Optional[Info] = None,
+    exchange_agent: Optional[Exchange] = None
 ) -> bool:
     """
     Perform EVM roundtrip operations on Hyperliquid.
@@ -455,10 +456,10 @@ def perform_random_onchain(
     private_key: str,
     chain_id: int,
     max_value_usd: Decimal,
-    action_weights: Dict[str, float] = None,
-    w3: Web3 = None,
-    info_agent: Info = None,
-    exchange_agent: Exchange = None
+    action_weights: Optional[Dict[str, float]] = None,
+    w3: Optional[Web3] = None,
+    info_agent: Optional[Info] = None,
+    exchange_agent: Optional[Exchange] = None
 ) -> bool:
     """
     Perform random on-chain activities on Hyperliquid.
@@ -535,7 +536,7 @@ def _deposit_to_l1(
     private_key: str,
     chain_id: int,
     amount: Decimal,
-    w3: Web3 = None
+    w3: Optional[Web3] = None
 ) -> bool:
     """
     Internal function to deposit to L1.
@@ -679,7 +680,7 @@ def _poll_arbitrum_withdrawal_confirmation(
     rpc_url: str,
     tx_hash: str,
     timeout_seconds: int = 300,
-    w3: Web3 = None
+    w3: Optional[Web3] = None
 ) -> bool:
     """
     Internal function to poll for Arbitrum withdrawal confirmation.
@@ -868,9 +869,9 @@ def _execute_evm_roundtrip(
     private_key: str,
     chain_id: int,
     amount: Decimal,
-    w3: Web3 = None,
-    info_agent: Info = None,
-    exchange_agent: Exchange = None
+    w3: Optional[Web3] = None,
+    info_agent: Optional[Info] = None,
+    exchange_agent: Optional[Exchange] = None
 ) -> bool: # Changed return type from str to bool
     """
     Internal function to execute EVM roundtrip operations.
@@ -929,7 +930,7 @@ def _execute_query_user_state(
     try:
         # Query user state
         user_state = info.user_state()
-        return user_state
+        return dict(user_state) if user_state else {}
     except Exception as e:
         logger.error(f"Failed to query user state: {e}")
         raise Exception(f"Failed to query user state: {e}")
@@ -960,7 +961,8 @@ def _execute_query_meta(
     """
     logger.info("Querying meta information")
     info = info_agent if info_agent else Info()
-    return info.meta()
+    result = info.meta()
+    return dict(result) if result else {}
 
 
 def _execute_query_all_mids(
@@ -988,7 +990,8 @@ def _execute_query_all_mids(
     """
     logger.info("Querying all mid prices")
     info = info_agent if info_agent else Info()
-    return info.all_mids()
+    result = info.all_mids()
+    return dict(result) if result else {}
 
 
 def _execute_query_clearing_house_state(
@@ -1018,7 +1021,8 @@ def _execute_query_clearing_house_state(
     """
     logger.info(f"Querying clearing house state for address: {user_address}")
     info = info_agent if info_agent else Info()
-    return info.clearing_house_state(user_address)
+    result = info.clearing_house_state(user_address)
+    return dict(result) if result else {}
 
     def get_transaction_count(self, address: str) -> int:
         """
