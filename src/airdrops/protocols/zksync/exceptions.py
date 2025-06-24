@@ -96,3 +96,13 @@ class PoolNotFoundError(ZkSyncSwapError):
 class ZkSyncRandomActivityError(ZkSyncBridgeError):
     """Raised for errors specific to the perform_random_activity_zksync orchestration."""
     pass
+
+
+# --- Lending Specific Exceptions ---
+
+
+class ZkSyncLendingError(ZkSyncBridgeError):
+    """Base exception for ZkSync lending protocol errors."""
+    def __init__(self, message: str, protocol: Optional[str] = None):
+        super().__init__(message)
+        self.protocol = protocol

@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 from typing import Dict, Optional, Any, cast, Sequence, List
 from decimal import Decimal # Added import for Decimal
-from requests.exceptions import ConnectionError, Timeout
+from requests.exceptions import ConnectionError as RequestsConnectionError, Timeout as RequestsTimeout
 
 from eth_abi.abi import encode as abi_encode
 from hexbytes import HexBytes
@@ -295,7 +295,6 @@ def _build_and_send_tx_scroll(
         logger.error(f"Transaction signing failed: {e}")
         raise TransactionBuildError(f"Transaction signing failed: {e}")
 
-    last_exception: Optional[Exception] = None
     for attempt in range(MAX_RETRIES):
         try:
             logger.info(
@@ -325,74 +324,46 @@ def _build_and_send_tx_scroll(
             logger.info(f"Transaction {tx_hash_hex} successful.")
             return tx_hash_hex
 
-        except (ConnectionError, TimeoutError, Timeout) as e:
-            last_exception = e
+        except (ConnectionError, RequestsConnectionError, TimeoutError, RequestsTimeout) as e: # Network errors
             logger.warning(
                 f"Attempt {attempt + 1}/{MAX_RETRIES} failed due to RPC/network "
                 f"issue: {e}. Retrying in {RETRY_DELAY_SECONDS}s..."
             )
             time.sleep(RETRY_DELAY_SECONDS)
             if attempt < MAX_RETRIES - 1:
-                try:
-                    current_nonce = web3_instance.eth.get_transaction_count(
-                        account.address
-                    )
-                    if current_nonce > cast(int, tx_params["nonce"]):
-                        logger.info(
-                            f"Nonce already used or too low. Current: {current_nonce}, "
-                            f"Tx: {tx_params['nonce']}. Updating nonce."
-                        )
-                        tx_params["nonce"] = current_nonce
-                    else:
-                        logger.info(
-                            f"Nonce {tx_params['nonce']} seems still valid or higher. "
-                            f"Current: {current_nonce}."
-                        )
-
-                    signed = web3_instance.eth.account.sign_transaction(
-                        tx_params, private_key
-                    )
+                # Re-sign transaction with updated nonce for retry
+                current_nonce = web3_instance.eth.get_transaction_count(account.address)
+                if current_nonce > cast(int, tx_params["nonce"]):
                     logger.info(
-                        f"Re-signed transaction with nonce {tx_params['nonce']} "
-                        f"for retry."
+                        f"Nonce already used or too low. Current: {current_nonce}, "
+                        f"Tx: {tx_params['nonce']}. Updating nonce."
                     )
-                except Exception as sign_e:
-                    logger.error(
-                        f"Transaction re-signing failed before retry: {sign_e}"
-                    )
-                    last_exception = TransactionBuildError(
-                        f"Transaction re-signing failed before retry: {sign_e}"
-                    )
-                    break
+                    tx_params["nonce"] = current_nonce
+                signed = web3_instance.eth.account.sign_transaction(
+                    tx_params, private_key
+                )
+                logger.info(
+                    f"Re-signed transaction with nonce {tx_params['nonce']} "
+                    f"for retry."
+                )
+            else: # All retries exhausted for network errors, raise final exception
+                raise MaxRetriesExceededError(
+                    f"Transaction failed after {MAX_RETRIES} attempts due to "
+                    f"RPC/network issues: {e}"
+                ) from e
         except TransactionRevertedError:
             raise
-        except Exception as e:
-            last_exception = e
+        except Exception as e: # Catch any other unexpected errors
             logger.error(
                 f"An unexpected error occurred during transaction processing "
                 f"(attempt {attempt + 1}): {e}"
             )
             if attempt < MAX_RETRIES - 1:
                 time.sleep(RETRY_DELAY_SECONDS)
-
-    if last_exception:
-        logger.error(
-            f"All {MAX_RETRIES} attempts failed. Last error: {last_exception}"
-        )
-        if isinstance(last_exception, (ConnectionError, TimeoutError, Timeout)):
-            raise MaxRetriesExceededError(
-                f"Transaction failed after {MAX_RETRIES} attempts due to "
-                f"RPC/network issues: {last_exception}"
-            )
-        elif isinstance(last_exception, TransactionRevertedError):
-            raise last_exception
-        elif isinstance(last_exception, TransactionBuildError):
-            raise last_exception
-        else:
-            raise TransactionSendError(
-                f"Failed to send/confirm transaction after {MAX_RETRIES} retries: "
-                f"{last_exception}"
-            )
+            else: # All retries exhausted for unexpected errors, raise final exception
+                raise TransactionSendError(
+                    f"Failed to send/confirm transaction after {MAX_RETRIES} retries: {e}"
+                ) from e
 
     logger.error(
         "Transaction processing finished in an unexpected state (no success, "
@@ -1567,6 +1538,86 @@ def _bridge_eth_scroll(
 
         return _build_and_send_tx_scroll(web3_l2, private_key, withdraw_tx)
     return ""
+
+
+def random_activity(
+    user_address: str,
+    private_key: str,
+    config: Dict[str, Any],
+    web3_l1: Optional[Web3] = None,
+    web3_l2: Optional[Web3] = None
+) -> str:
+    """
+    Executes a single random activity on the Scroll protocol.
+    
+    This function provides a simplified interface to the perform_random_activity
+    function, executing one random activity and returning the transaction hash
+    of the successful operation.
+    
+    Args:
+        user_address (str): The public address of the user's wallet.
+        private_key (str): The private key for signing transactions.
+        config (Dict[str, Any]): The configuration dictionary for random activity.
+        web3_l1 (Optional[Web3]): Web3 instance for L1. Required for bridging.
+        web3_l2 (Optional[Web3]): Web3 instance for the Scroll L2 network.
+    
+    Returns:
+        str: Transaction hash of the successfully executed activity.
+    
+    Raises:
+        ScrollRandomActivityError: If the random activity execution fails.
+        ValueError: If required parameters are missing or invalid.
+    
+    Example:
+        >>> from web3 import Web3
+        >>> config = {
+        ...     "random_activity": {
+        ...         "scroll": {
+        ...             "action_weights": [
+        ...                 {"name": "swap", "weight": 50},
+        ...                 {"name": "lend", "weight": 30}
+        ...             ],
+        ...             "max_retries": 3,
+        ...             "amount_ranges": {
+        ...                 "swap": {"min": "0.01", "max": "0.1", "decimals": 4}
+        ...             },
+        ...             "token_config": {"ETH": {}, "USDC": {}}
+        ...         }
+        ...     }
+        ... }
+        >>> w3_l2 = Web3(Web3.HTTPProvider("https://rpc.scroll.io"))
+        >>> tx_hash = random_activity(
+        ...     user_address="0x123...",
+        ...     private_key="0xabc...",
+        ...     config=config,
+        ...     web3_l2=w3_l2
+        ... )
+        >>> isinstance(tx_hash, str)
+        True
+    """
+    logger.info(f"Executing random activity for user {user_address}")
+    
+    # Execute the comprehensive random activity function
+    results = perform_random_activity(
+        user_address=user_address,
+        private_key=private_key,
+        config=config,
+        web3_l1=web3_l1,
+        web3_l2=web3_l2
+    )
+    
+    # Find the first successful result and return its transaction hash
+    for result in results:
+        if result.get("status") == "success" and "tx_hash" in result:
+            tx_hash = str(result["tx_hash"])
+            logger.info(f"Random activity completed successfully: {tx_hash}")
+            return tx_hash
+    
+    # If no successful results found, raise an error
+    logger.error("Random activity failed - no successful transactions")
+    raise ScrollRandomActivityError(
+        "Random activity execution failed - no successful transactions found"
+    )
 
 
 def perform_random_activity(

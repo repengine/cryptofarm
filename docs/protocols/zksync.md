@@ -11,9 +11,18 @@ The ZkSync protocol module provides comprehensive functionality for interacting 
 - **ERC20 Token Bridging**: Bridge supported ERC20 tokens (USDC, USDT, DAI, WETH) between L1 and L2
 
 ### Token Swapping
-- **SyncSwap Integration**: Swap tokens on SyncSwap DEX on ZkSync Era L2
+- **Multi-DEX Support**: Swap tokens across multiple DEXs (SyncSwap, Mute, SpaceFi) on ZkSync Era L2
+- **DEX Aggregator**: Automatic DEX selection based on best quotes and liquidity
 - **Multi-hop Routing**: Automatic routing through WETH for token pairs without direct pools
 - **Slippage Protection**: Configurable slippage tolerance for swaps
+- **Adapter Pattern**: Extensible architecture for adding new DEX integrations
+
+### Lending and Borrowing
+- **Multi-Protocol Support**: Lend and borrow assets across multiple lending protocols on ZkSync Era L2
+- **Zerolend Integration**: Native support for Zerolend (Aave v3 fork) lending protocol
+- **ETH and ERC20 Support**: Lend/borrow ETH (via WETH Gateway) and ERC20 tokens (via Pool contract)
+- **Comprehensive Operations**: Support for lending, withdrawing, borrowing, and repaying assets
+- **Adapter Pattern**: Extensible architecture for adding new lending protocol integrations
 
 ## Configuration
 
@@ -52,7 +61,11 @@ protocol = ZkSyncProtocol(
 
 **Methods:**
 - `bridge_assets(token_symbol, amount, direction)`: Bridge assets between L1 and L2
-- `swap_tokens(from_token, to_token, amount)`: Swap tokens on ZkSync L2
+- `swap_tokens(token_in, token_out, amount_in, slippage_percent, deadline_seconds, dex)`: Swap tokens on ZkSync L2 with DEX aggregation
+- `lend(token, amount, protocol)`: Lend assets to lending protocols on ZkSync L2
+- `withdraw(token, amount, protocol)`: Withdraw lent assets from lending protocols
+- `borrow(token, amount, protocol)`: Borrow assets from lending protocols
+- `repay(token, amount, protocol)`: Repay borrowed assets to lending protocols
 
 ## Functions
 
@@ -95,9 +108,9 @@ tx_hash = bridge_assets(
 print(f"Bridge transaction hash: {tx_hash}")
 ```
 
-### `swap_tokens(web3_zksync, private_key, token_in_symbol, token_out_symbol, amount_in, slippage_percent, deadline_seconds)`
+### `swap_tokens(web3_zksync, private_key, token_in_symbol, token_out_symbol, amount_in, slippage_percent, deadline_seconds, dex)`
 
-Swaps tokens on SyncSwap DEX on the ZkSync Era network.
+Swaps tokens using DEX aggregation on the ZkSync Era network. Automatically selects the best DEX (SyncSwap, Mute, SpaceFi) based on quotes and liquidity, or allows manual DEX selection.
 
 **Parameters:**
 - `web3_zksync` (Web3): Web3 instance for ZkSync L2
@@ -107,6 +120,7 @@ Swaps tokens on SyncSwap DEX on the ZkSync Era network.
 - `amount_in` (int): Amount of token_in to swap (in Wei or smallest unit)
 - `slippage_percent` (float, optional): Allowed slippage percentage (default: 0.5%)
 - `deadline_seconds` (int, optional): Transaction deadline in seconds from now (default: 1800)
+- `dex` (str, optional): DEX to use - "auto" for best quote selection, "syncswap", "mute", or "spacefi" for manual selection (default: "auto")
 
 **Returns:**
 - `str`: Transaction hash of the swap operation
@@ -119,7 +133,7 @@ from airdrops.protocols.zksync import swap_tokens
 # Initialize Web3 connection to ZkSync Era
 w3_zksync = Web3(Web3.HTTPProvider("https://mainnet.era.zksync.io"))
 
-# Swap 0.1 ETH for USDC with 1% slippage
+# Swap 0.1 ETH for USDC with auto DEX selection
 tx_hash = swap_tokens(
     web3_zksync=w3_zksync,
     private_key="0x...",
@@ -127,11 +141,113 @@ tx_hash = swap_tokens(
     token_out_symbol="USDC",
     amount_in=100000000000000000,  # 0.1 ETH in wei
     slippage_percent=1.0,
-    deadline_seconds=3600
+    deadline_seconds=3600,
+    dex="auto"  # Automatically selects best DEX
 )
 
 print(f"Swap transaction hash: {tx_hash}")
+
+# Or manually specify a DEX
+tx_hash = swap_tokens(
+    web3_zksync=w3_zksync,
+    private_key="0x...",
+    token_in_symbol="ETH",
+    token_out_symbol="USDC",
+    amount_in=100000000000000000,
+    slippage_percent=1.0,
+    deadline_seconds=3600,
+    dex="syncswap"  # Force use of SyncSwap
+)
 ```
+
+### `lend_borrow(web3_zksync, private_key, action, token_symbol, amount, protocol)`
+
+Performs lending and borrowing operations on ZkSync Era lending protocols. Supports lending, withdrawing, borrowing, and repaying assets across multiple protocols starting with Zerolend.
+
+**Parameters:**
+- `web3_zksync` (Web3): Web3 instance for ZkSync L2
+- `private_key` (str): Private key of the account performing the operation
+- `action` (str): The lending action to perform ("lend", "withdraw", "borrow", "repay")
+- `token_symbol` (str): Symbol of the token (e.g., "ETH", "USDC")
+- `amount` (Decimal): Amount of tokens for the operation
+- `protocol` (str, optional): Lending protocol to use (default: "zerolend")
+
+**Returns:**
+- `str`: Transaction hash of the lending operation
+
+**Raises:**
+- `ZkSyncLendingError`: For general lending-related errors
+- `InsufficientBalanceError`: If account balance is insufficient
+- `TokenNotSupportedError`: If token symbol is not configured
+- `ApprovalError`: If ERC20 approval fails
+- `ValueError`: For invalid inputs
+
+**Example:**
+```python
+from web3 import Web3
+from decimal import Decimal
+from airdrops.protocols.zksync import lend_borrow
+
+# Initialize Web3 connection to ZkSync Era
+w3_zksync = Web3(Web3.HTTPProvider("https://mainnet.era.zksync.io"))
+
+# Lend 1 ETH to Zerolend
+tx_hash = lend_borrow(
+    web3_zksync=w3_zksync,
+    private_key="0x...",
+    action="lend",
+    token_symbol="ETH",
+    amount=Decimal("1.0"),
+    protocol="zerolend"
+)
+
+print(f"Lending transaction hash: {tx_hash}")
+
+# Withdraw 0.5 ETH from Zerolend
+tx_hash = lend_borrow(
+    web3_zksync=w3_zksync,
+    private_key="0x...",
+    action="withdraw",
+    token_symbol="ETH",
+    amount=Decimal("0.5"),
+    protocol="zerolend"
+)
+
+print(f"Withdrawal transaction hash: {tx_hash}")
+
+# Borrow 100 USDC from Zerolend
+tx_hash = lend_borrow(
+    web3_zksync=w3_zksync,
+    private_key="0x...",
+    action="borrow",
+    token_symbol="USDC",
+    amount=Decimal("100.0"),
+    protocol="zerolend"
+)
+
+print(f"Borrowing transaction hash: {tx_hash}")
+
+# Repay 50 USDC to Zerolend
+tx_hash = lend_borrow(
+    web3_zksync=w3_zksync,
+    private_key="0x...",
+    action="repay",
+    token_symbol="USDC",
+    amount=Decimal("50.0"),
+    protocol="zerolend"
+)
+
+print(f"Repayment transaction hash: {tx_hash}")
+```
+
+**Supported Protocols:**
+- **zerolend**: Zerolend protocol (Aave v3 fork) with support for ETH via WETH Gateway and ERC20 tokens via Pool contract
+
+**Supported Actions:**
+- **lend**: Supply assets to earn interest
+- **withdraw**: Withdraw previously supplied assets
+- **borrow**: Borrow assets against collateral
+- **repay**: Repay borrowed assets
 
 ### `perform_random_activity(user_address, private_key, config, web3_l1, web3_l2)`
 
@@ -240,6 +356,12 @@ The module defines comprehensive custom exceptions for different error scenarios
 - **`ZkSyncSwapError`**: Base exception for swap-related errors
 - **`InsufficientLiquidityError`**: Raised when liquidity is insufficient or no path found
 
+### Lending Errors
+- **`ZkSyncLendingError`**: Base exception for lending operation failures
+- **`InsufficientBalanceError`**: Raised when account balance is insufficient for lending/repaying
+- **`TokenNotSupportedError`**: Raised when token symbol is not configured for lending
+- **`ApprovalError`**: Raised when ERC20 approval fails for lending operations
+
 ### Transaction Errors
 - **`TransactionBuildError`**: Raised when transaction building fails
 - **`TransactionSendError`**: Raised when transaction sending fails
@@ -276,15 +398,18 @@ The module defines comprehensive custom exceptions for different error scenarios
 Comprehensive unit tests cover:
 - Successful bridging scenarios for ETH and ERC20 tokens
 - Token swapping with various routing scenarios
+- Lending and borrowing operations across multiple protocols
 - Error handling for various failure modes
 - Input validation and edge cases
 - Contract interaction mocking
 - Gas estimation and transaction building
 - Protocol class initialization and method calls
+- Lending adapter pattern implementation
+- Balance validation and approval logic
 
 Run tests with:
 ```bash
-pytest tests/protocols/test_zksync.py tests/protocols/test_zksync_coverage.py -v
+pytest tests/protocols/test_zksync.py tests/protocols/test_zksync_coverage.py tests/protocols/test_zksync_lending.py -v
 ```
 
 ## Architecture Notes

@@ -73,35 +73,35 @@ def test_zksync_bridge_assets_failure(zksync_protocol_coverage: ZkSyncProtocol) 
             )
 
 
-def test_zksync_swap_tokens_success(zksync_protocol_coverage: ZkSyncProtocol) -> None:
+@patch('airdrops.protocols.zksync.zksync.swap_tokens')
+def test_zksync_swap_tokens_success(mock_swap_tokens, zksync_protocol_coverage: ZkSyncProtocol) -> None:
     """Test successful token swap operation."""
-    import time
+    # Mock the swap_tokens function to return a transaction hash
+    mock_swap_tokens.return_value = "0x123456789abcdef"
     
-    # The swap_tokens method is not yet implemented in ZkSyncProtocol
-    with pytest.raises(NotImplementedError, match="Swap functionality not yet implemented"):
-        zksync_protocol_coverage.swap_tokens(
-            web3=zksync_protocol_coverage.web3_l2,
-            private_key=zksync_protocol_coverage.private_key,
-            token_in="ETH",
-            token_out="USDC",
-            amount_in=Decimal("0.1"),
-            min_amount_out=Decimal("0.09"),
-            deadline=int(time.time()) + 300
-        )
+    result = zksync_protocol_coverage.swap_tokens(
+        token_in="ETH",
+        token_out="USDC",
+        amount_in=Decimal("0.1"),
+        slippage_percent=0.5,
+        deadline_seconds=300
+    )
+    
+    assert result == "0x123456789abcdef"
+    mock_swap_tokens.assert_called_once()
 
 
-def test_zksync_swap_tokens_failure(zksync_protocol_coverage: ZkSyncProtocol) -> None:
+@patch('airdrops.protocols.zksync.zksync.swap_tokens')
+def test_zksync_swap_tokens_failure(mock_swap_tokens, zksync_protocol_coverage: ZkSyncProtocol) -> None:
     """Test token swap failure."""
-    import time
+    # Mock the swap_tokens function to raise an exception
+    mock_swap_tokens.side_effect = ValueError("Insufficient balance")
     
-    # The swap_tokens method is not yet implemented in ZkSyncProtocol
-    with pytest.raises(NotImplementedError, match="Swap functionality not yet implemented"):
+    with pytest.raises(ValueError, match="Insufficient balance"):
         zksync_protocol_coverage.swap_tokens(
-            web3=zksync_protocol_coverage.web3_l2,
-            private_key=zksync_protocol_coverage.private_key,
             token_in="ETH",
             token_out="USDC",
             amount_in=Decimal("0.1"),
-            min_amount_out=Decimal("0.09"),
-            deadline=int(time.time()) + 300
+            slippage_percent=0.5,
+            deadline_seconds=300
         )

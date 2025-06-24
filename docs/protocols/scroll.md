@@ -320,6 +320,79 @@ print(f"Random activity transaction hash: {tx_hash}")
 - Bridge directions (deposit/withdraw) are randomly chosen
 - All parameters respect protocol constraints and user balances
 
+### `random_activity(user_address, private_key, config, web3_l1, web3_l2)`
+
+Simplified wrapper function that executes a single random activity on the Scroll protocol and returns the transaction hash of the first successful operation.
+
+**Parameters:**
+- `user_address` (str): Ethereum address of the user account
+- `private_key` (str): Private key of the account (hex string with or without 0x prefix)
+- `config` (Dict[str, Any]): Configuration dictionary containing random_activity.scroll settings
+- `web3_l1` (Web3, optional): Web3 instance for Ethereum L1 network (default: None)
+- `web3_l2` (Web3, optional): Web3 instance for Scroll L2 network (default: None)
+
+**Returns:**
+- `str`: Transaction hash of the successfully executed activity
+
+**Raises:**
+- `ScrollRandomActivityError`: When no successful transactions are found or configuration is invalid
+
+**Example:**
+```python
+from web3 import Web3
+from airdrops.protocols.scroll import random_activity
+
+# Initialize Web3 connections
+w3_l1 = Web3(Web3.HTTPProvider("https://mainnet.infura.io/v3/YOUR_KEY"))
+w3_l2 = Web3(Web3.HTTPProvider("https://rpc.scroll.io"))
+
+# Configuration with activity weights and settings
+config = {
+    "random_activity": {
+        "scroll": {
+            "action_weights": [
+                {"name": "swap", "weight": 50},
+                {"name": "lend", "weight": 30},
+                {"name": "bridge", "weight": 20}
+            ],
+            "max_retries": 3,
+            "amount_ranges": {
+                "swap": {"min": "0.01", "max": "0.1", "decimals": 4},
+                "lend": {"min": "0.005", "max": "0.05", "decimals": 4},
+                "bridge": {"min": "0.02", "max": "0.2", "decimals": 4}
+            },
+            "token_config": {
+                "ETH": {"address": "0x123"},
+                "USDC": {"address": "0x456"}
+            }
+        }
+    }
+}
+
+# Execute random activity and get transaction hash
+tx_hash = random_activity(
+    user_address="0x742d35Cc6634C0532925a3b844Bc9e7195Ed5E47",
+    private_key="0x...",
+    config=config,
+    web3_l1=w3_l1,
+    web3_l2=w3_l2
+)
+
+print(f"Random activity transaction hash: {tx_hash}")
+```
+
+**Key Differences from `perform_random_activity`:**
+- **Simplified Return**: Returns a single transaction hash string instead of a detailed results list
+- **Focused Output**: Provides only the essential information needed for most use cases
+- **Error Handling**: Raises `ScrollRandomActivityError` if no successful transactions are found
+- **Wrapper Function**: Internally calls `perform_random_activity` and extracts the first successful transaction hash
+
+**Use Cases:**
+- Simple scripts that only need the transaction hash
+- Integration with external systems that expect a single result
+- Quick testing and development workflows
+- Applications that handle detailed logging separately
+
 ## Error Handling
 
 The module defines comprehensive custom exceptions for different error scenarios:
@@ -399,6 +472,20 @@ The random activity test suite includes 15 comprehensive test cases covering:
 - Activity pool management and weight-based selection
 - Maximum retry exhaustion scenarios
 - Edge cases and error conditions
+
+**Random Activity Wrapper Tests:**
+```bash
+pytest tests/protocols/test_scroll_random_activity_wrapper.py -v
+```
+
+The wrapper function test suite includes 10 comprehensive test cases covering:
+- Successful execution returning transaction hash
+- Multiple attempts with first success extraction
+- Error handling for no successful results
+- Empty results and missing transaction hash scenarios
+- Exception propagation from underlying function
+- Parameter validation with minimal and partial parameters
+- Logging behavior for both success and failure cases
 
 **Run All Scroll Tests:**
 ```bash

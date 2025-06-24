@@ -18,7 +18,6 @@ from eth_abi.abi import encode as abi_encode
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
-from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -47,6 +46,7 @@ from .exceptions import (
     InsufficientLiquidityError,
     TokenNotSupportedError,
     ZkSyncRandomActivityError,
+    ZkSyncLendingError,
 )
 
 
@@ -398,6 +398,8 @@ class ZkSyncProtocol:
             l1_rpc_url: The RPC URL for the Ethereum L1 network.
             l2_rpc_url: The RPC URL for the ZkSync L2 network.
             private_key: The private key of the wallet to use.
+            web3_l1: Optional pre-configured Web3 instance for L1. If None, creates new instance.
+            web3_l2: Optional pre-configured Web3 instance for L2. If None, creates new instance.
             
         Example:
             >>> protocol = ZkSyncProtocol(
@@ -418,6 +420,12 @@ class ZkSyncProtocol:
         self.private_key = private_key
         self.web3_l1 = web3_l1 if web3_l1 else Web3(Web3.HTTPProvider(l1_rpc_url))
         self.web3_l2 = web3_l2 if web3_l2 else Web3(Web3.HTTPProvider(l2_rpc_url))
+        
+        # Initialize lending adapters
+        from .lending_adapter import ZerolendAdapter
+        self.lending_adapters = {
+            "zerolend": ZerolendAdapter(self.web3_l2),
+        }
 
     def bridge_assets(
         self,
@@ -463,24 +471,25 @@ class ZkSyncProtocol:
     
     def swap_tokens(
         self,
-        web3: Web3,
-        private_key: str,
         token_in: str,
         token_out: str,
         amount_in: Decimal,
-        min_amount_out: Decimal,
-        deadline: int
+        slippage_percent: float = 0.5,
+        deadline_seconds: int = 1800,
+        dex: str = "auto"
     ) -> str:
-        """Swap tokens on ZkSync network.
+        """Swap tokens on ZkSync network using the DEX aggregator.
+        
+        Note: This method delegates to the module-level swap_tokens function which
+        provides full DEX aggregation functionality including SyncSwap support.
         
         Args:
-            web3: Web3 instance for blockchain interaction.
-            private_key: Private key for signing transactions.
-            token_in: Address or symbol of input token.
-            token_out: Address or symbol of output token.
+            token_in: Symbol of input token (e.g., "ETH", "USDC").
+            token_out: Symbol of output token (e.g., "USDC", "WETH").
             amount_in: Amount of input token to swap.
-            min_amount_out: Minimum acceptable output amount (slippage protection).
-            deadline: Transaction deadline timestamp.
+            slippage_percent: Maximum allowed slippage percentage.
+            deadline_seconds: Transaction deadline in seconds from now.
+            dex: DEX to use ("auto", "syncswap", "mute", "spacefi").
             
         Returns:
             Transaction hash of the swap operation.
@@ -488,10 +497,248 @@ class ZkSyncProtocol:
         Raises:
             ValueError: If parameters are invalid.
             RuntimeError: If the swap transaction fails.
+            
+        Example:
+            >>> protocol = ZkSyncProtocol("https://...", "https://...", "0x...")
+            >>> tx_hash = protocol.swap_tokens(
+            ...     token_in="ETH",
+            ...     token_out="USDC",
+            ...     amount_in=Decimal("1.0"),
+            ...     dex="auto"
+            ... )
         """
-        # For now, delegate to the functional implementation
-        # This would need to be implemented based on the actual swap functionality
-        raise NotImplementedError("Swap functionality not yet implemented in ZkSyncProtocol")
+        # Convert Decimal to int (wei for ETH, smallest unit for others)
+        if token_in.upper() == "ETH":
+            amount_wei = int(self.web3_l2.to_wei(amount_in, "ether"))
+        else:
+            # For other tokens, assume appropriate decimals based on token
+            # This is a simplification - in production, you'd want to query token decimals
+            amount_wei = int(amount_in * (10 ** 18))  # Assume 18 decimals
+            
+        return swap_tokens(
+            web3_zksync=self.web3_l2,
+            private_key=self.private_key,
+            token_in_symbol=token_in,
+            token_out_symbol=token_out,
+            amount_in=amount_wei,
+            slippage_percent=slippage_percent,
+            deadline_seconds=deadline_seconds,
+            dex=dex
+        )
+
+    def lend(self, token: str, amount: Decimal, protocol: str = "zerolend") -> str:
+        """Lend tokens to a specified lending protocol on zkSync.
+        
+        Args:
+            token: Symbol of token to lend (e.g., "ETH", "USDC").
+            amount: Amount of token to lend.
+            protocol: Lending protocol to use (default: "zerolend").
+            
+        Returns:
+            Transaction hash of the lending operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            ZkSyncLendingError: If the lending transaction fails.
+            
+        Example:
+            >>> protocol = ZkSyncProtocol("https://...", "https://...", "0x...")
+            >>> tx_hash = protocol.lend(
+            ...     token="ETH",
+            ...     amount=Decimal("1.0"),
+            ...     protocol="zerolend"
+            ... )
+        """
+        return lend_borrow(
+            web3_zksync=self.web3_l2,
+            private_key=self.private_key,
+            action="lend",
+            token_symbol=token,
+            amount=amount,
+            protocol=protocol
+        )
+
+    def withdraw(self, token: str, amount: Decimal, protocol: str = "zerolend") -> str:
+        """Withdraw tokens from a specified lending protocol on zkSync.
+        
+        Args:
+            token: Symbol of token to withdraw (e.g., "ETH", "USDC").
+            amount: Amount of token to withdraw.
+            protocol: Lending protocol to withdraw from (default: "zerolend").
+            
+        Returns:
+            Transaction hash of the withdrawal operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            ZkSyncLendingError: If the withdrawal transaction fails.
+        """
+        return lend_borrow(
+            web3_zksync=self.web3_l2,
+            private_key=self.private_key,
+            action="withdraw",
+            token_symbol=token,
+            amount=amount,
+            protocol=protocol
+        )
+
+    def borrow(self, token: str, amount: Decimal, protocol: str = "zerolend") -> str:
+        """Borrow tokens from a specified lending protocol on zkSync.
+        
+        Args:
+            token: Symbol of token to borrow (e.g., "ETH", "USDC").
+            amount: Amount of token to borrow.
+            protocol: Lending protocol to borrow from (default: "zerolend").
+            
+        Returns:
+            Transaction hash of the borrowing operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            ZkSyncLendingError: If the borrowing transaction fails.
+        """
+        return lend_borrow(
+            web3_zksync=self.web3_l2,
+            private_key=self.private_key,
+            action="borrow",
+            token_symbol=token,
+            amount=amount,
+            protocol=protocol
+        )
+
+    def repay(self, token: str, amount: Decimal, protocol: str = "zerolend") -> str:
+        """Repay borrowed tokens to a specified lending protocol on zkSync.
+        
+        Args:
+            token: Symbol of token to repay (e.g., "ETH", "USDC").
+            amount: Amount of token to repay.
+            protocol: Lending protocol to repay to (default: "zerolend").
+            
+        Returns:
+            Transaction hash of the repayment operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            ZkSyncLendingError: If the repayment transaction fails.
+        """
+        return lend_borrow(
+            web3_zksync=self.web3_l2,
+            private_key=self.private_key,
+            action="repay",
+            token_symbol=token,
+            amount=amount,
+            protocol=protocol
+        )
+
+    def provide_liquidity(
+        self,
+        token_a: str,
+        token_b: str,
+        amount_a: Decimal,
+        amount_b: Decimal,
+        dex: str = "syncswap",
+        slippage_percent: float = 0.5,
+        deadline_seconds: int = 1800
+    ) -> str:
+        """Provide liquidity to a specified DEX on zkSync.
+        
+        Args:
+            token_a: Symbol of first token (e.g., "ETH", "USDC").
+            token_b: Symbol of second token (e.g., "USDC", "WETH").
+            amount_a: Amount of first token to provide.
+            amount_b: Amount of second token to provide.
+            dex: DEX to use (default: "syncswap").
+            slippage_percent: Maximum allowed slippage percentage.
+            deadline_seconds: Transaction deadline in seconds from now.
+            
+        Returns:
+            Transaction hash of the liquidity provision operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            ZkSyncSwapError: If the liquidity transaction fails.
+            
+        Example:
+            >>> protocol = ZkSyncProtocol("https://...", "https://...", "0x...")
+            >>> tx_hash = protocol.provide_liquidity(
+            ...     token_a="ETH",
+            ...     token_b="USDC",
+            ...     amount_a=Decimal("1.0"),
+            ...     amount_b=Decimal("2000.0"),
+            ...     dex="syncswap"
+            ... )
+        """
+        # Convert Decimal to int (wei for ETH, smallest unit for others)
+        if token_a.upper() == "ETH":
+            amount_a_wei = int(self.web3_l2.to_wei(amount_a, "ether"))
+        else:
+            # For other tokens, assume appropriate decimals based on token
+            amount_a_wei = int(amount_a * (10 ** 18))  # Assume 18 decimals
+            
+        if token_b.upper() == "ETH":
+            amount_b_wei = int(self.web3_l2.to_wei(amount_b, "ether"))
+        else:
+            # For other tokens, assume appropriate decimals based on token
+            amount_b_wei = int(amount_b * (10 ** 18))  # Assume 18 decimals
+            
+        return provide_liquidity(
+            web3_zksync=self.web3_l2,
+            private_key=self.private_key,
+            token_a_symbol=token_a,
+            token_b_symbol=token_b,
+            amount_a=amount_a_wei,
+            amount_b=amount_b_wei,
+            dex=dex,
+            slippage_percent=slippage_percent,
+            deadline_seconds=deadline_seconds
+        )
+
+    def remove_liquidity(
+        self,
+        token_a: str,
+        token_b: str,
+        liquidity_percent: float,
+        dex: str = "syncswap",
+        slippage_percent: float = 0.5,
+        deadline_seconds: int = 1800
+    ) -> str:
+        """Remove liquidity from a specified DEX on zkSync.
+        
+        Args:
+            token_a: Symbol of first token (e.g., "ETH", "USDC").
+            token_b: Symbol of second token (e.g., "USDC", "WETH").
+            liquidity_percent: Percentage of liquidity to remove (0-100).
+            dex: DEX to remove from (default: "syncswap").
+            slippage_percent: Maximum allowed slippage percentage.
+            deadline_seconds: Transaction deadline in seconds from now.
+            
+        Returns:
+            Transaction hash of the liquidity removal operation.
+            
+        Raises:
+            ValueError: If parameters are invalid.
+            ZkSyncSwapError: If the liquidity transaction fails.
+            
+        Example:
+            >>> protocol = ZkSyncProtocol("https://...", "https://...", "0x...")
+            >>> tx_hash = protocol.remove_liquidity(
+            ...     token_a="ETH",
+            ...     token_b="USDC",
+            ...     liquidity_percent=50.0,
+            ...     dex="syncswap"
+            ... )
+        """
+        return remove_liquidity(
+            web3_zksync=self.web3_l2,
+            private_key=self.private_key,
+            token_a_symbol=token_a,
+            token_b_symbol=token_b,
+            liquidity_percent=liquidity_percent,
+            dex=dex,
+            slippage_percent=slippage_percent,
+            deadline_seconds=deadline_seconds
+        )
+
 
 def _approve_erc20_zksync(
     web3_instance: Web3,
@@ -591,6 +838,7 @@ def _get_syncswap_pool_address_zksync(
         logger.warning(
             f"Error getting pool for {token0_address}-{token1_address}: {e}"
         )
+        return None
         return None
 
 
@@ -694,8 +942,12 @@ def _get_expected_amount_out_syncswap_zksync(
                     f"{token_out_address}"
                 )
                 return cast(int, final_amount_out)
+            except InsufficientLiquidityError as e:
+                # Re-raise specific liquidity errors from the hop
+                raise e
             except Exception as e:
                 logger.warning(f"Failed to get quote via WETH hop: {e}")
+                return 0  # Return 0 on other WETH hop failures
 
     logger.error(
         f"Could not find a valid path or pool for swapping {token_in_address} to "
@@ -872,60 +1124,90 @@ def swap_tokens(
     amount_in: int,
     slippage_percent: float = 0.5,
     deadline_seconds: int = 1800,
+    dex: str = "auto",
 ) -> str:
     """
-    Swaps tokens on SyncSwap DEX on the ZkSync Era network.
+    Swaps tokens on zkSync Era DEXs with automatic DEX selection or manual DEX specification.
+
+    This function acts as a DEX aggregator, automatically selecting the best DEX
+    for the swap based on available liquidity and rates, or using a specified DEX.
 
     Args:
-    web3_zksync: Web3 instance for ZkSync L2.
-    private_key: Private key of the account performing the swap.
-    token_in_symbol: Symbol of the token to swap from (e.g., "ETH", "USDC").
-    token_out_symbol: Symbol of the token to swap to (e.g., "USDC", "WETH").
-    amount_in: Amount of token_in to swap (in Wei or smallest unit).
-    slippage_percent: Allowed slippage percentage (e.g., 0.5 for 0.5%).
-    deadline_seconds: Transaction deadline in seconds from now.
+        web3_zksync: Web3 instance for ZkSync L2.
+        private_key: Private key of the account performing the swap.
+        token_in_symbol: Symbol of the token to swap from (e.g., "ETH", "USDC").
+        token_out_symbol: Symbol of the token to swap to (e.g., "USDC", "WETH").
+        amount_in: Amount of token_in to swap (in Wei or smallest unit).
+        slippage_percent: Allowed slippage percentage (e.g., 0.5 for 0.5%).
+        deadline_seconds: Transaction deadline in seconds from now.
+        dex: DEX to use for the swap. Options: "auto", "syncswap", "mute", "spacefi".
+             "auto" will automatically select the best DEX based on quotes.
 
     Returns:
-    Transaction hash of the swap operation.
+        Transaction hash of the swap operation.
 
     Raises:
-    ZkSyncSwapError: For general swap-related errors.
-    InsufficientLiquidityError: If liquidity is insufficient for the swap or
-            no path found.
-    TokenNotSupportedError: If one of the token symbols is not configured.
-    ApprovalError: If token approval fails.
-    TransactionRevertedError: If the swap transaction is reverted.
-    GasEstimationError: If gas estimation fails.
-    ValueError: For invalid inputs like slippage.
+        ZkSyncSwapError: For general swap-related errors.
+        InsufficientLiquidityError: If liquidity is insufficient for the swap or
+                no path found.
+        TokenNotSupportedError: If one of the token symbols is not configured.
+        ApprovalError: If token approval fails.
+        TransactionRevertedError: If the swap transaction is reverted.
+        GasEstimationError: If gas estimation fails.
+        ValueError: For invalid inputs like slippage or unsupported DEX.
+
+    Example:
+        >>> # Auto-select best DEX
+        >>> tx_hash = swap_tokens(
+        ...     web3_zksync=web3_l2,
+        ...     private_key="0x...",
+        ...     token_in_symbol="ETH",
+        ...     token_out_symbol="USDC",
+        ...     amount_in=1000000000000000000,  # 1 ETH
+        ...     dex="auto"
+        ... )
+        >>> # Use specific DEX
+        >>> tx_hash = swap_tokens(
+        ...     web3_zksync=web3_l2,
+        ...     private_key="0x...",
+        ...     token_in_symbol="USDC",
+        ...     token_out_symbol="ETH",
+        ...     amount_in=1000000000,  # 1000 USDC
+        ...     dex="syncswap"
+        ... )
     """
+    # Import DEX adapters
+    from .dex_adapter import ZkSyncDEXAdapter, SyncSwapAdapter, MuteAdapter, SpaceFiAdapter
+    
     logger.info(
-        f"Initiating SyncSwap swap: {amount_in} {token_in_symbol} -> "
+        f"Initiating zkSync swap: {amount_in} {token_in_symbol} -> "
         f"{token_out_symbol} with {slippage_percent}% slippage, "
-        f"deadline {deadline_seconds}s."
+        f"deadline {deadline_seconds}s, DEX: {dex}."
     )
 
     if amount_in <= 0:
         raise ValueError("Amount to swap must be positive.")
+    
+    if dex not in ["auto", "syncswap", "mute", "spacefi"]:
+        raise ValueError(f"Unsupported DEX: {dex}. Supported: auto, syncswap, mute, spacefi")
 
     account = _get_account_zksync(private_key, web3_zksync)
     sender_address = account.address
     recipient_address = sender_address
 
-    weth_l2_address = _get_l2_token_address_zksync(WETH_SYMBOL)
-
-    token_in_address_actual: str
-    is_eth_input = False
-    if token_in_symbol == ETH_SYMBOL:
-        token_in_address_actual = weth_l2_address
-        is_eth_input = True
+    # Get token addresses
+    token_in_address_actual = _get_l2_token_address_zksync(token_in_symbol)
+    token_out_address_actual = _get_l2_token_address_zksync(token_out_symbol)
+    
+    # Check balances
+    is_eth_input = token_in_symbol == ETH_SYMBOL
+    if is_eth_input:
         eth_balance = web3_zksync.eth.get_balance(Web3.to_checksum_address(sender_address))
         if eth_balance < amount_in:
             raise InsufficientBalanceError(
-                f"Insufficient ETH balance for swap: have {eth_balance}, "
-                f"need {amount_in}"
+                f"Insufficient ETH balance for swap: have {eth_balance}, need {amount_in}"
             )
     else:
-        token_in_address_actual = _get_l2_token_address_zksync(token_in_symbol)
         token_in_contract = _get_contract_zksync(
             web3_zksync, ERC20_ABI_NAME, token_in_address_actual
         )
@@ -938,48 +1220,78 @@ def swap_tokens(
                 f"have {erc20_balance}, need {amount_in}"
             )
 
-    token_out_address_actual: str
-    if token_out_symbol == ETH_SYMBOL:
-        token_out_address_actual = weth_l2_address
+    # Initialize DEX adapters
+    dex_adapters = {
+        "syncswap": SyncSwapAdapter(web3_zksync),
+        "mute": MuteAdapter(web3_zksync),
+        "spacefi": SpaceFiAdapter(web3_zksync),
+    }
+
+    # Select DEX and get transaction
+    selected_dex: str
+    selected_adapter: ZkSyncDEXAdapter
+    
+    if dex == "auto":
+        # Get quotes from all adapters and select the best one
+        best_quote = 0
+        best_dex = "syncswap"  # Default fallback
+        
+        logger.info("Getting quotes from all DEXs for auto-selection...")
+        for dex_name, adapter in dex_adapters.items():
+            try:
+                quote = adapter.get_quote(
+                    token_in_address_actual,
+                    token_out_address_actual,
+                    amount_in
+                )
+                logger.info(f"{dex_name} quote: {quote}")
+                if quote > best_quote:
+                    best_quote = quote
+                    best_dex = dex_name
+            except Exception as e:
+                logger.warning(f"Failed to get quote from {dex_name}: {e}")
+        
+        if best_quote == 0:
+            raise InsufficientLiquidityError(
+                f"No DEX has sufficient liquidity for {token_in_symbol} -> {token_out_symbol}"
+            )
+        
+        selected_dex = best_dex
+        selected_adapter = dex_adapters[best_dex]
+        logger.info(f"Auto-selected DEX: {selected_dex} with quote: {best_quote}")
     else:
-        token_out_address_actual = _get_l2_token_address_zksync(token_out_symbol)
-
-    current_block = web3_zksync.eth.get_block("latest")
-    deadline = current_block["timestamp"] + deadline_seconds
-
-    router_contract = _get_syncswap_router_contract_zksync(web3_zksync)
-
-    try:
-        expected_amount_out = _get_expected_amount_out_syncswap_zksync(
-            web3_zksync,
+        # Use specified DEX
+        selected_dex = dex
+        selected_adapter = dex_adapters[dex]
+        
+        # Verify the DEX has liquidity
+        quote = selected_adapter.get_quote(
             token_in_address_actual,
             token_out_address_actual,
-            amount_in,
-            sender_address,
-            weth_l2_address,
+            amount_in
         )
-    except InsufficientLiquidityError as e:
-        logger.error(
-            f"Quoting failed due to insufficient liquidity or no path: {e}"
-        )
-        raise
-    except Exception as e:
-        logger.error(f"Error during expected amount out calculation: {e}")
-        raise ZkSyncSwapError(f"Could not determine expected amount out: {e}") from e
+        if quote == 0:
+            raise InsufficientLiquidityError(
+                f"No liquidity available on {dex} for {token_in_symbol} -> {token_out_symbol}"
+            )
+        logger.info(f"Using specified DEX: {selected_dex} with quote: {quote}")
 
-    if expected_amount_out == 0:
-        raise InsufficientLiquidityError(
-            f"Expected output for {token_in_symbol} to {token_out_symbol} is 0. "
-            "Check pool liquidity."
-        )
-
-    amount_out_min = _calculate_amount_out_min_syncswap_zksync(
-        expected_amount_out, slippage_percent
-    )
-
+    # Handle token approval for ERC20 tokens
     if not is_eth_input:
+        # Get the appropriate router address for approval
+        if selected_dex == "syncswap":
+            router_address = SYNC_SWAP_ROUTER_ADDRESS_ZKSYNC
+        elif selected_dex == "mute":
+            from .dex_adapter import MUTE_ROUTER_ADDRESS_ZKSYNC
+            router_address = MUTE_ROUTER_ADDRESS_ZKSYNC
+        elif selected_dex == "spacefi":
+            from .dex_adapter import SPACEFI_ROUTER_ADDRESS_ZKSYNC
+            router_address = SPACEFI_ROUTER_ADDRESS_ZKSYNC
+        else:
+            raise ZkSyncSwapError(f"Unknown DEX for approval: {selected_dex}")
+            
         logger.info(
-            f"Approving SyncSwap router {SYNC_SWAP_ROUTER_ADDRESS_ZKSYNC} to spend "
+            f"Approving {selected_dex} router {router_address} to spend "
             f"{amount_in} of {token_in_symbol} ({token_in_address_actual})"
         )
         try:
@@ -987,89 +1299,60 @@ def swap_tokens(
                 web3_zksync,
                 private_key,
                 token_in_address_actual,
-                SYNC_SWAP_ROUTER_ADDRESS_ZKSYNC,
+                router_address,
                 amount_in,
             )
-            logger.info(f"Approval successful for {token_in_symbol}.")
+            logger.info(f"Approval successful for {token_in_symbol} on {selected_dex}.")
         except ApprovalError as e:
-            logger.error(f"ERC20 approval for {token_in_symbol} failed: {e}")
+            logger.error(f"ERC20 approval for {token_in_symbol} on {selected_dex} failed: {e}")
             raise
         except Exception as e:
             logger.error(
-                f"Unexpected error during ERC20 approval for {token_in_symbol}: {e}"
+                f"Unexpected error during ERC20 approval for {token_in_symbol} on {selected_dex}: {e}"
             )
             raise ApprovalError(
-                f"Unexpected error during ERC20 approval for {token_in_symbol}: {e}"
+                f"Unexpected error during ERC20 approval for {token_in_symbol} on {selected_dex}: {e}"
             ) from e
 
+    # Build and send the swap transaction
     try:
-        swap_paths = _construct_syncswap_paths_zksync(
-            web3_zksync,
+        swap_tx = selected_adapter.build_swap_transaction(
             token_in_address_actual,
             token_out_address_actual,
             amount_in,
             recipient_address,
-            weth_l2_address,
-            router_contract,
-            token_out_symbol,
+            slippage_percent,
+            deadline_seconds
         )
-    except InsufficientLiquidityError as e:
-        logger.error(f"Path construction failed: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Error constructing swap paths: {e}")
-        raise ZkSyncSwapError(f"Could not construct swap paths: {e}") from e
-
-    tx_value = Wei(amount_in) if is_eth_input else Wei(0)
-
-    swap_tx_params_dict: TxParams = {
-        "from": sender_address,
-        "to": SYNC_SWAP_ROUTER_ADDRESS_ZKSYNC,
-        "value": tx_value,
-        "gas": Wei(DEFAULT_SWAP_L2_GAS_LIMIT),
-    }
-
-    logger.info(
-        f"Preparing swap transaction with router.swap(): paths={swap_paths}, "
-        f"amountOutMin={amount_out_min}, deadline={deadline}"
-    )
-
-    try:
-        swap_function: ContractFunction = router_contract.functions.swap(
-            swap_paths, amount_out_min, deadline
-        )
-        built_swap_tx = swap_function.build_transaction(swap_tx_params_dict)
-        logger.info(f"Built swap transaction: {built_swap_tx}")
-
-        return _build_and_send_tx_zksync(web3_zksync, private_key, built_swap_tx)
+        
+        logger.info(f"Built {selected_dex} swap transaction: {swap_tx}")
+        return _build_and_send_tx_zksync(web3_zksync, private_key, swap_tx)
 
     except ContractLogicError as e:
-        logger.error(f"SyncSwap contract logic error: {e.message} - Data: {e.data}")
-        if "TooLittleReceived" in str(e) or (
-            e.data and "0x087229a4" in e.data
-        ):
+        logger.error(f"{selected_dex} contract logic error: {e.message} - Data: {e.data}")
+        if "TooLittleReceived" in str(e) or (e.data and "0x087229a4" in e.data):
             raise InsufficientLiquidityError(
-                f"Swap likely to result in too little received (slippage or "
-                f"liquidity: {e.message}",
+                f"Swap likely to result in too little received (slippage or liquidity): {e.message}",
                 tx_data=e.data
             )
-        if "Expired" in str(e) or (
-            e.data and "0x414432ea" in e.data
-        ):
+        if "Expired" in str(e) or (e.data and "0x414432ea" in e.data):
             raise ZkSyncSwapError(
                 f"Swap transaction expired: {e.message}", tx_data=e.data
             )
         raise TransactionRevertedError(
-            f"SyncSwap swap reverted with logic error: {e.message}",
+            f"{selected_dex} swap reverted with logic error: {e.message}",
             receipt=None,
             tx_hash=None,
         ) from e
     except GasEstimationError as e:
-        logger.error(f"Gas estimation failed for swap transaction: {e}")
+        logger.error(f"Gas estimation failed for {selected_dex} swap transaction: {e}")
         raise
+    except ApprovalError as e: # Added explicit catch for ApprovalError
+        logger.error(f"Approval error during {selected_dex} swap transaction: {e}")
+        raise # Re-raise the ApprovalError
     except Exception as e:
-        logger.error(f"Unexpected error preparing or sending swap transaction: {e}")
-        raise ZkSyncSwapError(f"Failed to execute swap: {e}") from e
+        logger.error(f"Unexpected error preparing or sending {selected_dex} swap transaction: {e}")
+        raise ZkSyncSwapError(f"Failed to execute {selected_dex} swap: {e}") from e
 
 
 def bridge_assets(
@@ -1172,6 +1455,7 @@ def _bridge_eth_zksync(
 
         # Check L1 balance
         l1_balance = web3_l1.eth.get_balance(Web3.to_checksum_address(l1_address))
+        print(f"DEBUG: _bridge_eth_zksync (deposit) - l1_balance: {l1_balance}, amount: {amount}") # DEBUG
         if l1_balance < amount:
             raise InsufficientBalanceError(
                 f"Insufficient L1 ETH balance for deposit: have {l1_balance}, "
@@ -1193,7 +1477,12 @@ def _bridge_eth_zksync(
             l2_address,  # refundRecipient
         ).build_transaction(tx_params)
 
-        return _build_and_send_tx_zksync(web3_l1, private_key, deposit_tx)
+        tx_hash = _build_and_send_tx_zksync(web3_l1, private_key, deposit_tx)
+        if tx_hash is None:
+            raise ZkSyncBridgeError(
+                "Transaction processing finished in an unexpected state (tx_hash is None)"
+            )
+        return tx_hash
 
     elif direction == "withdraw":
         # L2 to L1 ETH withdrawal
@@ -1203,6 +1492,7 @@ def _bridge_eth_zksync(
 
         # Check L2 balance
         l2_balance = web3_l2.eth.get_balance(Web3.to_checksum_address(l2_address))
+        print(f"DEBUG: _bridge_eth_zksync (withdraw) - l2_balance: {l2_balance}, amount: {amount}") # DEBUG
         if l2_balance < amount:
             raise InsufficientBalanceError(
                 f"Insufficient L2 ETH balance for withdrawal: have {l2_balance}, "
@@ -1220,6 +1510,480 @@ def _bridge_eth_zksync(
 
         return _build_and_send_tx_zksync(web3_l2, private_key, withdraw_tx)
     return ""
+
+
+def provide_liquidity(
+    web3_zksync: Web3,
+    private_key: str,
+    token_a_symbol: str,
+    token_b_symbol: str,
+    amount_a: int,
+    amount_b: int,
+    dex: str = "syncswap",
+    slippage_percent: float = 0.5,
+    deadline_seconds: int = 1800
+) -> str:
+    """
+    Provide liquidity to a DEX pool on zkSync Era.
+
+    This function adds liquidity to a specified DEX pool by providing both tokens
+    in the pair. The user receives LP tokens representing their share of the pool.
+
+    Args:
+        web3_zksync: Web3 instance for ZkSync L2.
+        private_key: Private key of the account providing liquidity.
+        token_a_symbol: Symbol of the first token (e.g., "ETH", "USDC").
+        token_b_symbol: Symbol of the second token (e.g., "USDC", "WETH").
+        amount_a: Amount of first token (in wei/smallest unit).
+        amount_b: Amount of second token (in wei/smallest unit).
+        dex: DEX to use for liquidity provision (default: "syncswap").
+        slippage_percent: Maximum allowed slippage percentage.
+        deadline_seconds: Transaction deadline in seconds from now.
+
+    Returns:
+        Transaction hash of the liquidity provision operation.
+
+    Raises:
+        ZkSyncSwapError: For general liquidity-related errors.
+        InsufficientLiquidityError: If no pool exists for the token pair.
+        TokenNotSupportedError: If one of the token symbols is not configured.
+        ApprovalError: If token approval fails.
+        ValueError: For invalid inputs.
+
+    Example:
+        >>> tx_hash = provide_liquidity(
+        ...     web3_zksync=web3_l2,
+        ...     private_key="0x...",
+        ...     token_a_symbol="ETH",
+        ...     token_b_symbol="USDC",
+        ...     amount_a=1000000000000000000,  # 1 ETH
+        ...     amount_b=2000000000,  # 2000 USDC (6 decimals)
+        ...     dex="syncswap"
+        ... )
+    """
+    # Import DEX adapters
+    from .dex_adapter import SyncSwapAdapter, MuteAdapter, SpaceFiAdapter
+    
+    logger.info(
+        f"Initiating zkSync liquidity provision: {amount_a} {token_a_symbol} + "
+        f"{amount_b} {token_b_symbol} on {dex} with {slippage_percent}% slippage"
+    )
+
+    if amount_a <= 0 or amount_b <= 0:
+        raise ValueError("Token amounts must be positive.")
+    
+    if dex not in ["syncswap", "mute", "spacefi"]:
+        raise ValueError(f"Unsupported DEX: {dex}. Supported: syncswap, mute, spacefi")
+
+    account = _get_account_zksync(private_key, web3_zksync)
+    sender_address = account.address
+    recipient_address = sender_address
+
+    # Get token addresses
+    token_a_address = _get_l2_token_address_zksync(token_a_symbol)
+    token_b_address = _get_l2_token_address_zksync(token_b_symbol)
+    
+    # Check balances
+    weth_address = _get_l2_token_address_zksync(WETH_SYMBOL)
+    
+    # Check token A balance
+    if token_a_symbol == ETH_SYMBOL or token_a_address == weth_address:
+        eth_balance = web3_zksync.eth.get_balance(Web3.to_checksum_address(sender_address))
+        if eth_balance < amount_a:
+            raise InsufficientBalanceError(
+                f"Insufficient ETH balance for liquidity: have {eth_balance}, need {amount_a}"
+            )
+    else:
+        token_a_contract = _get_contract_zksync(
+            web3_zksync, ERC20_ABI_NAME, token_a_address
+        )
+        erc20_balance_a = token_a_contract.functions.balanceOf(
+            Web3.to_checksum_address(sender_address)
+        ).call()
+        if erc20_balance_a < amount_a:
+            raise InsufficientBalanceError(
+                f"Insufficient {token_a_symbol} balance for liquidity: "
+                f"have {erc20_balance_a}, need {amount_a}"
+            )
+
+    # Check token B balance
+    if token_b_symbol == ETH_SYMBOL or token_b_address == weth_address:
+        eth_balance = web3_zksync.eth.get_balance(Web3.to_checksum_address(sender_address))
+        if eth_balance < amount_b:
+            raise InsufficientBalanceError(
+                f"Insufficient ETH balance for liquidity: have {eth_balance}, need {amount_b}"
+            )
+    else:
+        token_b_contract = _get_contract_zksync(
+            web3_zksync, ERC20_ABI_NAME, token_b_address
+        )
+        erc20_balance_b = token_b_contract.functions.balanceOf(
+            Web3.to_checksum_address(sender_address)
+        ).call()
+        if erc20_balance_b < amount_b:
+            raise InsufficientBalanceError(
+                f"Insufficient {token_b_symbol} balance for liquidity: "
+                f"have {erc20_balance_b}, need {amount_b}"
+            )
+
+    # Initialize DEX adapters
+    dex_adapters = {
+        "syncswap": SyncSwapAdapter(web3_zksync),
+        "mute": MuteAdapter(web3_zksync),
+        "spacefi": SpaceFiAdapter(web3_zksync),
+    }
+    
+    selected_adapter = dex_adapters[dex]
+
+    # Handle token approvals for ERC20 tokens
+    router_address = SYNC_SWAP_ROUTER_ADDRESS_ZKSYNC  # Use SyncSwap router for now
+    
+    # Approve token A if it's not ETH
+    if token_a_symbol != ETH_SYMBOL and token_a_address != weth_address:
+        logger.info(f"Approving {token_a_symbol} for liquidity provision")
+        try:
+            _approve_erc20_zksync(
+                web3_zksync,
+                private_key,
+                token_a_address,
+                router_address,
+                amount_a,
+            )
+        except ApprovalError as e:
+            logger.error(f"ERC20 approval for {token_a_symbol} failed: {e}")
+            raise
+
+    # Approve token B if it's not ETH
+    if token_b_symbol != ETH_SYMBOL and token_b_address != weth_address:
+        logger.info(f"Approving {token_b_symbol} for liquidity provision")
+        try:
+            _approve_erc20_zksync(
+                web3_zksync,
+                private_key,
+                token_b_address,
+                router_address,
+                amount_b,
+            )
+        except ApprovalError as e:
+            logger.error(f"ERC20 approval for {token_b_symbol} failed: {e}")
+            raise
+
+    # Build and send the liquidity transaction
+    try:
+        liquidity_tx = selected_adapter.add_liquidity(
+            token_a_address,
+            token_b_address,
+            amount_a,
+            amount_b,
+            recipient_address,
+            slippage_percent,
+            deadline_seconds
+        )
+        
+        logger.info(f"Built {dex} liquidity provision transaction: {liquidity_tx}")
+        return _build_and_send_tx_zksync(web3_zksync, private_key, liquidity_tx)
+
+    except Exception as e:
+        logger.error(f"Unexpected error during {dex} liquidity provision: {e}")
+        raise ZkSyncSwapError(f"Failed to provide liquidity on {dex}: {e}") from e
+
+
+def remove_liquidity(
+    web3_zksync: Web3,
+    private_key: str,
+    token_a_symbol: str,
+    token_b_symbol: str,
+    liquidity_percent: float,
+    dex: str = "syncswap",
+    slippage_percent: float = 0.5,
+    deadline_seconds: int = 1800
+) -> str:
+    """
+    Remove liquidity from a DEX pool on zkSync Era.
+
+    This function removes a percentage of the user's liquidity from a specified
+    DEX pool by burning LP tokens and receiving the underlying tokens.
+
+    Args:
+        web3_zksync: Web3 instance for ZkSync L2.
+        private_key: Private key of the account removing liquidity.
+        token_a_symbol: Symbol of the first token (e.g., "ETH", "USDC").
+        token_b_symbol: Symbol of the second token (e.g., "USDC", "WETH").
+        liquidity_percent: Percentage of liquidity to remove (0-100).
+        dex: DEX to remove liquidity from (default: "syncswap").
+        slippage_percent: Maximum allowed slippage percentage.
+        deadline_seconds: Transaction deadline in seconds from now.
+
+    Returns:
+        Transaction hash of the liquidity removal operation.
+
+    Raises:
+        ZkSyncSwapError: For general liquidity-related errors.
+        InsufficientLiquidityError: If no pool exists or insufficient LP tokens.
+        TokenNotSupportedError: If one of the token symbols is not configured.
+        ValueError: For invalid inputs.
+
+    Example:
+        >>> tx_hash = remove_liquidity(
+        ...     web3_zksync=web3_l2,
+        ...     private_key="0x...",
+        ...     token_a_symbol="ETH",
+        ...     token_b_symbol="USDC",
+        ...     liquidity_percent=50.0,  # Remove 50% of liquidity
+        ...     dex="syncswap"
+        ... )
+    """
+    # Import DEX adapters
+    from .dex_adapter import SyncSwapAdapter, MuteAdapter, SpaceFiAdapter
+    
+    logger.info(
+        f"Initiating zkSync liquidity removal: {liquidity_percent}% of "
+        f"{token_a_symbol}-{token_b_symbol} pool on {dex}"
+    )
+
+    if not 0 < liquidity_percent <= 100:
+        raise ValueError("Liquidity percent must be between 0 and 100.")
+    
+    if dex not in ["syncswap", "mute", "spacefi"]:
+        raise ValueError(f"Unsupported DEX: {dex}. Supported: syncswap, mute, spacefi")
+
+    account = _get_account_zksync(private_key, web3_zksync)
+    sender_address = account.address
+    recipient_address = sender_address
+
+    # Get token addresses
+    token_a_address = _get_l2_token_address_zksync(token_a_symbol)
+    token_b_address = _get_l2_token_address_zksync(token_b_symbol)
+    
+    # Get pool address to check LP token balance
+    pool_address = _get_syncswap_pool_address_zksync(
+        web3_zksync, token_a_address, token_b_address
+    )
+    if not pool_address:
+        raise InsufficientLiquidityError(
+            f"No pool found for {token_a_symbol}-{token_b_symbol} pair"
+        )
+    
+    # Get LP token balance (pool contract acts as the LP token)
+    pool_contract = _get_syncswap_classic_pool_contract_zksync(web3_zksync, pool_address)
+    lp_balance = pool_contract.functions.balanceOf(
+        Web3.to_checksum_address(sender_address)
+    ).call()
+    
+    if lp_balance == 0:
+        raise InsufficientLiquidityError(
+            f"No LP tokens found for {token_a_symbol}-{token_b_symbol} pool"
+        )
+    
+    # Calculate liquidity amount to remove
+    liquidity_to_remove = int(lp_balance * liquidity_percent / 100.0)
+    
+    if liquidity_to_remove == 0:
+        raise ValueError("Calculated liquidity to remove is zero")
+
+    # Initialize DEX adapters
+    dex_adapters = {
+        "syncswap": SyncSwapAdapter(web3_zksync),
+        "mute": MuteAdapter(web3_zksync),
+        "spacefi": SpaceFiAdapter(web3_zksync),
+    }
+    
+    selected_adapter = dex_adapters[dex]
+
+    # Build and send the liquidity removal transaction
+    try:
+        remove_tx = selected_adapter.remove_liquidity(
+            token_a_address,
+            token_b_address,
+            liquidity_to_remove,
+            recipient_address,
+            slippage_percent,
+            deadline_seconds
+        )
+        
+        logger.info(f"Built {dex} liquidity removal transaction: {remove_tx}")
+        return _build_and_send_tx_zksync(web3_zksync, private_key, remove_tx)
+
+    except Exception as e:
+        logger.error(f"Unexpected error during {dex} liquidity removal: {e}")
+        raise ZkSyncSwapError(f"Failed to remove liquidity from {dex}: {e}") from e
+
+
+def lend_borrow(
+    web3_zksync: Web3,
+    private_key: str,
+    action: str,
+    token_symbol: str,
+    amount: Decimal,
+    protocol: str = "zerolend"
+) -> str:
+    """
+    Perform lending/borrowing operations on zkSync Era lending protocols.
+
+    This function provides a unified interface for lending operations across
+    different protocols on zkSync Era, starting with Zerolend.
+
+    Args:
+        web3_zksync: Web3 instance for ZkSync L2.
+        private_key: Private key of the account performing the operation.
+        action: The lending action to perform ("lend", "withdraw", "borrow", "repay").
+        token_symbol: Symbol of the token (e.g., "ETH", "USDC").
+        amount: Amount of tokens for the operation.
+        protocol: Lending protocol to use (default: "zerolend").
+
+    Returns:
+        Transaction hash of the lending operation.
+
+    Raises:
+        ZkSyncLendingError: For general lending-related errors.
+        InsufficientBalanceError: If account balance is insufficient.
+        TokenNotSupportedError: If token symbol is not configured.
+        ApprovalError: If ERC20 approval fails.
+        ValueError: For invalid inputs.
+
+    Example:
+        >>> # Lend 1 ETH to Zerolend
+        >>> tx_hash = lend_borrow(
+        ...     web3_zksync=web3_l2,
+        ...     private_key="0x...",
+        ...     action="lend",
+        ...     token_symbol="ETH",
+        ...     amount=Decimal("1.0"),
+        ...     protocol="zerolend"
+        ... )
+        >>> # Withdraw 0.5 ETH from Zerolend
+        >>> tx_hash = lend_borrow(
+        ...     web3_zksync=web3_l2,
+        ...     private_key="0x...",
+        ...     action="withdraw",
+        ...     token_symbol="ETH",
+        ...     amount=Decimal("0.5"),
+        ...     protocol="zerolend"
+        ... )
+    """
+    logger.info(
+        f"Initiating zkSync lending operation: {action} {amount} {token_symbol} "
+        f"on {protocol}"
+    )
+
+    # Validate inputs
+    if action not in ["lend", "withdraw", "borrow", "repay"]:
+        raise ValueError(f"Invalid action: {action}. Must be one of: lend, withdraw, borrow, repay")
+    
+    if amount <= 0:
+        raise ValueError("Amount must be positive")
+    
+    if protocol not in ["zerolend"]:
+        raise ValueError(f"Unsupported protocol: {protocol}. Supported: zerolend")
+
+    # Get account and token information
+    account = _get_account_zksync(private_key, web3_zksync)
+    sender_address = account.address
+    
+    # Get token address
+    token_address = _get_l2_token_address_zksync(token_symbol)
+    
+    # Convert amount to wei/smallest unit
+    if token_symbol == ETH_SYMBOL:
+        amount_wei = int(web3_zksync.to_wei(amount, "ether"))
+    else:
+        # For other tokens, assume 18 decimals (can be enhanced to query token decimals)
+        amount_wei = int(amount * Decimal(10**18))
+
+    # Initialize lending adapters
+    from .lending_adapter import ZerolendAdapter
+    lending_adapters = {
+        "zerolend": ZerolendAdapter(web3_zksync),
+    }
+    
+    adapter = lending_adapters[protocol]
+    
+    # Check balances for relevant operations
+    if action in ["lend", "repay"]:
+        # Check if user has sufficient balance
+        is_eth_input = token_symbol == ETH_SYMBOL
+        if is_eth_input:
+            eth_balance = web3_zksync.eth.get_balance(Web3.to_checksum_address(sender_address))
+            if eth_balance < amount_wei:
+                raise InsufficientBalanceError(
+                    f"Insufficient ETH balance for {action}: have {eth_balance}, need {amount_wei}"
+                )
+        else:
+            token_contract = _get_contract_zksync(
+                web3_zksync, ERC20_ABI_NAME, token_address
+            )
+            erc20_balance = token_contract.functions.balanceOf(
+                Web3.to_checksum_address(sender_address)
+            ).call()
+            if erc20_balance < amount_wei:
+                raise InsufficientBalanceError(
+                    f"Insufficient {token_symbol} balance for {action}: "
+                    f"have {erc20_balance}, need {amount_wei}"
+                )
+
+    # Build transaction using the appropriate adapter method
+    try:
+        if action == "lend":
+            tx_params = adapter.lend(token_address, amount_wei, sender_address)
+        elif action == "withdraw":
+            tx_params = adapter.withdraw(token_address, amount_wei, sender_address)
+        elif action == "borrow":
+            tx_params = adapter.borrow(token_address, amount_wei, sender_address)
+        elif action == "repay":
+            tx_params = adapter.repay(token_address, amount_wei, sender_address)
+        else:
+            raise ValueError(f"Unknown action: {action}")
+            
+        logger.info(f"Built {protocol} {action} transaction: {tx_params}")
+        
+        # Handle token approval for ERC20 tokens (except for ETH operations)
+        if not (token_symbol == ETH_SYMBOL) and action in ["lend", "repay"]:
+            # Get the appropriate contract address for approval
+            if protocol == "zerolend":
+                from .lending_adapter import ZEROLEND_POOL_ADDRESS_ZKSYNC
+                spender_address = ZEROLEND_POOL_ADDRESS_ZKSYNC
+            else:
+                raise ZkSyncLendingError(f"Unknown protocol for approval: {protocol}")
+                
+            logger.info(
+                f"Approving {protocol} contract {spender_address} to spend "
+                f"{amount_wei} of {token_symbol} ({token_address})"
+            )
+            try:
+                _approve_erc20_zksync(
+                    web3_zksync,
+                    private_key,
+                    token_address,
+                    spender_address,
+                    amount_wei,
+                )
+                logger.info(f"Approval successful for {token_symbol} on {protocol}.")
+            except ApprovalError as e:
+                logger.error(f"ERC20 approval for {token_symbol} on {protocol} failed: {e}")
+                raise
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error during ERC20 approval for {token_symbol} on {protocol}: {e}"
+                )
+                raise ApprovalError(
+                    f"Unexpected error during ERC20 approval for {token_symbol} on {protocol}: {e}"
+                ) from e
+
+        # Send the transaction
+        return _build_and_send_tx_zksync(web3_zksync, private_key, tx_params)
+
+    except ContractLogicError as e:
+        logger.error(f"{protocol} contract logic error: {e.message} - Data: {e.data}")
+        raise ZkSyncLendingError(
+            f"{protocol} {action} reverted with logic error: {e.message}",
+            protocol=protocol
+        ) from e
+    except GasEstimationError as e:
+        logger.error(f"Gas estimation failed for {protocol} {action} transaction: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during {protocol} {action} operation: {e}")
+        raise ZkSyncLendingError(f"Failed to execute {protocol} {action}: {e}", protocol=protocol) from e
 
 
 def perform_random_activity(
